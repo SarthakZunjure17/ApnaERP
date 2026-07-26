@@ -6,7 +6,25 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, and Docker.
+
+---
+
+## HR Domain — Enterprise Shift Management (Milestone HR-6)
+
+### Overview
+The Shift Management module (`app/models/shift.py`, `app/services/shift.py`) provides reusable, enterprise-grade work schedule definitions. It extends `Employee` with a nullable `shift_id` FK, establishing baseline shift timings consumed downstream by Attendance (working hours, tardiness, grace period) and Payroll (overtime calculation).
+
+### Key Technical Capabilities
+- **Overnight & Night Shift Support**: Shifts spanning across midnight (`end_time <= start_time`, e.g. 22:00 to 06:00) are automatically detected and calculated (`(24.0 - start_time) + end_time`). The `is_night_shift` flag is automatically validated.
+- **Duration & Sanity Constraints**:
+  - `break_duration_minutes`: Break duration in hours must be strictly less than total shift duration.
+  - `grace_period_minutes`: Grace period in hours must be strictly less than total shift duration.
+  - `minimum_working_hours`: Must not exceed `maximum_working_hours`.
+- **Active Employee Shift Deletion Guard**: Soft-deleting a shift (`DELETE /api/v1/shifts/{id}`) is explicitly blocked (HTTP 400 `ASSIGNED_EMPLOYEES_EXIST`) if active employees are assigned to the shift schedule.
+- **Nullable Employee Integration**: `Employee.shift_id` nullable FK allows flexible schedule assignments while falling back to `HRConfiguration` defaults when unassigned.
+- **Redis Caching & Celery Telemetry**: Caches shift listings and details (`shift:list`, `shift:detail:{id}`) with automatic invalidation. Dispatches Celery background tasks (`send_shift_notification_task`) and logs enterprise audit events (`SHIFT_CREATE`, `SHIFT_UPDATE`, `SHIFT_DELETE`, `SHIFT_RESTORE`).
+- **RBAC Enforcement**: Protected by permissions (`shift.create`, `shift.read`, `shift.update`, `shift.delete`, `shift.restore`).
 
 ---
 

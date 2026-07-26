@@ -44,6 +44,13 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Position", "code": "position.delete", "description": "Permission to remove job position definitions", "module_name": "hr"},
     {"name": "Restore Position", "code": "position.restore", "description": "Permission to restore soft-deleted job positions", "module_name": "hr"},
 
+    # Shift Management Permissions
+    {"name": "Create Shift", "code": "shift.create", "description": "Permission to create reusable shift schedules", "module_name": "hr"},
+    {"name": "Read Shift", "code": "shift.read", "description": "Permission to view reusable shift schedules", "module_name": "hr"},
+    {"name": "Update Shift", "code": "shift.update", "description": "Permission to update reusable shift schedules", "module_name": "hr"},
+    {"name": "Delete Shift", "code": "shift.delete", "description": "Permission to remove reusable shift schedules", "module_name": "hr"},
+    {"name": "Restore Shift", "code": "shift.restore", "description": "Permission to restore soft-deleted shift schedules", "module_name": "hr"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},
@@ -123,6 +130,7 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             or perm_code.startswith("employee_document.")
             or perm_code.startswith("position.")
             or perm_code.startswith("hr_configuration.")
+            or perm_code.startswith("shift.")
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=hr_manager_role.id, permission_id=perm_obj.id

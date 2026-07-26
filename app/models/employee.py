@@ -57,6 +57,14 @@ class Employee(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         comment="FK referencing occupied Position",
     )
 
+    shift_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("shifts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="FK referencing assigned Shift schedule",
+    )
+
     employment_type: Mapped[str] = mapped_column(String(50), default="Full Time", nullable=False)
     employment_status: Mapped[str] = mapped_column(String(50), default="Active", nullable=False)
 
@@ -100,9 +108,21 @@ class Employee(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         lazy="selectin",
     )
 
+    shift: Mapped[Optional["Shift"]] = relationship(  # noqa: F821
+        "Shift",
+        back_populates="employees",
+        foreign_keys=[shift_id],
+        lazy="selectin",
+    )
+
     user: Mapped[Optional["User"]] = relationship("User")  # noqa: F821
 
     profile_photo: Mapped[Optional["File"]] = relationship("File")  # noqa: F821
 
+    @property
+    def shift_name(self) -> Optional[str]:
+        return self.shift.name if self.shift else None
+
     def __repr__(self) -> str:
         return f"<Employee(id={self.id}, code='{self.employee_code}', email='{self.work_email}')>"
+

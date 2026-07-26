@@ -10,6 +10,7 @@ from app.models.employee import Employee
 from app.models.employee_document import EmployeeDocument
 from app.models.position import Position
 from app.models.hr_configuration import HRConfiguration
+from app.models.shift import Shift
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "EmployeeDocument",
     "Position",
     "HRConfiguration",
+    "Shift",
 ]

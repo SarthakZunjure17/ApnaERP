@@ -37,6 +37,7 @@ class EmployeeBase(BaseModel):
     department_id: uuid.UUID = Field(..., description="Assigned department ID")
     manager_id: Optional[uuid.UUID] = Field(None, description="Direct manager employee ID")
     position_id: Optional[uuid.UUID] = Field(None, description="Assigned job position ID")
+    shift_id: Optional[uuid.UUID] = Field(None, description="Assigned shift schedule ID")
 
     employment_type: EmploymentType = Field(default=EmploymentType.FULL_TIME, description="Type of employment contract")
     employment_status: EmploymentStatus = Field(default=EmploymentStatus.ACTIVE, description="Current employment lifecycle status")
@@ -75,6 +76,7 @@ class EmployeeUpdate(BaseModel):
     department_id: Optional[uuid.UUID] = None
     manager_id: Optional[uuid.UUID] = None
     position_id: Optional[uuid.UUID] = None
+    shift_id: Optional[uuid.UUID] = None
 
     employment_type: Optional[EmploymentType] = None
     employment_status: Optional[EmploymentStatus] = None
@@ -94,6 +96,7 @@ class EmployeeUpdate(BaseModel):
 class EmployeeResponse(EmployeeBase):
     """Full Employee details response schema."""
     id: uuid.UUID
+    shift_name: Optional[str] = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     deleted_at: Optional[datetime.datetime] = None
@@ -112,6 +115,7 @@ class EmployeeSummary(BaseModel):
     department_id: uuid.UUID
     manager_id: Optional[uuid.UUID] = None
     position_id: Optional[uuid.UUID] = None
+    shift_id: Optional[uuid.UUID] = None
     employment_type: str
     employment_status: str
     is_active: bool

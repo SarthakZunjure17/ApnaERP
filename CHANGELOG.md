@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.3.0] - 2026-07-26
 
+### Milestone HR-6 — Enterprise Shift Management
+
+#### Added
+- **Shift ORM Model (`app/models/shift.py`)**: Reusable shift schedule entity storing `code` (unique, indexed), `name` (unique, indexed), `description`, `start_time`, `end_time`, `break_duration_minutes`, `grace_period_minutes`, `minimum_working_hours`, `maximum_working_hours`, `is_night_shift`, `is_flexible_shift`, `is_active`, and soft deletion fields. Includes `@property def duration_hours` for calculating shift length across day/night boundaries.
+- **Employee Model Integration (`app/models/employee.py`)**: Extended `Employee` model with nullable `shift_id` FK (`ondelete="SET NULL"`) referencing `shifts.id` and `shift` relationship (`lazy="selectin"`).
+- **Pydantic v2 Schemas (`app/schemas/shift.py`)**: `ShiftCreate`, `ShiftUpdate`, `ShiftResponse`, `ShiftSummary`, `ShiftListResponse`. Extended `app/schemas/employee.py` with optional `shift_id` and `shift_name`.
+- **Shift Repository (`app/repositories/shift.py`)**: Extends `BaseRepository` with `get_by_code`, `get_by_name`, `exists_by_code`, `exists_by_name`, and `get_assigned_employee_count`.
+- **Shift Service Layer (`app/services/shift.py`)**: Business service implementing shift duration calculations, overnight shift auto-detection, break duration sanity checks (`break_duration_minutes < shift_duration_hours`), grace period sanity checks (`grace_period_minutes < shift_duration_hours`), working hour bounds validation (`minimum_working_hours <= maximum_working_hours`), active employee deletion guard (`ASSIGNED_EMPLOYEES_EXIST`), Redis caching (`shift:list`, `shift:detail:{id}`), enterprise audit logging (`SHIFT_CREATE`, `SHIFT_UPDATE`, `SHIFT_DELETE`, `SHIFT_RESTORE`), and Celery telemetry.
+- **Background Notification Task (`app/tasks/shift_tasks.py`)**: Asynchronous Celery task (`send_shift_notification_task`) processing shift creation, update, and deletion events.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `shift.create`, `shift.read`, `shift.update`, `shift.delete`, `shift.restore` bound to `Super Admin` and `HR Manager` roles.
+- **Shift API Router (`app/api/v1/endpoints/shifts.py`)**: RESTful endpoints (`GET /shifts`, `GET /shifts/{id}`, `POST /shifts`, `PUT /shifts/{id}`, `DELETE /shifts/{id}`, `PATCH /shifts/{id}/restore`). Registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/9eb88bfb9c06_phase_hr6_implement_shifts_table_and_.py`)**: Applied database migration creating `shifts` table and adding `shift_id` FK column to `employees`.
+- **Architecture Decision Record (`docs/adr/ADR-0008-shift-management.md`)**: Documented shift architecture, overnight shift calculation algorithm, active shift deletion guard, and integration contracts for Attendance and Payroll modules.
+- **Test Suite (`tests/test_shifts.py`)**: Pytest suite validating repository methods, service validations, overnight duration calculations, break/grace period bounds, active employee assignment deletion guard, REST API endpoints, RBAC authorization, audit logging, Redis caching, Celery telemetry, and full regression testing.
+
+---
+
 ### Milestone HR-5 — HR Configuration & Organization Policies
 
 #### Added
