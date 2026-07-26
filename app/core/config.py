@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8000",
     ]
 
-    # Database Configuration
+    # PostgreSQL Database Configuration
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "apnaerp_user"
@@ -54,6 +54,32 @@ class Settings(BaseSettings):
     # Celery Configuration
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+
+    # File & Document Storage Configuration
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_MB: int = 10
+    ALLOWED_FILE_EXTENSIONS: List[str] = [
+        "pdf", "doc", "docx", "xls", "xlsx", "csv",
+        "png", "jpg", "jpeg", "txt", "zip"
+    ]
+    ALLOWED_MIME_TYPES: List[str] = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/csv",
+        "image/png",
+        "image/jpeg",
+        "text/plain",
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/octet-stream",
+    ]
+
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     @property
     def sync_database_url(self) -> str:

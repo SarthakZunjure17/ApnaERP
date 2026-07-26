@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,26 @@ from app.utils.pagination import PaginatedResult, PaginationParams
 from app.utils.sorting import SortCriterion
 
 logger = logging.getLogger("app.services.audit_log")
+
+
+def sanitize_for_json(obj: Any) -> Any:
+    """
+    Recursively converts non-JSON-serializable objects (UUIDs, datetimes, sets)
+    into JSON-serializable primitives.
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {str(k): sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [sanitize_for_json(item) for item in obj]
+    return str(obj)
 
 
 class AuditLogService(BaseService[audit_log_repository.__class__]):
@@ -50,14 +70,17 @@ class AuditLogService(BaseService[audit_log_repository.__class__]):
         """
         Creates an audit log entry automatically filling missing request context from contextvars.
         """
+        sanitized_prev = sanitize_for_json(previous_data) if previous_data is not None else None
+        sanitized_new = sanitize_for_json(new_data) if new_data is not None else None
+
         log_in = AuditLogCreate(
             user_id=user_id,
             username=username,
             action=action,
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id is not None else None,
-            previous_data=previous_data,
-            new_data=new_data,
+            previous_data=sanitized_prev,
+            new_data=sanitized_new,
             http_method=http_method or http_method_var.get(),
             api_endpoint=api_endpoint or api_endpoint_var.get(),
             request_id=request_id or request_id_var.get(),
