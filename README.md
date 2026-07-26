@@ -6,7 +6,21 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, and Docker.
+
+---
+
+## HR Domain — Enterprise Holiday Calendar (Milestone HR-7)
+
+### Overview
+The Holiday Calendar module (`app/models/holiday.py`, `app/services/holiday.py`) serves as the authoritative single source of truth for organization, national, and regional holiday definitions. Downstream modules (Attendance, Leave, Payroll, Reporting) consume this registry to determine non-working days, leave balance deductions, and holiday overtime multipliers.
+
+### Key Technical Capabilities
+- **Location-Aware Regional Scoping**: Supports `National`, `Regional`, `Company`, and `Optional` holiday classifications across specified countries and state/regions.
+- **Annual Recurring Projection Algorithm**: Holidays marked `is_recurring_annually = True` automatically apply across all calendar years without manual re-creation. Year queries (`GET /api/v1/holidays/year/{year}`) project recurring holidays onto target years seamlessly.
+- **Strict Deduplication**: Enforces unique holiday codes and unique `(holiday_date, country, state_region)` combinations among non-deleted records.
+- **Redis Caching & Celery Telemetry**: Caches holiday listings (`holiday:list`) with automatic invalidation. Dispatches Celery background tasks (`send_holiday_notification_task`) and logs enterprise audit events (`HOLIDAY_CREATE`, `HOLIDAY_UPDATE`, `HOLIDAY_DELETE`, `HOLIDAY_RESTORE`).
+- **RBAC Enforcement**: Protected by permissions (`holiday.create`, `holiday.read`, `holiday.update`, `holiday.delete`, `holiday.restore`).
 
 ---
 

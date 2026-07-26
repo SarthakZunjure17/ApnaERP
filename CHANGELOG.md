@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.3.0] - 2026-07-26
 
+### Milestone HR-7 — Enterprise Holiday Calendar
+
+#### Added
+- **Holiday ORM Model (`app/models/holiday.py`)**: Official holiday schedule entity storing `code` (unique, indexed), `name` (indexed), `description`, `holiday_date`, `holiday_type` (`National`, `Regional`, `Company`, `Optional`), `country`, `state_region`, `is_half_day`, `is_recurring_annually`, `is_active`, and soft deletion fields.
+- **Pydantic v2 Schemas (`app/schemas/holiday.py`)**: `HolidayType` Enum, `HolidayCreate`, `HolidayUpdate`, `HolidayResponse`, `HolidaySummary`, `HolidayListResponse`.
+- **Holiday Repository (`app/repositories/holiday.py`)**: Extends `BaseRepository` with `get_by_code`, `exists_by_code`, `get_by_date_and_region`, `get_holidays_by_year` (with annual recurring holiday projection), and `get_holidays_by_date`.
+- **Holiday Service Layer (`app/services/holiday.py`)**: Business service implementing holiday validations, unique code check, duplicate date+region check, year/date holiday queries with annual recurring logic, Redis caching (`holiday:list`), enterprise audit logging (`HOLIDAY_CREATE`, `HOLIDAY_UPDATE`, `HOLIDAY_DELETE`, `HOLIDAY_RESTORE`), and Celery telemetry.
+- **Background Notification Task (`app/tasks/holiday_tasks.py`)**: Asynchronous Celery task (`send_holiday_notification_task`) processing holiday creation, update, and deletion events.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `holiday.create`, `holiday.read`, `holiday.update`, `holiday.delete`, `holiday.restore` bound to `Super Admin` and `HR Manager` roles.
+- **Holiday API Router (`app/api/v1/endpoints/holidays.py`)**: RESTful endpoints (`GET /holidays`, `GET /holidays/{id}`, `GET /holidays/year/{year}`, `GET /holidays/date/{date}`, `POST /holidays`, `PUT /holidays/{id}`, `DELETE /holidays/{id}`, `PATCH /holidays/{id}/restore`). Registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/9871e1fb35a0_phase_hr7_implement_holiday_calendar_.py`)**: Applied database migration creating `holidays` table.
+- **Architecture Decision Record (`docs/adr/ADR-0009-holiday-calendar.md`)**: Documented holiday calendar architecture, regional scoping, annual recurring projection algorithm, and integration contracts for Attendance, Leave, and Payroll modules.
+- **Test Suite (`tests/test_holidays.py`)**: Pytest suite validating repository methods, service validations, duplicate date+region checks, annual recurring holiday projections, REST API endpoints, RBAC authorization, audit logging, Redis caching, Celery telemetry, and full regression testing.
+
+---
+
 ### Milestone HR-6 — Enterprise Shift Management
 
 #### Added

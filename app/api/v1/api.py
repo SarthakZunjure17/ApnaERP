@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     employees,
     files,
     health,
+    holidays,
     hr_configurations,
     notifications,
     positions,
@@ -33,3 +34,4 @@ api_router.include_router(employee_documents.router, prefix="", tags=["Employee 
 api_router.include_router(positions.router, prefix="", tags=["Position Management"])
 api_router.include_router(hr_configurations.router, prefix="", tags=["HR Configuration & Policies"])
 api_router.include_router(shifts.router, prefix="/shifts", tags=["Shift Management"])
+api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
