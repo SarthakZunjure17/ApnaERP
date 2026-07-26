@@ -5,6 +5,7 @@ from app.models.user_role import UserRole
 from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.notification import Notification, NotificationTemplate
+from app.models.department import Department
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "File",
     "Notification",
     "NotificationTemplate",
+    "Department",
 ]

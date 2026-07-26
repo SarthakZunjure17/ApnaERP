@@ -7,19 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.3.0] - 2026-07-26
+
+### Milestone HR-1 — Department Management Module
+
+#### Added
+- **Department ORM Model (`app/models/department.py`)**: `Department` model supporting self-referential parent-child relationships, manager assignments, unique code/name constraints, soft deletion, and timestamp tracking.
+- **Pydantic v2 Schemas (`app/schemas/department.py`)**: Created `DepartmentCreate`, `DepartmentUpdate`, `DepartmentResponse`, `DepartmentSummary`, `DepartmentTreeResponse`, and `DepartmentListResponse`.
+- **Department Repository (`app/repositories/department.py`)**: Implemented `DepartmentRepository` extending `BaseRepository` with `get_by_code`, `get_by_name`, `get_children`, `get_tree`, `exists_by_code`, `exists_by_name`.
+- **Department Service Layer (`app/services/department.py`)**: Business service enforcing unique code/name validation, circular parent reference prevention, active child deletion protection, Redis caching (`department:tree`), audit logging, and background Celery task dispatching.
+- **Background Notification Task (`app/tasks/department_tasks.py`)**: Asynchronous Celery task (`send_department_notification_task`) processing department mutation notifications.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Added `department.create`, `department.read`, `department.update`, `department.delete`, `department.restore` permissions bound to `Super Admin` and `HR Manager` roles.
+- **Department API Router (`app/api/v1/endpoints/departments.py`)**: Exposed RESTful endpoints (`GET /departments/tree`, `GET /departments`, `GET /departments/{id}`, `POST /departments`, `PUT /departments/{id}`, `DELETE /departments/{id}`, `PATCH /departments/{id}/restore`).
+- **Database Migration (`alembic/versions/d45778acc419_phase_hr1_implement_departments_table.py`)**: Created and applied Alembic migration for `departments` table.
+- **Architecture Decision Record (`docs/adr/ADR-0003-department-domain.md`)**: Documented design drivers, decision, and trade-offs.
+- **Test Suite (`tests/test_departments.py`)**: Built comprehensive pytest test suite verifying repository, service, circular reference validation, child deletion guard, Redis caching, audit logging, Celery integration, and API endpoints.
+
+---
+
 ## [v0.2.2] - 2026-07-26
 
 ### Milestone 0.2.2 — Enterprise Task Processing Platform (Celery Infrastructure)
 
 #### Added
-- **Celery Application Infrastructure (`app/core/celery.py`)**: Configured Celery application instance (`celery_app`) with JSON serialization, time limits (`task_time_limit=300`), Kombu priority queues (`default`, `high_priority`, `low_priority`, `periodic`), and task routing.
-- **Reusable Task Base Classes (`app/tasks/base.py`)**: Implemented `BaseTask` (lifecycle hooks & correlation logging), `RetryTask` (exponential backoff), `PeriodicTask` (scheduled beat tasks), and `LoggingTask` (execution timing telemetry).
-- **Infrastructure System Tasks (`app/tasks/system_tasks.py`)**: Implemented `system_ping_task` and `system_health_check_task` for worker execution verification.
-- **Worker Entrypoint Module (`workers/celery_worker.py`)**: Created entrypoint for worker processes (`celery -A workers.celery_worker.celery_app worker`).
-- **Health Telemetry Endpoints (`app/api/v1/endpoints/health.py`)**: Added `GET /health/celery` (broker, result backend, registered tasks, queues) and `GET /health/workers` (worker inspection, active worker count, stats).
-- **Docker Compose Integration (`docker/docker-compose.yml`)**: Added containerized `celery_worker` and `celery_beat` services with healthchecks, restart policies, and network isolation.
-- **Architecture Decision Record**: Created `docs/adr/ADR-0002-celery-task-platform.md`.
-- **Test Suite (`tests/test_celery.py`)**: Built comprehensive pytest suite covering task registration, synchronous/eager task execution, base class lifecycle, backoff retries, and health endpoints.
+- **Celery Application Infrastructure (`app/core/celery.py`)**: Configured Celery application instance (`celery_app`) with JSON serialization, Kombu priority queues (`default`, `high_priority`, `low_priority`, `periodic`), and task routing.
+- **Reusable Task Base Classes (`app/tasks/base.py`)**: Implemented `BaseTask`, `RetryTask`, `PeriodicTask`, and `LoggingTask`.
+- **Infrastructure System Tasks (`app/tasks/system_tasks.py`)**: Implemented `system_ping_task` and `system_health_check_task`.
+- **Health Telemetry Endpoints (`app/api/v1/endpoints/health.py`)**: Added `GET /health/celery` and `GET /health/workers`.
 
 ---
 
@@ -28,10 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Milestone 0.2.1 — Redis Infrastructure
 
 #### Added
-- **Redis Infrastructure Layer (`app/core/redis.py`)**: Implemented `RedisManager` with `redis.asyncio` connection pooling, client lifecycle management, and custom exception handling (`RedisConnectionError`, `RedisOperationError`).
-- **Operation Helper Wrappers**: Added async helpers for Key/Value, Hash, Pub/Sub, and Admin commands.
-- **Health Telemetry (`GET /health/redis`)**: Exposed dedicated Redis health diagnostic endpoint.
-- **Architecture Decision Record**: Created `docs/adr/ADR-0001-redis-infrastructure.md`.
+- **Redis Infrastructure Layer (`app/core/redis.py`)**: Implemented `RedisManager` with `redis.asyncio` connection pooling and operation wrappers.
 
 ---
 
@@ -40,9 +51,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Core Platform Infrastructure
 
 #### Added
-- **Authentication & User Management**: JWT access/refresh tokens, Bcrypt password hashing, `/auth` endpoints.
-- **Role-Based Access Control (RBAC)**: Flexible roles, permissions, association models, and `has_permission`/`has_role` guards.
-- **Generic CRUD Framework**: Reusable `BaseRepository` and `BaseService` with pagination, filtering, sorting, and soft deletion.
-- **Enterprise Audit Logging**: Centralized `AuditLog` ORM model, `RequestContextMiddleware` tracking correlation `X-Request-ID`, and audit log inspection endpoints.
-- **File Management Service**: Pluggable `StorageProvider` abstraction (`LocalStorageProvider`), SHA256 checksum deduplication, and file security.
-- **Enterprise Notification System**: `Notification` and `NotificationTemplate` ORM models, Jinja2 template engine, SMTP `EmailService` with fallback, and user-isolated notification endpoints.
+- Authentication, RBAC, Generic CRUD Framework, Enterprise Audit Logging, File Management Service, Notification System.

@@ -6,7 +6,33 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, and Docker.
+
+---
+
+## HR Domain — Department Management Module (Milestone HR-1)
+
+### Overview & Hierarchy Design
+The Department Management module (`app/models/department.py`, `app/services/department.py`) establishes the organizational hierarchy for ApnaERP, serving as the foundational parent entity for employees, cost centers, and future HR operations.
+
+```
+Company (Root)
+├── Human Resources (HR)
+├── Information Technology (IT)
+│   ├── Backend Engineering
+│   ├── Frontend Engineering
+│   └── DevOps & Infrastructure
+└── Finance & Accounting
+```
+
+### Key Technical Capabilities
+- **Self-Referential Hierarchy**: Self-referential `parent_id` linking to `departments.id` with `children` relationships.
+- **Circular Parent Safeguard**: Business logic in `DepartmentService._validate_no_circular_parent` traverses ancestry to prevent circular parent loops (e.g. A -> B -> C -> A).
+- **Active Children Deletion Protection**: Blocks soft-deleting any department that contains active child sub-departments.
+- **Redis Caching Strategy**: Caches hierarchy tree responses (`GET /api/v1/departments/tree`) under `department:tree`. Automatic cache invalidation occurs on all mutation operations (Create, Update, Delete, Restore).
+- **Asynchronous Celery Notifications**: Offloads background event notifications (`send_department_notification_task`) without blocking HTTP response handlers.
+- **Enterprise Audit Logging**: Records structured audit events (`DEPARTMENT_CREATE`, `DEPARTMENT_UPDATE`, `DEPARTMENT_DELETE`, `DEPARTMENT_RESTORE`).
+- **RBAC Security Guards**: Protected by permissions (`department.create`, `department.read`, `department.update`, `department.delete`, `department.restore`).
 
 ---
 
@@ -15,56 +41,9 @@ ApnaERP is a production-grade, modular, high-performance Enterprise Resource Pla
 ### Overview & Queue Design
 ApnaERP features a centralized, asynchronous task processing platform (`app/core/celery.py`) powered by Celery and Kombu queue routing over Redis:
 - **`default` Queue**: Standard background task execution.
-- **`high_priority` Queue**: High-urgency tasks (system health, security alerts, realtime notifications).
+- **`high_priority` Queue**: High-urgency tasks (system health, security alerts, department/notification alerts).
 - **`low_priority` Queue**: Bulk heavy operations (reports, analytics, exports).
 - **`periodic` Queue**: Celery Beat scheduled cron/interval jobs.
-
-```
-[ FastAPI Endpoint ] ──> task.delay(...) / task.apply_async(...)
-                              │
-                              ▼
-                      Redis Broker (Kombu Priority Queues)
-                      - high_priority (x-max-priority: 10)
-                      - default       (x-max-priority: 10)
-                      - low_priority  (x-max-priority: 10)
-                      - periodic
-                              │
-                              ▼
-                      Celery Worker Nodes (workers/celery_worker.py)
-                              │
-                              ▼
-                      Redis Result Backend
-```
-
-### Reusable Task Base Classes (`app/tasks/base.py`)
-All tasks inherit from standardized base classes:
-- **`BaseTask(celery.Task)`**: Abstract base task managing correlation tracking, structured logging, and lifecycle callbacks (`on_success`, `on_failure`, `on_retry`).
-- **`RetryTask(BaseTask)`**: Configured with exponential backoff and jitter (`autoretry_for=(Exception,)`, `retry_backoff=True`, `max_retries=3`).
-- **`PeriodicTask(BaseTask)`**: Scheduled task base class routed to the `periodic` queue.
-- **`LoggingTask(BaseTask)`**: Telemetry-enhanced task class logging execution runtime duration in milliseconds.
-
-### Task Routing & Worker Configuration
-- **Task Routing Rules**:
-  - `app.tasks.system_tasks.*` ──> `high_priority`
-  - `app.tasks.notification_tasks.*` ──> `high_priority`
-  - `app.tasks.report_tasks.*` ──> `low_priority`
-- **Time Limits**: `task_time_limit=300` seconds (hard cutoff), `task_soft_time_limit=240` seconds.
-
-### Environment Configuration
-```env
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-CELERY_TIMEZONE=UTC
-CELERY_WORKER_CONCURRENCY=4
-CELERY_TASK_SERIALIZER=json
-CELERY_RESULT_SERIALIZER=json
-CELERY_ACCEPT_CONTENT=["json"]
-CELERY_TASK_ALWAYS_EAGER=false
-```
-
-### Celery Health & Inspection Endpoints
-- **`GET /health/celery`**: Returns broker status, result backend connection state, registered tasks list, and configured Kombu queues.
-- **`GET /health/workers`**: Inspects active background worker nodes, ping responses, worker statistics, and active running tasks.
 
 ---
 
@@ -78,41 +57,22 @@ ApnaERP/
 │   │   ├── deps.py           # Dependency injection providers
 │   │   └── v1/               # API version 1 routers
 │   │       ├── api.py        # Master v1 router
-│   │       └── endpoints/    # Route handlers (audit, auth, files, health, notifications, rbac, root, templates)
+│   │       └── endpoints/    # Route handlers (audit, auth, departments, files, health, notifications, rbac, root, templates)
 │   ├── core/                 # App configuration, logging, events, security, storage & Celery
-│   │   ├── celery.py         # Celery app, Kombu queues, task routing
-│   │   ├── config.py         # Settings (JWT, DB, Redis, File, Email, Celery)
-│   │   ├── redis.py          # RedisManager & connection pooling
-│   │   └── storage/          # Storage Provider Abstraction layer
 │   ├── db/                   # Database session and connection setup
-│   ├── dependencies/         # Reusable dependency injection helpers
-│   ├── exceptions/           # Domain exception hierarchy and FastAPI handlers
-│   ├── middleware/           # Request timing, context & CORS middleware
-│   ├── models/               # SQLAlchemy ORM models
-│   ├── repositories/         # Clean Architecture repository layer
-│   ├── schemas/              # Pydantic v2 data models & validation
-│   ├── services/             # Clean Architecture business service layer
-│   ├── tasks/                # Centralized Celery task registry
-│   │   ├── __init__.py       # Package exports
-│   │   ├── base.py           # BaseTask, RetryTask, PeriodicTask, LoggingTask
-│   │   └── system_tasks.py   # system_ping_task, system_health_check_task
-│   ├── utils/                # Helper utilities
+│   ├── models/               # SQLAlchemy ORM models (User, Role, AuditLog, File, Notification, Department, etc.)
+│   ├── repositories/         # Clean Architecture repository layer (DepartmentRepository, etc.)
+│   ├── schemas/              # Pydantic v2 data models & validation (DepartmentCreate, DepartmentTreeResponse, etc.)
+│   ├── services/             # Clean Architecture business service layer (DepartmentService, etc.)
+│   ├── tasks/                # Centralized Celery task registry (department_tasks, system_tasks)
 │   └── main.py               # FastAPI application entrypoint
 ├── docker/                   # Docker deployment configurations
-│   ├── Dockerfile            # Container build script
-│   └── docker-compose.yml    # API, DB, Redis, Celery Worker, Celery Beat, Prometheus, Grafana
 ├── docs/                     # Architecture Decision Records (ADRs)
-│   └── adr/                  # ADR documents (ADR-0001 Redis, ADR-0002 Celery)
+│   └── adr/                  # ADR documents (ADR-0001 Redis, ADR-0002 Celery, ADR-0003 Department)
 ├── workers/                  # Celery worker process entrypoints
-│   ├── __init__.py
-│   └── celery_worker.py      # Worker entrypoint module
-├── tests/                    # Pytest test suite
-│   ├── test_celery.py        # Celery Task Platform unit tests
-│   ├── test_redis.py         # Redis Infrastructure unit tests
-│   └── ...                   # Test files (audit, auth, files, generic_crud, health, notifications, rbac)
+├── tests/                    # Pytest test suite (test_departments.py, test_celery.py, etc.)
 ├── uploads/                  # Local storage root directory
 ├── CHANGELOG.md              # Project release notes & changelog
-├── alembic.ini               # Alembic configuration
 ├── requirements.txt          # Python production dependencies
 └── README.md                 # Project documentation
 ```
@@ -123,14 +83,15 @@ ApnaERP/
 
 | HTTP Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health/celery` | Celery platform health diagnostics | No |
-| `GET` | `/health/workers` | Celery background worker inspection | No |
-| `GET` | `/health/redis` | Redis health diagnostics check | No |
-| `GET` | `/health` | Overall system health check | No |
-| `GET` | `/notifications` | List user's notifications | Yes (Bearer) |
-| `POST` | `/files/upload` | Multipart file upload with SHA256 deduplication | Yes (Bearer) |
-| `POST` | `/auth/login` | Login with username/email & password | No |
-| `GET` | `/audit/logs` | List audit logs | Yes (Super Admin) |
+| `GET` | `/api/v1/departments/tree` | Retrieve nested department tree | Yes (`department.read`) |
+| `GET` | `/api/v1/departments` | Paginated list of departments | Yes (`department.read`) |
+| `GET` | `/api/v1/departments/{id}` | Get department details by ID | Yes (`department.read`) |
+| `POST` | `/api/v1/departments` | Create new department | Yes (`department.create`) |
+| `PUT` | `/api/v1/departments/{id}` | Update department | Yes (`department.update`) |
+| `DELETE` | `/api/v1/departments/{id}` | Soft delete department | Yes (`department.delete`) |
+| `PATCH` | `/api/v1/departments/{id}/restore` | Restore soft-deleted department | Yes (`department.restore`) |
+| `GET` | `/api/v1/health/celery` | Celery platform health diagnostics | No |
+| `GET` | `/api/v1/health/redis` | Redis health diagnostics check | No |
 
 ---
 

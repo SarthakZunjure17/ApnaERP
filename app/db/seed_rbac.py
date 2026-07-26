@@ -28,11 +28,12 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Update Employees", "code": "employees.update", "description": "Permission to update employee records", "module_name": "hr"},
     {"name": "Delete Employees", "code": "employees.delete", "description": "Permission to remove employee records", "module_name": "hr"},
 
-    # Departments
-    {"name": "Create Departments", "code": "departments.create", "description": "Permission to create departments", "module_name": "hr"},
-    {"name": "Read Departments", "code": "departments.read", "description": "Permission to view departments", "module_name": "hr"},
-    {"name": "Update Departments", "code": "departments.update", "description": "Permission to update departments", "module_name": "hr"},
-    {"name": "Delete Departments", "code": "departments.delete", "description": "Permission to remove departments", "module_name": "hr"},
+    # Departments (Singular code format required)
+    {"name": "Create Department", "code": "department.create", "description": "Permission to create departments", "module_name": "hr"},
+    {"name": "Read Department", "code": "department.read", "description": "Permission to view departments", "module_name": "hr"},
+    {"name": "Update Department", "code": "department.update", "description": "Permission to update departments", "module_name": "hr"},
+    {"name": "Delete Department", "code": "department.delete", "description": "Permission to remove departments", "module_name": "hr"},
+    {"name": "Restore Department", "code": "department.restore", "description": "Permission to restore deleted departments", "module_name": "hr"},
 
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
@@ -83,12 +84,18 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             logger.info(f"Seeded role: {r_data['name']}")
         created_roles[r_data["name"]] = existing
 
-    # 3. Assign All Permissions to Super Admin
+    # 3. Assign All Permissions to Super Admin & HR Manager
     super_admin_role = created_roles.get("Super Admin")
-    if super_admin_role:
-        for perm_code, perm_obj in created_perms.items():
+    hr_manager_role = created_roles.get("HR Manager")
+
+    for perm_code, perm_obj in created_perms.items():
+        if super_admin_role:
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=super_admin_role.id, permission_id=perm_obj.id
+            )
+        if hr_manager_role and perm_code.startswith("department."):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=hr_manager_role.id, permission_id=perm_obj.id
             )
 
 
