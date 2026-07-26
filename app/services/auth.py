@@ -15,6 +15,7 @@ from app.repositories.user import user_repository
 from app.schemas.auth import Token
 from app.schemas.user import UserCreate
 from app.services.base import BaseService
+from app.utils.audit import log_audit
 
 
 class AuthService(BaseService[user_repository.__class__]):
@@ -43,7 +44,21 @@ class AuthService(BaseService[user_repository.__class__]):
             )
 
         hashed_pwd = hash_password(user_in.password)
-        return await self.repository.create_user(db, obj_in=user_in, password_hash=hashed_pwd)
+        user = await self.repository.create_user(db, obj_in=user_in, password_hash=hashed_pwd)
+
+        # Record audit log
+        await log_audit(
+            db,
+            action="USER_REGISTER",
+            entity_type="User",
+            entity_id=user.id,
+            user_id=user.id,
+            username=user.username,
+            new_data={"email": user.email, "username": user.username, "full_name": user.full_name},
+            status_code=201,
+        )
+
+        return user
 
     async def authenticate_user(
         self, db: AsyncSession, username_or_email: str, password: str
@@ -51,7 +66,6 @@ class AuthService(BaseService[user_repository.__class__]):
         """
         Authenticates user credentials by username or email.
         """
-        # Try lookup by email first, then username
         user = await self.repository.get_by_email(db, username_or_email)
         if not user:
             user = await self.repository.get_by_username(db, username_or_email)
@@ -70,6 +84,18 @@ class AuthService(BaseService[user_repository.__class__]):
             )
 
         await self.repository.update_last_login(db, user_id=user.id)
+
+        # Record audit log
+        await log_audit(
+            db,
+            action="LOGIN",
+            entity_type="User",
+            entity_id=user.id,
+            user_id=user.id,
+            username=user.username,
+            status_code=200,
+        )
+
         return user
 
     def create_user_tokens(self, user_id: uuid.UUID) -> Token:
@@ -117,6 +143,20 @@ class AuthService(BaseService[user_repository.__class__]):
             )
 
         return self.create_user_tokens(user.id)
+
+    async def logout_user(self, db: AsyncSession, user: User) -> None:
+        """
+        Logs out user and records LOGOUT audit event.
+        """
+        await log_audit(
+            db,
+            action="LOGOUT",
+            entity_type="User",
+            entity_id=user.id,
+            user_id=user.id,
+            username=user.username,
+            status_code=200,
+        )
 
 
 auth_service = AuthService()

@@ -97,10 +97,12 @@ async def refresh_token(
 )
 async def logout(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     """
     Logout endpoint acknowledging user logout.
     """
+    await auth_service.logout_user(db, user=current_user)
     return MessageResponse(message=f"Successfully logged out user '{current_user.username}'.")
 
 

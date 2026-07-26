@@ -117,6 +117,19 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         await db.commit()
         await db.refresh(db_obj)
         logger.info(f"[{self.model.__name__}] Created record ID '{getattr(db_obj, 'id', None)}'")
+
+        # Record Audit Log for non-AuditLog models
+        if self.model.__name__ != "AuditLog":
+            from app.utils.audit import log_audit
+            await log_audit(
+                db,
+                action="CREATE",
+                entity_type=self.model.__name__,
+                entity_id=getattr(db_obj, "id", None),
+                new_data=create_data,
+                status_code=201,
+            )
+
         return db_obj
 
     async def update(
@@ -134,14 +147,29 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         else:
             update_data = obj_in.model_dump(exclude_unset=True)
 
+        prev_data = {}
         for field, value in update_data.items():
             if hasattr(db_obj, field):
+                prev_data[field] = getattr(db_obj, field)
                 setattr(db_obj, field, value)
 
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)
         logger.info(f"[{self.model.__name__}] Updated record ID '{getattr(db_obj, 'id', None)}'")
+
+        if self.model.__name__ != "AuditLog":
+            from app.utils.audit import log_audit
+            await log_audit(
+                db,
+                action="UPDATE",
+                entity_type=self.model.__name__,
+                entity_id=getattr(db_obj, "id", None),
+                previous_data=prev_data,
+                new_data=update_data,
+                status_code=200,
+            )
+
         return db_obj
 
     async def delete(self, db: AsyncSession, *, id: Any) -> bool:
@@ -154,6 +182,17 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         await db.delete(db_obj)
         await db.commit()
         logger.info(f"[{self.model.__name__}] Hard deleted record ID '{id}'")
+
+        if self.model.__name__ != "AuditLog":
+            from app.utils.audit import log_audit
+            await log_audit(
+                db,
+                action="DELETE",
+                entity_type=self.model.__name__,
+                entity_id=id,
+                status_code=200,
+            )
+
         return True
 
     async def soft_delete(self, db: AsyncSession, *, id: Any) -> bool:
@@ -171,6 +210,17 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db.add(db_obj)
         await db.commit()
         logger.info(f"[{self.model.__name__}] Soft deleted record ID '{id}'")
+
+        if self.model.__name__ != "AuditLog":
+            from app.utils.audit import log_audit
+            await log_audit(
+                db,
+                action="SOFT_DELETE",
+                entity_type=self.model.__name__,
+                entity_id=id,
+                status_code=200,
+            )
+
         return True
 
     async def restore(self, db: AsyncSession, *, id: Any) -> bool:
@@ -188,6 +238,17 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db.add(db_obj)
         await db.commit()
         logger.info(f"[{self.model.__name__}] Restored soft-deleted record ID '{id}'")
+
+        if self.model.__name__ != "AuditLog":
+            from app.utils.audit import log_audit
+            await log_audit(
+                db,
+                action="RESTORE",
+                entity_type=self.model.__name__,
+                entity_id=id,
+                status_code=200,
+            )
+
         return True
 
     async def exists(self, db: AsyncSession, id: Any, include_deleted: bool = False) -> bool:
