@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.config import settings
+from app.db.session import engine
 
 logger = logging.getLogger("app.events")
 
@@ -18,3 +19,5 @@ async def lifespan(app: FastAPI):
     
     # Shutdown tasks
     logger.info(f"Shutting down {settings.PROJECT_NAME} gracefully...")
+    await engine.dispose()
+    logger.info("Database engine connections closed.")
