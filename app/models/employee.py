@@ -12,7 +12,7 @@ from app.db.mixins import SoftDeleteMixin, TimestampMixin, UUIDMixin
 class Employee(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     """
     Employee ORM Model.
-    Represents enterprise workforce core entity, reporting structure, department placement, and profile links.
+    Represents enterprise workforce core entity, reporting structure, department placement, position assignment, and profile links.
     """
     __tablename__ = "employees"
 
@@ -49,12 +49,22 @@ class Employee(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         index=True,
     )
 
+    position_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("positions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="FK referencing occupied Position",
+    )
+
     employment_type: Mapped[str] = mapped_column(String(50), default="Full Time", nullable=False)
     employment_status: Mapped[str] = mapped_column(String(50), default="Active", nullable=False)
 
     joining_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     confirmation_date: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
     exit_date: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
+    employment_start_date: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
+    employment_end_date: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
     date_of_birth: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
     gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
@@ -74,11 +84,20 @@ class Employee(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         "Employee",
         remote_side="Employee.id",
         back_populates="direct_reports",
+        foreign_keys=[manager_id],
     )
 
     direct_reports: Mapped[List["Employee"]] = relationship(
         "Employee",
         back_populates="manager",
+        foreign_keys=[manager_id],
+    )
+
+    position: Mapped[Optional["Position"]] = relationship(  # noqa: F821
+        "Position",
+        back_populates="employees",
+        foreign_keys=[position_id],
+        lazy="selectin",
     )
 
     user: Mapped[Optional["User"]] = relationship("User")  # noqa: F821

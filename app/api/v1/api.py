@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     files,
     health,
     notifications,
+    positions,
     rbac,
     root,
     templates,
@@ -27,3 +28,4 @@ api_router.include_router(templates.router, prefix="", tags=["Notification Templ
 api_router.include_router(departments.router, prefix="/departments", tags=["Department Management"])
 api_router.include_router(employees.router, prefix="/employees", tags=["Employee Management"])
 api_router.include_router(employee_documents.router, prefix="", tags=["Employee Document Management"])
+api_router.include_router(positions.router, prefix="", tags=["Position Management"])

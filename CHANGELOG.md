@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.3.0] - 2026-07-26
 
+### Milestone HR-4 — Job Positions & Employment Structure
+
+#### Added
+- **Position ORM Model (`app/models/position.py`)**: Enterprise job position model supporting unique code, title, department link, parent position self-referential hierarchy, employment category (`Permanent`, `Contract`, `Temporary`, `Internship`), grade, level, maximum/current headcount capacity, managerial flag, active status, and soft deletion.
+- **Employee Extension (`app/models/employee.py`)**: Extended `Employee` model with `position_id` (FK to `positions.id`), `employment_start_date`, `employment_end_date`, and `position` relationship.
+- **Pydantic v2 Schemas (`app/schemas/position.py`)**: `PositionCreate`, `PositionUpdate`, `PositionResponse`, `PositionSummary`, `PositionTreeResponse`, `PositionListResponse`, and `EmploymentCategory` Enum. Updated `app/schemas/employee.py`.
+- **Position Repository (`app/repositories/position.py`)**: Extends `BaseRepository` with `get_by_code`, `get_by_department_and_title`, `get_by_department`, `get_children`, `get_tree`, and `exists_by_code`.
+- **Position Service Layer (`app/services/position.py`)**: Business service layer enforcing unique code/title validation, inactive/deleted department guards, circular position loop checks (`_validate_no_circular_position`), headcount constraints (`maximum_headcount` vs `current_headcount`), Redis tree caching (`position:tree`), audit logging (`POSITION_CREATE`, `POSITION_UPDATE`, `POSITION_DELETE`, `POSITION_RESTORE`), and Celery telemetry.
+- **Employee Service Integration (`app/services/employee.py`)**: Integrated automatic position headcount increments/decrements upon employee assignment, removal, or update. Enforces `HEADCOUNT_LIMIT_EXCEEDED` guard.
+- **Background Notification Task (`app/tasks/position_tasks.py`)**: Asynchronous task (`send_position_notification_task`) processing position mutation and headcount limit warning notifications.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Added `position.create`, `position.read`, `position.update`, `position.delete`, `position.restore` permissions bound to `Super Admin` and `HR Manager` roles.
+- **Position API Router (`app/api/v1/endpoints/positions.py`)**: Exposed RESTful endpoints (`GET /positions`, `GET /positions/{id}`, `GET /positions/tree`, `GET /departments/{department_id}/positions`, `POST /positions`, `PUT /positions/{id}`, `DELETE /positions/{id}`, `PATCH /positions/{id}/restore`).
+- **Database Migration (`alembic/versions/7178a901bcde_phase_hr4_implement_positions_table_and_.py`)**: Applied migration for `positions` table and `employees` extensions.
+- **Architecture Decision Record (`docs/adr/ADR-0006-position-management.md`)**: Documented decision, headcount capacity controls, position hierarchy, and future module integration.
+- **Test Suite (`tests/test_positions.py`)**: Built comprehensive pytest test suite verifying repository methods, service validations, circular hierarchy checks, headcount constraint enforcement, auto-increment/decrement on employee assignment, Redis caching, Celery tasks, RBAC, and API endpoints.
+
+---
+
 ### Milestone HR-3 — Employee Documents & Digital Personnel Files
 
 #### Added

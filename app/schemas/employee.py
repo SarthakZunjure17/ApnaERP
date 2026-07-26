@@ -36,6 +36,7 @@ class EmployeeBase(BaseModel):
     user_id: Optional[uuid.UUID] = Field(None, description="Linked user account ID")
     department_id: uuid.UUID = Field(..., description="Assigned department ID")
     manager_id: Optional[uuid.UUID] = Field(None, description="Direct manager employee ID")
+    position_id: Optional[uuid.UUID] = Field(None, description="Assigned job position ID")
 
     employment_type: EmploymentType = Field(default=EmploymentType.FULL_TIME, description="Type of employment contract")
     employment_status: EmploymentStatus = Field(default=EmploymentStatus.ACTIVE, description="Current employment lifecycle status")
@@ -43,6 +44,8 @@ class EmployeeBase(BaseModel):
     joining_date: datetime.date = Field(..., description="Date employee joined the organization")
     confirmation_date: Optional[datetime.date] = Field(None, description="Probation confirmation date")
     exit_date: Optional[datetime.date] = Field(None, description="Exit/Termination date")
+    employment_start_date: Optional[datetime.date] = Field(None, description="Contract/Position start date")
+    employment_end_date: Optional[datetime.date] = Field(None, description="Contract/Position end date")
     date_of_birth: Optional[datetime.date] = Field(None, description="Date of birth")
     gender: Optional[str] = Field(None, max_length=20, description="Gender identity")
 
@@ -71,6 +74,7 @@ class EmployeeUpdate(BaseModel):
     user_id: Optional[uuid.UUID] = None
     department_id: Optional[uuid.UUID] = None
     manager_id: Optional[uuid.UUID] = None
+    position_id: Optional[uuid.UUID] = None
 
     employment_type: Optional[EmploymentType] = None
     employment_status: Optional[EmploymentStatus] = None
@@ -78,6 +82,8 @@ class EmployeeUpdate(BaseModel):
     joining_date: Optional[datetime.date] = None
     confirmation_date: Optional[datetime.date] = None
     exit_date: Optional[datetime.date] = None
+    employment_start_date: Optional[datetime.date] = None
+    employment_end_date: Optional[datetime.date] = None
     date_of_birth: Optional[datetime.date] = None
     gender: Optional[str] = Field(None, max_length=20)
 
@@ -105,6 +111,7 @@ class EmployeeSummary(BaseModel):
     work_email: str
     department_id: uuid.UUID
     manager_id: Optional[uuid.UUID] = None
+    position_id: Optional[uuid.UUID] = None
     employment_type: str
     employment_status: str
     is_active: bool

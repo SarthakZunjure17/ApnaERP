@@ -8,6 +8,7 @@ from app.models.notification import Notification, NotificationTemplate
 from app.models.department import Department
 from app.models.employee import Employee
 from app.models.employee_document import EmployeeDocument
+from app.models.position import Position
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "Department",
     "Employee",
     "EmployeeDocument",
+    "Position",
 ]

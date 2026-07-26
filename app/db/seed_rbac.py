@@ -37,6 +37,13 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Verify Employee Document", "code": "employee_document.verify", "description": "Permission to verify or reject employee documents", "module_name": "hr"},
     {"name": "Restore Employee Document", "code": "employee_document.restore", "description": "Permission to restore deleted employee documents", "module_name": "hr"},
 
+    # Position Management Permissions
+    {"name": "Create Position", "code": "position.create", "description": "Permission to create job position definitions", "module_name": "hr"},
+    {"name": "Read Position", "code": "position.read", "description": "Permission to view job position definitions", "module_name": "hr"},
+    {"name": "Update Position", "code": "position.update", "description": "Permission to update job position definitions", "module_name": "hr"},
+    {"name": "Delete Position", "code": "position.delete", "description": "Permission to remove job position definitions", "module_name": "hr"},
+    {"name": "Restore Position", "code": "position.restore", "description": "Permission to restore soft-deleted job positions", "module_name": "hr"},
+
     # Departments
     {"name": "Create Department", "code": "department.create", "description": "Permission to create departments", "module_name": "hr"},
     {"name": "Read Department", "code": "department.read", "description": "Permission to view departments", "module_name": "hr"},
@@ -102,7 +109,7 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=super_admin_role.id, permission_id=perm_obj.id
             )
-        if hr_manager_role and (perm_code.startswith("department.") or perm_code.startswith("employee.") or perm_code.startswith("employee_document.")):
+        if hr_manager_role and (perm_code.startswith("department.") or perm_code.startswith("employee.") or perm_code.startswith("employee_document.") or perm_code.startswith("position.")):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=hr_manager_role.id, permission_id=perm_obj.id
             )

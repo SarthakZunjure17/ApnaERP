@@ -13,9 +13,11 @@ from app.models.user import User
 from app.repositories.department import department_repository
 from app.repositories.employee import employee_repository
 from app.repositories.file import file_repository
+from app.repositories.position import position_repository
 from app.repositories.user import user_repository
 from app.schemas.employee import EmployeeCreate, EmployeeHierarchyResponse, EmployeeResponse, EmployeeUpdate
 from app.tasks.employee_tasks import send_employee_notification_task
+from app.tasks.position_tasks import send_position_notification_task
 from app.utils.audit import log_audit
 from app.utils.pagination import PaginationParams
 
@@ -28,7 +30,7 @@ CACHE_DEPT_PREFIX = "employee:department:"
 class EmployeeService:
     """
     Business service layer managing Employee entities, reporting hierarchy validation, department constraints,
-    Redis caching, audit logging, and background event notifications.
+    position assignments, headcount updates, Redis caching, audit logging, and background event notifications.
     """
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -36,6 +38,7 @@ class EmployeeService:
         self.dept_repo = department_repository
         self.user_repo = user_repository
         self.file_repo = file_repository
+        self.pos_repo = position_repository
 
     async def _invalidate_employee_caches(self, department_id: Optional[uuid.UUID] = None) -> None:
         """Clears employee hierarchy and department caches from Redis."""
@@ -95,11 +98,56 @@ class EmployeeService:
                 error_code="INACTIVE_DEPARTMENT_ERROR"
             )
 
+    async def _assign_position_headcount(self, position_id: uuid.UUID) -> None:
+        """Helper to validate position capacity and increment headcount."""
+        pos = await self.pos_repo.get_by_id(self.db, position_id)
+        if not pos or getattr(pos, "is_deleted", False):
+            raise ApnaERPException(
+                message=f"Position with ID '{position_id}' not found.",
+                status_code=404,
+                error_code="POSITION_NOT_FOUND",
+            )
+        if not pos.is_active:
+            raise ApnaERPException(
+                message=f"Cannot assign employee to inactive position '{pos.title}'.",
+                status_code=400,
+                error_code="INACTIVE_POSITION",
+            )
+        if pos.current_headcount >= pos.maximum_headcount:
+            raise ApnaERPException(
+                message=f"Position '{pos.title}' has reached maximum headcount capacity ({pos.maximum_headcount}).",
+                status_code=400,
+                error_code="HEADCOUNT_LIMIT_EXCEEDED",
+            )
+
+        pos.current_headcount += 1
+        self.db.add(pos)
+        await self.db.commit()
+
+        if pos.current_headcount == pos.maximum_headcount:
+            try:
+                send_position_notification_task.delay(
+                    event_type="HEADCOUNT_LIMIT_REACHED",
+                    position_id=str(pos.id),
+                    position_code=pos.code,
+                    position_title=pos.title,
+                )
+            except Exception as exc:
+                logger.warning(f"Failed to dispatch headcount limit notification: {exc}")
+
+    async def _unassign_position_headcount(self, position_id: uuid.UUID) -> None:
+        """Helper to decrement position headcount."""
+        pos = await self.pos_repo.get_by_id(self.db, position_id)
+        if pos:
+            pos.current_headcount = max(0, pos.current_headcount - 1)
+            self.db.add(pos)
+            await self.db.commit()
+
     async def create_employee(
         self, data: EmployeeCreate, current_user: Optional[User] = None, request: Optional[Request] = None
     ) -> Employee:
         """
-        Creates a new employee after validating unique fields, department status, dates, manager hierarchy, user link, and profile photo.
+        Creates a new employee after validating unique fields, department status, position capacity, dates, manager hierarchy, user link, and profile photo.
         """
         # Validate unique employee code
         if await self.repo.exists_by_code(self.db, data.employee_code):
@@ -137,6 +185,10 @@ class EmployeeService:
                     status_code=404,
                     error_code="MANAGER_NOT_FOUND"
                 )
+
+        # Validate Position capacity if provided
+        if data.position_id:
+            await self._assign_position_headcount(data.position_id)
 
         # Validate linked User ID if provided
         if data.user_id:
@@ -178,6 +230,7 @@ class EmployeeService:
                 "code": employee.employee_code,
                 "email": employee.work_email,
                 "department_id": str(employee.department_id),
+                "position_id": str(employee.position_id) if employee.position_id else None,
             },
             status_code=201,
         )
@@ -216,8 +269,6 @@ class EmployeeService:
             cached_raw = await redis_manager.get(cache_key)
             if cached_raw:
                 logger.info(f"[EmployeeService] Returning employees for dept '{department_id}' from Redis.")
-                items = json.loads(cached_raw)
-                # Re-fetch from DB if format check
                 return await self.repo.get_by_department(self.db, department_id)
         except Exception as e:
             logger.warning(f"[EmployeeService] Redis cache read error: {e}")
@@ -268,11 +319,14 @@ class EmployeeService:
                 user_id=e.user_id,
                 department_id=e.department_id,
                 manager_id=e.manager_id,
+                position_id=e.position_id,
                 employment_type=e.employment_type,
                 employment_status=e.employment_status,
                 joining_date=e.joining_date,
                 confirmation_date=e.confirmation_date,
                 exit_date=e.exit_date,
+                employment_start_date=e.employment_start_date,
+                employment_end_date=e.employment_end_date,
                 date_of_birth=e.date_of_birth,
                 gender=e.gender,
                 profile_photo_file_id=e.profile_photo_file_id,
@@ -328,16 +382,27 @@ class EmployeeService:
         current_user: Optional[User] = None,
         request: Optional[Request] = None
     ) -> Employee:
-        """Updates employee after executing validations."""
+        """Updates employee after executing validations and position headcount updates."""
         emp = await self.get_employee_by_id(employee_id)
         prev_data = {
             "code": emp.employee_code,
             "email": emp.work_email,
             "department_id": str(emp.department_id),
             "manager_id": str(emp.manager_id) if emp.manager_id else None,
+            "position_id": str(emp.position_id) if emp.position_id else None,
         }
 
         update_dict = data.model_dump(exclude_unset=True)
+
+        # Handle position_id change & headcount update
+        if "position_id" in update_dict and update_dict["position_id"] != emp.position_id:
+            old_position_id = emp.position_id
+            new_position_id = update_dict["position_id"]
+
+            if new_position_id:
+                await self._assign_position_headcount(new_position_id)
+            if old_position_id:
+                await self._unassign_position_headcount(old_position_id)
 
         # Unique code
         if "employee_code" in update_dict and update_dict["employee_code"] != emp.employee_code:
@@ -429,6 +494,7 @@ class EmployeeService:
                 "code": updated_emp.employee_code,
                 "email": updated_emp.work_email,
                 "department_id": str(updated_emp.department_id),
+                "position_id": str(updated_emp.position_id) if updated_emp.position_id else None,
             },
             status_code=200,
         )
@@ -452,8 +518,11 @@ class EmployeeService:
     async def delete_employee(
         self, employee_id: uuid.UUID, current_user: Optional[User] = None, request: Optional[Request] = None
     ) -> Employee:
-        """Soft deletes an employee."""
+        """Soft deletes an employee and decrements position headcount if assigned."""
         emp = await self.get_employee_by_id(employee_id)
+
+        if emp.position_id:
+            await self._unassign_position_headcount(emp.position_id)
 
         await self.repo.soft_delete(self.db, id=employee_id)
         deleted_emp = await self.repo.get_by_id(self.db, employee_id, include_deleted=True)
@@ -505,6 +574,9 @@ class EmployeeService:
                 status_code=400,
                 error_code="NOT_DELETED_ERROR"
             )
+
+        if emp.position_id:
+            await self._assign_position_headcount(emp.position_id)
 
         await self.repo.restore(self.db, id=employee_id)
         restored_emp = await self.repo.get_by_id(self.db, employee_id)
