@@ -6,7 +6,25 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Employee Domain (Core HR), and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), and Docker.
+
+---
+
+## HR Domain — Digital Personnel Files & Employee Documents (Milestone HR-3)
+
+### Overview
+The Employee Document Management module (`app/models/employee_document.py`, `app/services/employee_document.py`) implements digital personnel files linked to employee records. It reuses the centralized platform File Management service for binary storage while managing compliance metadata, document numbers, validity dates, verification status workflows (`Pending`, `Verified`, `Rejected`), and mandatory document enforcement.
+
+### Key Technical Capabilities
+- **Storage Provider Reuse**: Links existing `file_id` (FK to `File` model) to `employee_id`, avoiding duplicate storage logic or endpoints.
+- **Verification Workflow**: Dedicated verification (`PATCH /api/v1/employee-documents/{id}/verify`) and rejection (`PATCH /api/v1/employee-documents/{id}/reject`) endpoints recording verifier ID (`verified_by`), verification timestamp (`verified_at`), and verification notes.
+- **Mandatory & Expiry Controls**:
+  - Enforces single active mandatory document per category per employee (`exists_mandatory_document_type`).
+  - Validates `expiry_date >= issue_date`.
+  - Expiry querying interface (`get_expiring_documents`) for HR compliance audit reporting.
+- **Redis Caching Strategy**: Caches employee document lists (`employee_document:list:{employee_id}`) with automatic invalidation on any document mutation.
+- **Asynchronous Celery Notifications**: Dispatches `send_document_notification_task` for background event processing.
+- **RBAC & Audit Trail**: Protected by granular permissions (`employee_document.create`, `employee_document.read`, `employee_document.update`, `employee_document.delete`, `employee_document.verify`, `employee_document.restore`) and logs all document lifecycle events (`DOCUMENT_UPLOAD`, `DOCUMENT_VERIFY`, `DOCUMENT_REJECT`, etc.).
 
 ---
 
@@ -27,20 +45,6 @@ Chief Executive Officer (Root Manager)
     └── HR Operations Lead
 ```
 
-### Key Technical Capabilities
-- **Core Workforce Model**: Manages unique `employee_code`, `work_email`, employment contract type (`Full Time`, `Part Time`, `Contract`, `Intern`), lifecycle status (`Active`, `Probation`, `Notice Period`, `Suspended`, `Resigned`, `Terminated`), dates, department link, user link, and profile picture avatar.
-- **Reporting Hierarchy**: Self-referential `manager_id` relationship providing organizational reporting hierarchy trees (`GET /api/v1/employees/hierarchy`).
-- **Circular Reporting Safeguard**: `EmployeeService._validate_no_circular_manager` prevents self-management and circular manager reporting loops (e.g. A -> B -> C -> A).
-- **Active Department Constraint**: Verifies `department.is_active == True` and `department.is_deleted == False` before assigning employees.
-- **Redis Caching Strategy**: Caches hierarchy tree (`employee:hierarchy`) and department employee lists (`employee:department:{id}`). Automatic cache invalidation occurs on all mutation operations.
-- **Asynchronous Celery Notifications**: Dispatches `send_employee_notification_task` for background event processing.
-- **Audit & RBAC Enforcement**: Protected by permissions (`employee.create`, `employee.read`, `employee.update`, `employee.delete`, `employee.restore`) and logs all mutations (`EMPLOYEE_CREATE`, `EMPLOYEE_UPDATE`, `EMPLOYEE_DELETE`, `EMPLOYEE_RESTORE`).
-
-### Future HR Integration Points
-- **Attendance Module**: Will associate daily check-in/check-out time logs to `employee_id`.
-- **Leave Module**: Will handle leave applications, quota balances, and manager approvals using `employee_id` and `manager_id`.
-- **Payroll Module**: Will link salary structures, compensation components, and payslip generation to `employee_id`.
-
 ---
 
 ## HR Domain — Department Management Module (Milestone HR-1)
@@ -60,20 +64,20 @@ ApnaERP/
 │   │   ├── deps.py           # Dependency injection providers
 │   │   └── v1/               # API version 1 routers
 │   │       ├── api.py        # Master v1 router
-│   │       └── endpoints/    # Route handlers (audit, auth, departments, employees, files, health, notifications, rbac, root, templates)
+│   │       └── endpoints/    # Route handlers (audit, auth, departments, employee_documents, employees, files, health, notifications, rbac, root, templates)
 │   ├── core/                 # App configuration, logging, events, security, storage & Celery
 │   ├── db/                   # Database session and connection setup
-│   ├── models/               # SQLAlchemy ORM models (User, Role, AuditLog, File, Notification, Department, Employee, etc.)
-│   ├── repositories/         # Clean Architecture repository layer (DepartmentRepository, EmployeeRepository, etc.)
-│   ├── schemas/              # Pydantic v2 data models & validation (EmployeeCreate, EmployeeHierarchyResponse, etc.)
-│   ├── services/             # Clean Architecture business service layer (DepartmentService, EmployeeService, etc.)
-│   ├── tasks/                # Centralized Celery task registry (department_tasks, employee_tasks, system_tasks)
+│   ├── models/               # SQLAlchemy ORM models (User, Role, AuditLog, File, Notification, Department, Employee, EmployeeDocument, etc.)
+│   ├── repositories/         # Clean Architecture repository layer (DepartmentRepository, EmployeeRepository, EmployeeDocumentRepository, etc.)
+│   ├── schemas/              # Pydantic v2 data models & validation (EmployeeDocumentCreate, EmployeeDocumentResponse, etc.)
+│   ├── services/             # Clean Architecture business service layer (DepartmentService, EmployeeService, EmployeeDocumentService, etc.)
+│   ├── tasks/                # Centralized Celery task registry (department_tasks, employee_tasks, document_tasks, system_tasks)
 │   └── main.py               # FastAPI application entrypoint
 ├── docker/                   # Docker deployment configurations
 ├── docs/                     # Architecture Decision Records (ADRs)
-│   └── adr/                  # ADR documents (ADR-0001 Redis, ADR-0002 Celery, ADR-0003 Department, ADR-0004 Employee)
+│   └── adr/                  # ADR documents (ADR-0001 Redis, ADR-0002 Celery, ADR-0003 Department, ADR-0004 Employee, ADR-0005 Employee Documents)
 ├── workers/                  # Celery worker process entrypoints
-├── tests/                    # Pytest test suite (test_employees.py, test_departments.py, test_celery.py, etc.)
+├── tests/                    # Pytest test suite (test_employee_documents.py, test_employees.py, test_departments.py, test_celery.py, etc.)
 ├── uploads/                  # Local storage root directory
 ├── CHANGELOG.md              # Project release notes & changelog
 ├── requirements.txt          # Python production dependencies
@@ -86,6 +90,15 @@ ApnaERP/
 
 | HTTP Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/employee-documents` | Paginated list of employee documents | Yes (`employee_document.read`) |
+| `GET` | `/api/v1/employee-documents/{id}` | Get employee document details by ID | Yes (`employee_document.read`) |
+| `GET` | `/api/v1/employees/{employee_id}/documents` | Get all active documents for an employee | Yes (`employee_document.read`) |
+| `POST` | `/api/v1/employee-documents` | Link storage File ID as employee document | Yes (`employee_document.create`) |
+| `PUT` | `/api/v1/employee-documents/{id}` | Update document metadata or notes | Yes (`employee_document.update`) |
+| `DELETE` | `/api/v1/employee-documents/{id}` | Soft delete employee document | Yes (`employee_document.delete`) |
+| `PATCH` | `/api/v1/employee-documents/{id}/restore` | Restore soft-deleted employee document | Yes (`employee_document.restore`) |
+| `PATCH` | `/api/v1/employee-documents/{id}/verify` | Mark employee document as Verified | Yes (`employee_document.verify`) |
+| `PATCH` | `/api/v1/employee-documents/{id}/reject` | Mark employee document as Rejected | Yes (`employee_document.verify`) |
 | `GET` | `/api/v1/employees/hierarchy` | Retrieve manager reporting hierarchy tree | Yes (`employee.read`) |
 | `GET` | `/api/v1/employees/department/{id}` | Get employees assigned to a department | Yes (`employee.read`) |
 | `GET` | `/api/v1/employees` | Paginated list of employees | Yes (`employee.read`) |

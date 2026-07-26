@@ -22,12 +22,20 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Update Roles", "code": "roles.update", "description": "Permission to modify security roles", "module_name": "admin"},
     {"name": "Delete Roles", "code": "roles.delete", "description": "Permission to delete security roles", "module_name": "admin"},
 
-    # Employee Module Permissions (Singular code format required)
+    # Employee Module Permissions
     {"name": "Create Employee", "code": "employee.create", "description": "Permission to create employee records", "module_name": "hr"},
     {"name": "Read Employee", "code": "employee.read", "description": "Permission to view employee records", "module_name": "hr"},
     {"name": "Update Employee", "code": "employee.update", "description": "Permission to update employee records", "module_name": "hr"},
     {"name": "Delete Employee", "code": "employee.delete", "description": "Permission to remove employee records", "module_name": "hr"},
     {"name": "Restore Employee", "code": "employee.restore", "description": "Permission to restore deleted employee records", "module_name": "hr"},
+
+    # Employee Document Permissions
+    {"name": "Create Employee Document", "code": "employee_document.create", "description": "Permission to upload/link employee documents", "module_name": "hr"},
+    {"name": "Read Employee Document", "code": "employee_document.read", "description": "Permission to view employee documents", "module_name": "hr"},
+    {"name": "Update Employee Document", "code": "employee_document.update", "description": "Permission to update employee document details", "module_name": "hr"},
+    {"name": "Delete Employee Document", "code": "employee_document.delete", "description": "Permission to delete employee documents", "module_name": "hr"},
+    {"name": "Verify Employee Document", "code": "employee_document.verify", "description": "Permission to verify or reject employee documents", "module_name": "hr"},
+    {"name": "Restore Employee Document", "code": "employee_document.restore", "description": "Permission to restore deleted employee documents", "module_name": "hr"},
 
     # Departments
     {"name": "Create Department", "code": "department.create", "description": "Permission to create departments", "module_name": "hr"},
@@ -94,7 +102,7 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=super_admin_role.id, permission_id=perm_obj.id
             )
-        if hr_manager_role and (perm_code.startswith("department.") or perm_code.startswith("employee.")):
+        if hr_manager_role and (perm_code.startswith("department.") or perm_code.startswith("employee.") or perm_code.startswith("employee_document.")):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=hr_manager_role.id, permission_id=perm_obj.id
             )

@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.3.0] - 2026-07-26
 
+### Milestone HR-3 — Employee Documents & Digital Personnel Files
+
+#### Added
+- **EmployeeDocument ORM Model (`app/models/employee_document.py`)**: Digital personnel document model linking `Employee` and `File` entities, supporting document types (`Aadhaar`, `PAN`, `Passport`, `Driving License`, `Resume`, `Offer Letter`, `Contract`, `NDA`, etc.), verification status (`Pending`, `Verified`, `Rejected`), verifier user link, timestamps, notes, mandatory flags, and soft deletion.
+- **Pydantic v2 Schemas (`app/schemas/employee_document.py`)**: `EmployeeDocumentCreate`, `EmployeeDocumentUpdate`, `EmployeeDocumentResponse`, `EmployeeDocumentListResponse`, `DocumentVerifyRequest`, `DocumentRejectRequest`, `DocumentType`, and `VerificationStatus` Enums.
+- **EmployeeDocument Repository (`app/repositories/employee_document.py`)**: Extends `BaseRepository` with `get_by_employee`, `get_by_file`, `exists_mandatory_document_type`, and `get_expiring_documents`.
+- **EmployeeDocument Service Layer (`app/services/employee_document.py`)**: Business service implementing active employee and storage file validation, date sanity (`expiry_date >= issue_date`), duplicate mandatory document protection, verification and rejection workflows (`verify_document`, `reject_document`), Redis caching (`employee_document:list:{id}`), audit logging (`DOCUMENT_UPLOAD`, `DOCUMENT_VERIFY`, `DOCUMENT_REJECT`, etc.), and background Celery task dispatching.
+- **Background Notification Task (`app/tasks/document_tasks.py`)**: Asynchronous task (`send_document_notification_task`) processing document upload, verification, and rejection background notifications.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Added `employee_document.create`, `employee_document.read`, `employee_document.update`, `employee_document.delete`, `employee_document.verify`, `employee_document.restore` permissions bound to `Super Admin` and `HR Manager` roles.
+- **Employee Document API Router (`app/api/v1/endpoints/employee_documents.py`)**: RESTful endpoints (`GET /employee-documents`, `GET /employee-documents/{id}`, `GET /employees/{employee_id}/documents`, `POST /employee-documents`, `PUT /employee-documents/{id}`, `DELETE /employee-documents/{id}`, `PATCH /employee-documents/{id}/restore`, `PATCH /employee-documents/{id}/verify`, `PATCH /employee-documents/{id}/reject`).
+- **Database Migration (`alembic/versions/903d8105712c_phase_hr3_implement_employee_documents_.py`)**: Applied migration for `employee_documents` table.
+- **Architecture Decision Record (`docs/adr/ADR-0005-employee-documents.md`)**: Documented digital personnel files architecture, verification workflow, and storage provider reuse.
+- **Test Suite (`tests/test_employee_documents.py`)**: Built comprehensive pytest test suite verifying repository methods, service validations, verification/rejection workflow, mandatory document check, Redis caching, Celery tasks, RBAC, and API endpoints.
+
+---
+
 ### Milestone HR-2 — Enterprise Employee Domain (Core)
 
 #### Added
