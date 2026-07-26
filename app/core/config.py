@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     # Celery Configuration
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    CELERY_TIMEZONE: str = "UTC"
+    CELERY_WORKER_CONCURRENCY: int = 4
+    CELERY_TASK_SERIALIZER: str = "json"
+    CELERY_RESULT_SERIALIZER: str = "json"
+    CELERY_ACCEPT_CONTENT: List[str] = ["json"]
+    CELERY_TASK_ALWAYS_EAGER: bool = False
 
     # File & Document Storage Configuration
     UPLOAD_DIR: str = "uploads"
