@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import audit, auth, departments, files, health, notifications, rbac, root, templates
+from app.api.v1.endpoints import audit, auth, departments, employees, files, health, notifications, rbac, root, templates
 
 api_router = APIRouter()
 
@@ -13,3 +13,4 @@ api_router.include_router(files.router, prefix="", tags=["File & Document Manage
 api_router.include_router(notifications.router, prefix="", tags=["Notification System"])
 api_router.include_router(templates.router, prefix="", tags=["Notification Templates"])
 api_router.include_router(departments.router, prefix="/departments", tags=["Department Management"])
+api_router.include_router(employees.router, prefix="/employees", tags=["Employee Management"])
