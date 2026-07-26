@@ -7,6 +7,7 @@ from app.api.v1.endpoints import auth, health, rbac, root
 from app.core.config import settings
 from app.core.events import lifespan
 from app.core.logging import setup_logging
+from app.exceptions.handlers import register_exception_handlers
 from app.middleware.logging_middleware import RequestLoggingMiddleware
 
 # Initialize structured logging configuration
@@ -22,6 +23,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# Register Exception Handlers
+register_exception_handlers(app)
 
 # Set up CORS Middleware
 if settings.ALLOWED_ORIGINS:

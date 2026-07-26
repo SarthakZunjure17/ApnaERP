@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, func
+from typing import Optional
+from sqlalchemy import Boolean, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,4 +36,24 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
         comment="Record last update timestamp (UTC)",
+    )
+
+
+class SoftDeleteMixin:
+    """
+    Mixin providing soft delete capability (is_deleted flag and deleted_at timestamp).
+    """
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
+        index=True,
+        comment="Soft deletion flag",
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        comment="Timestamp when record was soft-deleted (UTC)",
     )
