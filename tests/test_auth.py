@@ -1,3 +1,4 @@
+import uuid
 import pytest
 from httpx import AsyncClient
 
@@ -7,10 +8,11 @@ async def test_register_user_success(async_client: AsyncClient):
     """
     Test successful user registration.
     """
+    unique_id = str(uuid.uuid4())[:8]
     payload = {
         "full_name": "Test User",
-        "email": "testuser@example.com",
-        "username": "testuser",
+        "email": f"testuser_{unique_id}@example.com",
+        "username": f"testuser_{unique_id}",
         "password": "SecurePassword123!",
     }
     response = await async_client.post("/auth/register", json=payload)
@@ -29,18 +31,19 @@ async def test_register_duplicate_email(async_client: AsyncClient):
     """
     Test registration fails when email is already registered.
     """
+    unique_id = str(uuid.uuid4())[:8]
     payload1 = {
         "full_name": "User One",
-        "email": "duplicate@example.com",
-        "username": "userone",
+        "email": f"duplicate_{unique_id}@example.com",
+        "username": f"userone_{unique_id}",
         "password": "Password123!",
     }
     await async_client.post("/auth/register", json=payload1)
 
     payload2 = {
         "full_name": "User Two",
-        "email": "duplicate@example.com",
-        "username": "usertwo",
+        "email": f"duplicate_{unique_id}@example.com",
+        "username": f"usertwo_{unique_id}",
         "password": "Password123!",
     }
     response = await async_client.post("/auth/register", json=payload2)
@@ -53,18 +56,19 @@ async def test_register_duplicate_username(async_client: AsyncClient):
     """
     Test registration fails when username is already taken.
     """
+    unique_id = str(uuid.uuid4())[:8]
     payload1 = {
         "full_name": "Unique Email One",
-        "email": "unique1@example.com",
-        "username": "sameusername",
+        "email": f"unique1_{unique_id}@example.com",
+        "username": f"sameusername_{unique_id}",
         "password": "Password123!",
     }
     await async_client.post("/auth/register", json=payload1)
 
     payload2 = {
         "full_name": "Unique Email Two",
-        "email": "unique2@example.com",
-        "username": "sameusername",
+        "email": f"unique2_{unique_id}@example.com",
+        "username": f"sameusername_{unique_id}",
         "password": "Password123!",
     }
     response = await async_client.post("/auth/register", json=payload2)
@@ -77,16 +81,17 @@ async def test_login_success(async_client: AsyncClient):
     """
     Test successful login returning JWT access and refresh tokens.
     """
+    unique_id = str(uuid.uuid4())[:8]
     reg_payload = {
         "full_name": "Login User",
-        "email": "loginuser@example.com",
-        "username": "loginuser",
+        "email": f"loginuser_{unique_id}@example.com",
+        "username": f"loginuser_{unique_id}",
         "password": "CorrectPassword123!",
     }
     await async_client.post("/auth/register", json=reg_payload)
 
     login_payload = {
-        "username_or_email": "loginuser@example.com",
+        "username_or_email": f"loginuser_{unique_id}@example.com",
         "password": "CorrectPassword123!",
     }
     response = await async_client.post("/auth/login", json=login_payload)
@@ -102,16 +107,17 @@ async def test_login_invalid_password(async_client: AsyncClient):
     """
     Test login fails with incorrect password.
     """
+    unique_id = str(uuid.uuid4())[:8]
     reg_payload = {
         "full_name": "Wrong Pass User",
-        "email": "wrongpass@example.com",
-        "username": "wrongpassuser",
+        "email": f"wrongpass_{unique_id}@example.com",
+        "username": f"wrongpassuser_{unique_id}",
         "password": "RightPassword123!",
     }
     await async_client.post("/auth/register", json=reg_payload)
 
     login_payload = {
-        "username_or_email": "wrongpassuser",
+        "username_or_email": f"wrongpassuser_{unique_id}",
         "password": "WrongPassword123!",
     }
     response = await async_client.post("/auth/login", json=login_payload)
@@ -124,16 +130,17 @@ async def test_refresh_token_success(async_client: AsyncClient):
     """
     Test refreshing access token using valid refresh token.
     """
+    unique_id = str(uuid.uuid4())[:8]
     reg_payload = {
         "full_name": "Refresh User",
-        "email": "refreshuser@example.com",
-        "username": "refreshuser",
+        "email": f"refreshuser_{unique_id}@example.com",
+        "username": f"refreshuser_{unique_id}",
         "password": "Password123!",
     }
     await async_client.post("/auth/register", json=reg_payload)
 
     login_resp = await async_client.post("/auth/login", json={
-        "username_or_email": "refreshuser",
+        "username_or_email": f"refreshuser_{unique_id}",
         "password": "Password123!",
     })
     tokens = login_resp.json()
@@ -151,27 +158,27 @@ async def test_get_current_user_me(async_client: AsyncClient):
     """
     Test protected GET /auth/me endpoint returning current user details when authorized.
     """
+    unique_id = str(uuid.uuid4())[:8]
     reg_payload = {
         "full_name": "Me Endpoint User",
-        "email": "meuser@example.com",
-        "username": "meuser",
+        "email": f"meuser_{unique_id}@example.com",
+        "username": f"meuser_{unique_id}",
         "password": "Password123!",
     }
     await async_client.post("/auth/register", json=reg_payload)
 
     login_resp = await async_client.post("/auth/login", json={
-        "username_or_email": "meuser",
+        "username_or_email": f"meuser_{unique_id}",
         "password": "Password123!",
     })
     access_token = login_resp.json()["access_token"]
 
-    # Request /auth/me with Bearer token header
     headers = {"Authorization": f"Bearer {access_token}"}
     me_resp = await async_client.get("/auth/me", headers=headers)
     assert me_resp.status_code == 200
     me_data = me_resp.json()
-    assert me_data["username"] == "meuser"
-    assert me_data["email"] == "meuser@example.com"
+    assert me_data["username"] == f"meuser_{unique_id}"
+    assert me_data["email"] == f"meuser_{unique_id}@example.com"
 
 
 @pytest.mark.asyncio

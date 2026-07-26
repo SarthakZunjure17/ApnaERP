@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.db.mixins import TimestampMixin, UUIDMixin
 
@@ -52,6 +52,13 @@ class User(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True),
         nullable=True,
         comment="Timestamp of user's last successful login",
+    )
+
+    # Relationships
+    roles: Mapped[List["Role"]] = relationship(
+        "Role",
+        secondary="user_roles",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:
