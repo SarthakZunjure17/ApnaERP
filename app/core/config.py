@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,6 +76,15 @@ class Settings(BaseSettings):
         "application/x-zip-compressed",
         "application/octet-stream",
     ]
+
+    # SMTP & Email Configuration
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    EMAILS_FROM_EMAIL: str = "noreply@apnaerp.com"
+    EMAILS_FROM_NAME: str = "ApnaERP System"
+    SMTP_TLS: bool = True
 
     @property
     def max_upload_size_bytes(self) -> int:

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.v1.api import api_router
-from app.api.v1.endpoints import audit, auth, files, health, rbac, root
+from app.api.v1.endpoints import audit, auth, files, health, notifications, rbac, root, templates
 from app.core.config import settings
 from app.core.events import lifespan
 from app.core.logging import setup_logging
@@ -47,13 +47,15 @@ app.add_middleware(RequestLoggingMiddleware)
 # Prometheus Metrics Instrumentation
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
-# Register Root, Health, Auth, RBAC, Audit, and Files endpoints at top-level
+# Register top-level routers
 app.include_router(root.router)
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(rbac.router, prefix="", tags=["Role-Based Access Control"])
 app.include_router(audit.router, prefix="", tags=["Audit Logging"])
 app.include_router(files.router, prefix="", tags=["File & Document Management"])
+app.include_router(notifications.router, prefix="", tags=["Notification System"])
+app.include_router(templates.router, prefix="", tags=["Notification Templates"])
 
 # Register API v1 router
 app.include_router(api_router, prefix=settings.API_V1_STR)
