@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.config import settings
+from app.core.redis import redis_manager
 from app.db.seed_rbac import seed_rbac_data
 from app.db.session import AsyncSessionLocal, engine
 
@@ -15,6 +16,14 @@ async def lifespan(app: FastAPI):
     """
     # Startup tasks
     logger.info(f"Starting {settings.PROJECT_NAME} (v{settings.VERSION}) in [{settings.ENV}] mode...")
+    
+    # 1. Initialize Redis Infrastructure
+    try:
+        await redis_manager.init_redis()
+    except Exception as exc:
+        logger.warning(f"Redis initialization warning: {exc}")
+
+    # 2. Check RBAC Seed Data
     try:
         async with AsyncSessionLocal() as session:
             await seed_rbac_data(session)
@@ -26,5 +35,6 @@ async def lifespan(app: FastAPI):
     
     # Shutdown tasks
     logger.info(f"Shutting down {settings.PROJECT_NAME} gracefully...")
+    await redis_manager.close_redis()
     await engine.dispose()
-    logger.info("Database engine connections closed.")
+    logger.info("Database engine & Redis connections closed cleanly.")

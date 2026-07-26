@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # General Project Metadata
     PROJECT_NAME: str = "ApnaERP"
-    VERSION: str = "0.1.0"
+    VERSION: str = "0.2.0"
     API_V1_STR: str = "/api/v1"
     ENV: str = "development"
     DEBUG: bool = True
@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_URL: Optional[str] = None
+    REDIS_SOCKET_TIMEOUT: float = 5.0
+    REDIS_MAX_CONNECTIONS: int = 20
+    REDIS_RETRY_ON_TIMEOUT: bool = True
 
     # Celery Configuration
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
@@ -100,6 +105,10 @@ class Settings(BaseSettings):
 
     @property
     def redis_url(self) -> str:
+        if self.REDIS_URL:
+            return self.REDIS_URL
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
 
