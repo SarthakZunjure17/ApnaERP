@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.3.0] - 2026-07-26
 
+### Milestone HR-5 — HR Configuration & Organization Policies
+
+#### Added
+- **HRConfiguration ORM Model (`app/models/hr_configuration.py`)**: Centralized organization-wide policy model storing organization name, organization code, IANA timezone, country, currency ISO code, standard daily working hours, standard weekly working days, weekend configuration JSON, default shift name, grace period minutes, minimum working hours for half-day credit, default probation period days, leave year start month, payroll cycle frequency (`Monthly`, `Biweekly`, `Weekly`), fiscal year start month, active status flag, and soft deletion.
+- **Pydantic v2 Schemas (`app/schemas/hr_configuration.py`)**: `PayrollCycle` Enum, `HRConfigurationCreate`, `HRConfigurationUpdate`, `HRConfigurationResponse`, `HRConfigurationListResponse`.
+- **HRConfiguration Repository (`app/repositories/hr_configuration.py`)**: Extends `BaseRepository` with `get_active_configuration`, `get_by_organization_code`, and `deactivate_all_active_configurations`.
+- **HRConfiguration Service Layer (`app/services/hr_configuration.py`)**: Business service implementing IANA timezone validation (`zoneinfo`), weekend day name checks, working hours sanity checks (`minimum_working_hours <= standard_working_hours_per_day`), currency ISO validation, singleton active configuration enforcement (deactivates previous active configuration when activating a new policy), active policy deletion guard (`ACTIVE_CONFIG_DELETION_PROHIBITED`), Redis caching (`hr_configuration:active`), audit logging (`HR_CONFIG_CREATE`, `HR_CONFIG_UPDATE`, `HR_CONFIG_ACTIVATE`, `HR_CONFIG_DELETE`, `HR_CONFIG_RESTORE`), and Celery telemetry.
+- **Background Notification Task (`app/tasks/hr_config_tasks.py`)**: Asynchronous Celery task (`send_hr_config_notification_task`) processing HR configuration creation, update, and activation events.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Added permissions `hr_configuration.read`, `hr_configuration.create`, `hr_configuration.update`, `hr_configuration.activate`, `hr_configuration.delete`, `hr_configuration.restore` bound to `Super Admin` and `HR Manager` roles.
+- **HR Configuration API Router (`app/api/v1/endpoints/hr_configurations.py`)**: RESTful endpoints (`GET /hr/configuration`, `GET /hr/configurations/{id}`, `POST /hr/configuration`, `PUT /hr/configuration/{id}`, `PATCH /hr/configuration/{id}/activate`, `DELETE /hr/configuration/{id}`, `PATCH /hr/configuration/{id}/restore`).
+- **Database Migration (`alembic/versions/f3515986f924_phase_hr5_implement_hr_configurations_.py`)**: Applied database migration for `hr_configurations` table.
+- **Architecture Decision Record (`docs/adr/ADR-0007-hr-configuration.md`)**: Documented single source of truth architecture, singleton active policy pattern, active deletion guard, and integration contracts for future HR modules (Attendance, Leave, Payroll, Recruitment, Performance, Shift Scheduling).
+- **Test Suite (`tests/test_hr_configurations.py`)**: Comprehensive pytest test suite validating repository methods, service validations, singleton active enforcement, active policy deletion guard, REST API endpoints, RBAC authorization, audit logging, Redis caching, Celery telemetry, and full regression across all 80+ platform tests.
+
+---
+
 ### Milestone HR-4 — Job Positions & Employment Structure
 
 #### Added

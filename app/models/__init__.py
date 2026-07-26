@@ -9,6 +9,7 @@ from app.models.department import Department
 from app.models.employee import Employee
 from app.models.employee_document import EmployeeDocument
 from app.models.position import Position
+from app.models.hr_configuration import HRConfiguration
 
 __all__ = [
     "User",
@@ -24,4 +25,5 @@ __all__ = [
     "Employee",
     "EmployeeDocument",
     "Position",
+    "HRConfiguration",
 ]

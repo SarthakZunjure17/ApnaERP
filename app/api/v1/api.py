@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     employees,
     files,
     health,
+    hr_configurations,
     notifications,
     positions,
     rbac,
@@ -29,3 +30,4 @@ api_router.include_router(departments.router, prefix="/departments", tags=["Depa
 api_router.include_router(employees.router, prefix="/employees", tags=["Employee Management"])
 api_router.include_router(employee_documents.router, prefix="", tags=["Employee Document Management"])
 api_router.include_router(positions.router, prefix="", tags=["Position Management"])
+api_router.include_router(hr_configurations.router, prefix="", tags=["HR Configuration & Policies"])

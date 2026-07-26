@@ -44,6 +44,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Position", "code": "position.delete", "description": "Permission to remove job position definitions", "module_name": "hr"},
     {"name": "Restore Position", "code": "position.restore", "description": "Permission to restore soft-deleted job positions", "module_name": "hr"},
 
+    # HR Configuration & Organization Policy Permissions
+    {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
+    {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},
+    {"name": "Update HR Configuration", "code": "hr_configuration.update", "description": "Permission to update organization HR policies", "module_name": "hr"},
+    {"name": "Activate HR Configuration", "code": "hr_configuration.activate", "description": "Permission to activate organization HR policies", "module_name": "hr"},
+    {"name": "Delete HR Configuration", "code": "hr_configuration.delete", "description": "Permission to delete organization HR policies", "module_name": "hr"},
+    {"name": "Restore HR Configuration", "code": "hr_configuration.restore", "description": "Permission to restore deleted organization HR policies", "module_name": "hr"},
+
     # Departments
     {"name": "Create Department", "code": "department.create", "description": "Permission to create departments", "module_name": "hr"},
     {"name": "Read Department", "code": "department.read", "description": "Permission to view departments", "module_name": "hr"},
@@ -109,7 +117,13 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=super_admin_role.id, permission_id=perm_obj.id
             )
-        if hr_manager_role and (perm_code.startswith("department.") or perm_code.startswith("employee.") or perm_code.startswith("employee_document.") or perm_code.startswith("position.")):
+        if hr_manager_role and (
+            perm_code.startswith("department.")
+            or perm_code.startswith("employee.")
+            or perm_code.startswith("employee_document.")
+            or perm_code.startswith("position.")
+            or perm_code.startswith("hr_configuration.")
+        ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=hr_manager_role.id, permission_id=perm_obj.id
             )
