@@ -1,4 +1,3 @@
-"""
-SQLAlchemy ORM models package.
-No database models are implemented in Phase 0.
-"""
+from app.models.user import User
+
+__all__ = ["User"]

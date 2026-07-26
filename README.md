@@ -5,22 +5,21 @@
 [![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00.svg?style=flat&logo=sqlalchemy&logoColor=white)](https://www.sqlalchemy.org/)
 [![Pydantic v2](https://img.shields.io/badge/Pydantic-v2-E92063.svg?style=flat&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, and Docker.
 
 ---
 
 ## Technical Architecture & Core Principles
 
 - **Repository Pattern**: Decouples domain logic from database access mechanisms (`app/repositories/`).
-- **Service Layer**: Encapsulates business processes and domain validation (`app/services/`).
-- **Dependency Injection**: Utilizes FastAPI's native `Depends` system for runtime dependency binding.
+- **Service Layer**: Encapsulates business processes, authentication rules, and validation (`app/services/`).
+- **Dependency Injection**: Utilizes FastAPI's native `Depends` system for DB sessions and JWT user authentication (`app/api/deps.py`).
+- **JWT & Bcrypt Security**: State-of-the-art JWT access/refresh tokens with bcrypt password hashing (`app/core/security.py`).
 - **SQLAlchemy 2.0 Typed ORM**: Declarative base models with explicit PostgreSQL constraint naming conventions (`app/db/base.py`).
-- **Timestamp & UUID Mixins**: Standardized `UUIDMixin` (v4 primary keys) and `TimestampMixin` (`created_at`, `updated_at` with UTC timezone support) in `app/db/mixins.py`.
+- **Timestamp & UUID Mixins**: Standardized `UUIDMixin` (v4 primary keys) and `TimestampMixin` (`created_at`, `updated_at` with UTC timezone support).
 - **Alembic Migrations**: Fully configured transactional database schema migrations (`alembic/`).
 - **Pydantic v2**: High-performance data validation and configuration management (`pydantic-settings`).
 - **Clean Architecture & SOLID**: Layered separation of concerns with clear domain boundaries.
-- **Structured Logging**: Standardized JSON/console request and event logging (`app/core/logging.py`).
-- **Prometheus & Grafana**: Built-in metrics instrumentation (`/metrics`).
 
 ---
 
@@ -30,52 +29,49 @@ ApnaERP is a production-grade, modular, high-performance Enterprise Resource Pla
 ApnaERP/
 ├── alembic/                  # Alembic database migrations
 │   ├── env.py                # Migration runtime environment
-│   ├── script.py.mako        # Revision script template
-│   └── versions/             # Database migration revisions
+│   └── versions/             # Migration revision scripts (users table)
 ├── app/                      # Application source code
 │   ├── api/                  # API endpoints and dependency injection
-│   │   ├── deps.py           # Dependency injection providers (get_db)
+│   │   ├── deps.py           # Dependency injection providers (get_db, get_current_user)
 │   │   └── v1/               # API version 1 routers
 │   │       ├── api.py        # Master v1 router
-│   │       └── endpoints/    # Route handlers (health, root, etc.)
-│   ├── core/                 # App configuration, logging, and events
-│   │   ├── config.py         # Pydantic v2 Settings configuration
+│   │       └── endpoints/    # Route handlers (auth, health, root)
+│   ├── core/                 # App configuration, logging, events & security
+│   │   ├── config.py         # Pydantic v2 Settings (JWT secrets, DB, Redis)
 │   │   ├── events.py         # FastAPI lifespan context manager
-│   │   └── logging.py        # Structured logging setup
+│   │   ├── logging.py        # Structured logging setup
+│   │   └── security.py       # Bcrypt hashing & JWT token management
 │   ├── db/                   # Database session and connection setup
 │   │   ├── base.py           # DeclarativeBase & constraint naming conventions
 │   │   ├── mixins.py         # UUIDMixin and TimestampMixin
-│   │   └── session.py        # SQLAlchemy 2.0 async engine & session factory
+│   │   └── session.py        # Async & Sync SQLAlchemy session factories
 │   ├── middleware/           # FastAPI request timing & CORS middleware
 │   │   └── logging_middleware.py
-│   ├── models/               # SQLAlchemy ORM models package
-│   ├── repositories/         # Clean Architecture base repository interface
-│   │   └── base.py           # Generic BaseRepository[Model, CreateSchema, UpdateSchema]
+│   ├── models/               # SQLAlchemy ORM models
+│   │   └── user.py           # User ORM model
+│   ├── repositories/         # Clean Architecture repository layer
+│   │   ├── base.py           # Generic BaseRepository interface
+│   │   └── user.py           # UserRepository implementation
 │   ├── schemas/              # Pydantic v2 data models & validation
-│   │   └── health.py         # System & database health response schemas
-│   ├── services/             # Clean Architecture base service layer
-│   │   └── base.py           # Generic BaseService contract
-│   ├── utils/                # Helper utilities and common tools
-│   │   └── helpers.py        # Utility helper functions
-│   ├── workers/              # Celery background task worker initialization
-│   │   └── celery_app.py     # Celery app configuration
+│   │   ├── auth.py           # Token & auth request schemas
+│   │   ├── health.py         # Health check schemas
+│   │   └── user.py           # User create/response/update schemas
+│   ├── services/             # Clean Architecture business service layer
+│   │   ├── base.py           # Generic BaseService contract
+│   │   └── auth.py           # AuthService implementation
+│   ├── utils/                # Helper utilities
 │   └── main.py               # FastAPI application entrypoint
 ├── docker/                   # Docker deployment configurations
 │   ├── Dockerfile            # Container build instructions
-│   ├── docker-compose.yml    # Multi-service stack (API, DB, Redis, Celery, Prometheus)
-│   └── entrypoint.sh         # Container startup script
-├── docs/                     # Documentation and phase specifications
-│   ├── ARCHITECTURE.md       # Architecture design document
-│   └── PHASE_0.md            # Phase 0 foundation document
+│   └── docker-compose.yml    # Multi-service stack (API, DB, Redis, Celery, Prometheus)
 ├── scripts/                  # Shell launcher scripts
-│   └── run.sh                # Server launcher script
 ├── tests/                    # Pytest test suite
-│   ├── conftest.py           # Pytest fixtures and AsyncClient setup
+│   ├── conftest.py           # Pytest fixtures and DB auto-setup
+│   ├── test_auth.py          # Authentication & User Management unit tests
 │   ├── test_db_health.py     # Database connectivity tests
 │   ├── test_health.py        # Health endpoint tests
 │   └── test_root.py          # Root endpoint tests
 ├── .env.example              # Environment variables template
-├── .gitignore                # Git ignore rules
 ├── alembic.ini               # Alembic configuration
 ├── requirements.txt          # Python production dependencies
 └── README.md                 # Project documentation
@@ -83,118 +79,109 @@ ApnaERP/
 
 ---
 
-## Environment Setup & Quick Start
+## Authentication Flow & Security Architecture
 
-### 1. Prerequisites
-- Python 3.10+
-- Docker & Docker Compose
-- Git
+ApnaERP uses **JSON Web Tokens (JWT)** with **Bcrypt** password hashing for secure authentication:
 
-### 2. Virtual Environment Setup
+1. **User Registration (`POST /auth/register`)**:
+   - Accepts full name, unique email, unique username, and password.
+   - Hashes password using `bcrypt` before database insertion.
 
-Clone the repository and create a Python virtual environment:
+2. **User Login (`POST /auth/login`)**:
+   - Accepts username or email along with plain password.
+   - Verifies credentials and generates a pair of signed JWTs:
+     - **Access Token**: Short-lived token (default: 30 minutes) used for API authorization.
+     - **Refresh Token**: Long-lived token (default: 7 days) used to obtain new access tokens.
+   - Updates `last_login` timestamp.
 
-```bash
-# Create virtual environment
-python -m venv .venv
+3. **Protected Endpoints (`GET /auth/me`)**:
+   - Requires HTTP `Authorization: Bearer <access_token>` header.
+   - Decodes JWT, validates signature, expiration (`exp`), and token type (`access`).
+   - Retrieves active user profile from database.
 
-# Activate virtual environment
-# On Windows (PowerShell):
-.\.venv\Scripts\Activate.ps1
-# On Linux/macOS:
-source .venv/bin/activate
-```
+4. **Token Refresh (`POST /auth/refresh`)**:
+   - Accepts `refresh_token`.
+   - Validates refresh token type and generates a fresh Access Token pair.
 
-Copy the environment template file:
+---
 
-```bash
-cp .env.example .env
-```
+## Environment & JWT Configuration
 
-Install dependencies:
+Configure the following variables in `.env`:
 
-```bash
-pip install -r requirements.txt
+```env
+# Security & JWT Configuration
+SECRET_KEY="09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# PostgreSQL Database Configuration
+POSTGRES_SERVER="localhost"
+POSTGRES_PORT=5432
+POSTGRES_USER="apnaerp_user"
+POSTGRES_PASSWORD="apnaerp_password"
+POSTGRES_DB="apnaerp_db"
 ```
 
 ---
 
-## Database Management & Migrations
+## Example API Requests (cURL)
 
-### 1. Starting PostgreSQL with Docker Compose
-
-Start the PostgreSQL database container in detached mode:
-
+### 1. Register User
 ```bash
-docker compose -f docker/docker-compose.yml up -d db
+curl -X 'POST' \
+  'http://127.0.0.1:8000/auth/register' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "email": "john.doe@example.com",
+  "username": "johndoe",
+  "full_name": "John Doe",
+  "password": "SecurePassword123!"
+}'
 ```
 
-To stop the PostgreSQL container:
-
+### 2. Login & Obtain Tokens
 ```bash
-docker compose -f docker/docker-compose.yml stop db
+curl -X 'POST' \
+  'http://127.0.0.1:8000/auth/login' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "username_or_email": "john.doe@example.com",
+  "password": "SecurePassword123!"
+}'
 ```
 
-### 2. Running Alembic Migrations
-
-To apply all pending database migrations to PostgreSQL:
-
+### 3. Access Protected Profile (`GET /auth/me`)
 ```bash
-alembic upgrade head
+curl -X 'GET' \
+  'http://127.0.0.1:8000/auth/me' \
+  -H 'Authorization: Bearer <YOUR_ACCESS_TOKEN>'
 ```
 
-To roll back the last applied migration:
-
+### 4. Refresh Token
 ```bash
-alembic downgrade -1
-```
-
-To generate a new auto-detected migration after creating ORM models:
-
-```bash
-alembic revision --autogenerate -m "Add new model"
+curl -X 'POST' \
+  'http://127.0.0.1:8000/auth/refresh' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "refresh_token": "<YOUR_REFRESH_TOKEN>"
+}'
 ```
 
 ---
 
-## Launching the Application
+## API Endpoints Overview
 
-Launch the FastAPI development server with hot-reloading:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Or run directly via Python:
-
-```bash
-python -m app.main
-```
-
-The API server will start at: `http://127.0.0.1:8000`
-
----
-
-## Interactive API Documentation (Swagger & ReDoc)
-
-Once the application is running, access the documentation at:
-
-- **Swagger UI**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc**: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
-- **OpenAPI JSON**: [http://127.0.0.1:8000/api/v1/openapi.json](http://127.0.0.1:8000/api/v1/openapi.json)
-- **Prometheus Metrics**: [http://127.0.0.1:8000/metrics](http://127.0.0.1:8000/metrics)
-
----
-
-## API Health Check Endpoints
-
-| HTTP Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/` | Root endpoint returning API metadata |
-| `GET` | `/health` | Overall system health including DB status |
-| `GET` | `/health/db` | Dedicated PostgreSQL live `SELECT 1` connectivity check |
-| `GET` | `/api/v1/health/db` | Dedicated PostgreSQL live connectivity check (v1 API) |
-| `GET` | `/metrics` | Prometheus metrics endpoint |
+| HTTP Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/register` | Register new user account | No |
+| `POST` | `/auth/login` | Login with username/email & password | No |
+| `POST` | `/auth/refresh` | Exchange refresh token for new access token | No |
+| `POST` | `/auth/logout` | Logout user session | Yes (Bearer) |
+| `GET` | `/auth/me` | Get current authenticated user profile | Yes (Bearer) |
+| `GET` | `/health` | System health check | No |
+| `GET` | `/health/db` | Database connectivity health check | No |
 
 ---
 
@@ -205,23 +192,6 @@ Run the full automated test suite using `pytest`:
 ```bash
 pytest
 ```
-
----
-
-## Common Troubleshooting Tips
-
-1. **Database Connection Refused (`connection to server at "localhost", port 5432 failed`)**:
-   - Ensure the PostgreSQL Docker container is running: `docker compose -f docker/docker-compose.yml ps`.
-   - Start the database container: `docker compose -f docker/docker-compose.yml up -d db`.
-   - Verify environment variables in `.env` match `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and `POSTGRES_PORT`.
-
-2. **Alembic Migration Conflicts (`Target database is not up to date`)**:
-   - Run `alembic heads` to check head revisions.
-   - Run `alembic upgrade head` to bring your database schema up to the latest revision.
-
-3. **ModuleNotFoundError when running scripts**:
-   - Ensure your virtual environment `.venv` is activated.
-   - Set `PYTHONPATH=.` if running standalone scripts outside of `pytest` or `uvicorn`.
 
 ---
 

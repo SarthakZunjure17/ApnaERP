@@ -1,7 +1,19 @@
 from typing import AsyncGenerator
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from app.db.base import Base
+from app.db.session import sync_engine
 from app.main import app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_database():
+    """
+    Session-wide fixture ensuring database tables exist before test execution.
+    """
+    Base.metadata.create_all(bind=sync_engine)
+    yield
 
 
 @pytest_asyncio.fixture
