@@ -94,6 +94,15 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Reject Leave Request", "code": "leave_request.reject", "description": "Permission to reject employee leave requests", "module_name": "hr"},
     {"name": "Cancel Leave Request", "code": "leave_request.cancel", "description": "Permission to cancel leave request applications", "module_name": "hr"},
 
+    # Platform Approval Engine Permissions
+    {"name": "Create Workflow Definition", "code": "workflow.create", "description": "Permission to create approval workflow definitions", "module_name": "platform"},
+    {"name": "Read Workflow Definition", "code": "workflow.read", "description": "Permission to view approval workflow definitions", "module_name": "platform"},
+    {"name": "Update Workflow Definition", "code": "workflow.update", "description": "Permission to update approval workflow definitions", "module_name": "platform"},
+    {"name": "Delete Workflow Definition", "code": "workflow.delete", "description": "Permission to delete approval workflow definitions", "module_name": "platform"},
+    {"name": "Read Approval Request", "code": "approval.read", "description": "Permission to view approval requests and histories", "module_name": "platform"},
+    {"name": "Approve Approval Step", "code": "approval.approve", "description": "Permission to approve steps in approval requests", "module_name": "platform"},
+    {"name": "Reject Approval Step", "code": "approval.reject", "description": "Permission to reject approval requests", "module_name": "platform"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

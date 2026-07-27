@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
+    approval,
     attendance,
     audit,
     auth,
@@ -45,3 +46,4 @@ api_router.include_router(attendance.router, prefix="/attendance", tags=["Enterp
 api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Enterprise Leave Types & Policies"])
 api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Enterprise Leave Balance Management"])
 api_router.include_router(leave_request.router, prefix="/leave-requests", tags=["Enterprise Leave Request Workflow"])
+api_router.include_router(approval.router, prefix="", tags=["Enterprise Approval Engine"])

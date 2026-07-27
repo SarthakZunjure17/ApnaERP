@@ -42,7 +42,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         query = select(self.model).where(getattr(self.model, "id") == id)
         query = self._apply_soft_delete_filter(query, include_deleted=include_deleted)
         result = await db.execute(query)
-        return result.scalars().first()
+        return result.unique().scalars().first()
 
     async def get_all(
         self,
@@ -60,7 +60,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         query = self._apply_soft_delete_filter(query, include_deleted=include_deleted)
         query = query.offset(skip).limit(limit)
         result = await db.execute(query)
-        return list(result.scalars().all())
+        return list(result.unique().scalars().all())
 
     async def get_multi_paginated(
         self,
@@ -94,7 +94,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         paginated_query = paginated_query.offset(params.offset).limit(params.page_size)
 
         result = await db.execute(paginated_query)
-        items = list(result.scalars().all())
+        items = list(result.unique().scalars().all())
 
         return PaginatedResult(
             items=items,

@@ -17,6 +17,12 @@ from app.models.shift_assignment import ShiftAssignment
 from app.models.leave_type import LeaveType
 from app.models.leave_balance import LeaveBalance
 from app.models.leave_request import LeaveRequest
+from app.models.approval_workflow import (
+    ApprovalWorkflow,
+    ApprovalStep,
+    ApprovalRequest,
+    ApprovalHistory,
+)
 
 __all__ = [
     "User",
@@ -40,4 +46,8 @@ __all__ = [
     "LeaveType",
     "LeaveBalance",
     "LeaveRequest",
+    "ApprovalWorkflow",
+    "ApprovalStep",
+    "ApprovalRequest",
+    "ApprovalHistory",
 ]

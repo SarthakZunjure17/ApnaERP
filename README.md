@@ -8,6 +8,27 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## Platform Domain — Enterprise Approval Workflow Engine (Milestone Platform v0.4.5)
+
+### Overview
+The Enterprise Approval Workflow Engine (`app/models/approval_workflow.py`, `app/services/approval_engine.py`) provides a generic, domain-agnostic, reusable multi-step approval framework at the Platform layer. Any business domain module (Leave, Expense, Purchase Orders, Assets, Payroll, Inventory) plugs into this engine using `entity_type` and `entity_id`.
+
+### Key Technical Capabilities
+- **Generic Domain Decoupling**: Target business entities plug into the approval engine via `entity_type` and `entity_id` strings, maintaining zero dependency on domain-specific tables.
+- **Sequenced Role-Based Approval Steps**: Multi-step workflows (`ApprovalStep`) enforce assigned `Role` authorization (`approver_role_id`) or superuser privileges for each sequential step.
+- **Strict State Machine Workflow**:
+  - `Draft` -> `Pending` (Step 1)
+  - `Pending` (Step N) -> `Pending` (Step N+1) if more steps remain
+  - `Pending` (Step N) -> `Approved` if no steps remain (Terminal State)
+  - `Pending` (Step N) -> `Rejected` upon step rejection (Terminal State)
+  - `Pending` (Step N) -> `Cancelled` upon submitter/admin cancellation (Terminal State)
+  - Rejects invalid state transitions (`INVALID_WORKFLOW_TRANSITION`) and prevents step skipping.
+- **Immutable Approval Audit History**: Every action (`Submitting`, `Approved Step`, `Rejected`, `Cancelled`, `Completed Workflow`) creates an unmodifiable `ApprovalHistory` record recording step number, action, performer, timestamp, and comments.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`approval:request:*`), audit logging (`APPROVAL_WORKFLOW_START`, `APPROVAL_STEP_APPROVE`, `APPROVAL_STEP_REJECT`, `APPROVAL_WORKFLOW_CANCEL`), and Celery notification dispatch (`send_approval_notification_task`).
+- **RBAC Security**: Protected by permissions (`workflow.create`, `workflow.read`, `workflow.update`, `workflow.delete`, `approval.read`, `approval.approve`, `approval.reject`).
+
+---
+
 ## HR Domain — Enterprise Leave Request Workflow (Milestone HR-12)
 
 ### Overview

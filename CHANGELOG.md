@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.5] - 2026-07-27
+
+### Milestone Platform — Enterprise Approval Workflow Engine
+
+#### Added
+- **Approval Workflow & Request ORM Entities (`app/models/approval_workflow.py`)**: Models `ApprovalWorkflow`, `ApprovalStep`, `ApprovalRequest`, `ApprovalHistory` representing reusable approval workflow definitions, sequenced role steps, active workflow execution requests, and immutable audit history logs.
+- **Pydantic v2 DTOs (`app/schemas/approval_workflow.py`)**: `ApprovalWorkflowCreate`, `ApprovalWorkflowUpdate`, `ApprovalWorkflowResponse`, `ApprovalStepCreate`, `ApprovalStepResponse`, `ApprovalRequestCreate`, `ApprovalActionRequest`, `ApprovalRequestResponse`, `ApprovalHistoryResponse`.
+- **Approval Repository Layer (`app/repositories/approval_workflow.py`)**: `ApprovalWorkflowRepository`, `ApprovalStepRepository`, `ApprovalRequestRepository`, `ApprovalHistoryRepository` providing CRUD operations, step sequence lookup, active request retrieval, soft deletion, and entity restoration.
+- **Approval Engine & Workflow Services (`app/services/approval_engine.py`, `app/services/approval_workflow.py`)**: Platform service layer enforcing multi-step sequential role approvals, state transitions (`Draft` -> `Pending` -> `Approved` / `Rejected` -> `Cancelled`), role authorization checks, immutable history logging, Redis cache invalidation (`approval:request:*`), audit logging (`APPROVAL_WORKFLOW_START`, `APPROVAL_STEP_APPROVE`, `APPROVAL_STEP_REJECT`, `APPROVAL_WORKFLOW_CANCEL`), and Celery notification task dispatch.
+- **Background Notification Task (`app/tasks/approval_tasks.py`)**: Asynchronous Celery task (`send_approval_notification_task`) processing workflow start, step approval, rejection, and completion alerts.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `workflow.create`, `workflow.read`, `workflow.update`, `workflow.delete`, `approval.read`, `approval.approve`, `approval.reject` for Super Admin and HR Manager roles.
+- **Approval Engine API Router (`app/api/v1/endpoints/approval.py`)**: Endpoints (`GET /approval-workflows`, `POST /approval-workflows`, `PUT /approval-workflows/{id}`, `GET /approval-requests`, `GET /approval-requests/{id}`, `POST /approval-requests`, `POST /approval-requests/{id}/approve`, `POST /approval-requests/{id}/reject`, `POST /approval-requests/{id}/cancel`).
+- **Database Migration (`alembic/versions/bffc0a831a09_phase_v045_implement_approval_engine.py`)**: Applied database migration creating `approval_workflows`, `approval_steps`, `approval_requests`, and `approval_histories` tables with foreign keys and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0015-approval-engine.md`)**: Documented approval engine architecture, multi-step role-based state machine, extension guide, and cache/audit integrations.
+
+---
+
 ## [v0.4.4] - 2026-07-27
 
 ### Milestone HR-12 — Enterprise Leave Request Workflow
