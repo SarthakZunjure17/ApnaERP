@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.3] - 2026-07-27
+
+### Milestone HR-11 — Enterprise Leave Balance Management
+
+#### Added
+- **LeaveBalance ORM Model (`app/models/leave_balance.py`)**: Authoritative entity storing employee leave entitlements (`employee_id`, `leave_type_id`, `leave_year`, `opening_balance`, `allocated_days`, `earned_days`, `availed_days`, `encashed_days`, `carried_forward_days`, `remaining_days`, `last_updated_by`, `is_active`, soft deletion & timestamp mixins). Composite unique constraint on `(employee_id, leave_type_id, leave_year)`.
+- **Pydantic v2 Schemas (`app/schemas/leave_balance.py`)**: `LeaveBalanceCreate`, `LeaveBalanceUpdate`, `LeaveBalanceAdjustmentRequest`, `LeaveBalanceResponse`, `LeaveBalanceListResponse`.
+- **Leave Balance Repository (`app/repositories/leave_balance.py`)**: `LeaveBalanceRepository` providing employee/year lookups (`get_by_employee_type_year`), paginated employee queries (`get_employee_balances_paginated`), soft deletion, and entity restoration (`restore`).
+- **Leave Balance Service (`app/services/leave_balance.py`)**: Service layer implementing mathematical balance derivation (`opening + allocated + earned + carried_forward - availed - encashed`), negative balance policy enforcement (`NEGATIVE_LEAVE_BALANCE`), carry-forward validations, manual balance adjustments (`adjust_leave_balance`), Redis caching (`leave_balance:employee:{emp_id}:{year}`), audit logging (`LEAVE_BALANCE_CREATE`, `LEAVE_BALANCE_UPDATE`, `LEAVE_BALANCE_ADJUST`, `LEAVE_BALANCE_DELETE`, `LEAVE_BALANCE_RESTORE`), and Celery notification dispatch.
+- **Background Notification Task (`app/tasks/leave_balance_tasks.py`)**: Asynchronous Celery task (`send_leave_balance_adjustment_notification_task`) broadcasting manual balance adjustment alerts to HR.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `leave_balance.create`, `leave_balance.read`, `leave_balance.update`, `leave_balance.adjust`, `leave_balance.delete`, `leave_balance.restore` bound to `Super Admin` and `HR Manager` roles.
+- **Leave Balance API Router (`app/api/v1/endpoints/leave_balance.py`)**: Endpoints (`GET /leave-balances`, `GET /leave-balances/{id}`, `GET /employees/{id}/leave-balances`, `POST /leave-balances`, `PUT /leave-balances/{id}`, `PATCH /leave-balances/{id}/adjust`, `DELETE /leave-balances/{id}`, `PATCH /leave-balances/{id}/restore`).
+- **Database Migration (`alembic/versions/bafb9849085f_phase_hr11_implement_leave_balance.py`)**: Applied database migration creating `leave_balances` table with composite unique index `(employee_id, leave_type_id, leave_year)`.
+- **Architecture Decision Record (`docs/adr/ADR-0013-leave-balance.md`)**: Documented mathematical balance formula, negative balance guards, carry-forward rules, caching, and future Leave Request / Payroll integration hooks.
+
+---
+
 ## [v0.4.2] - 2026-07-27
 
 ### Milestone HR-10 — Enterprise Leave Types & Policies

@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     holidays,
     hr_configurations,
     leave_type,
+    leave_balance,
     notifications,
     positions,
     rbac,
@@ -41,3 +42,4 @@ api_router.include_router(shift_assignment.router, prefix="/shift-assignments", 
 api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
 api_router.include_router(attendance.router, prefix="/attendance", tags=["Enterprise Attendance Engine"])
 api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Enterprise Leave Types & Policies"])
+api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Enterprise Leave Balance Management"])

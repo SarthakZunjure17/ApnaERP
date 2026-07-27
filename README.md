@@ -8,6 +8,23 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## HR Domain — Enterprise Leave Balance Management (Milestone HR-11)
+
+### Overview
+The Enterprise Leave Balance Management module (`app/models/leave_balance.py`, `app/services/leave_balance.py`) serves as the authoritative single source of truth for employee leave availability across leave types and calendar years.
+
+### Key Technical Capabilities
+- **Mathematical Balance Derivation**: Automatically calculates available remaining leave days using:
+  `remaining_days = opening_balance + allocated_days + earned_days + carried_forward_days - availed_days - encashed_days`.
+- **Negative Balance Policy Guard**: Strictly prevents negative remaining balances (`NEGATIVE_LEAVE_BALANCE`) unless the target `LeaveType` explicitly enables `allow_negative_balance == True`.
+- **Uniqueness & Carry Forward Enforcement**: Enforces composite uniqueness on `(employee_id, leave_type_id, leave_year)` and validates carry-forward caps against `LeaveType.max_carry_forward`.
+- **Manual Balance Adjustments**: `PATCH /leave-balances/{id}/adjust` permits audited component adjustments (`allocated`, `earned`, `availed`, `encashed`, `opening`, `carried_forward`) with mandatory business justification.
+- **Future Integration Ready**: Provides authoritative leave availability lookups for future Leave Application engines and Payroll Encashment/Deduction processing.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`leave_balance:employee:{emp_id}:{year}`), audit trails (`LEAVE_BALANCE_CREATE`, `LEAVE_BALANCE_UPDATE`, `LEAVE_BALANCE_ADJUST`, `LEAVE_BALANCE_DELETE`, `LEAVE_BALANCE_RESTORE`), and background notification dispatch (`send_leave_balance_adjustment_notification_task`).
+- **RBAC Security**: Protected by permissions (`leave_balance.create`, `leave_balance.read`, `leave_balance.update`, `leave_balance.adjust`, `leave_balance.delete`, `leave_balance.restore`).
+
+---
+
 ## HR Domain — Enterprise Leave Types & Policies (Milestone HR-10)
 
 ### Overview

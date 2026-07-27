@@ -78,6 +78,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Leave Type", "code": "leave_type.delete", "description": "Permission to remove organizational leave types and policies", "module_name": "hr"},
     {"name": "Restore Leave Type", "code": "leave_type.restore", "description": "Permission to restore soft-deleted leave types and policies", "module_name": "hr"},
 
+    # Leave Balance Management Permissions
+    {"name": "Create Leave Balance", "code": "leave_balance.create", "description": "Permission to initialize employee leave balances", "module_name": "hr"},
+    {"name": "Read Leave Balance", "code": "leave_balance.read", "description": "Permission to view employee leave balances", "module_name": "hr"},
+    {"name": "Update Leave Balance", "code": "leave_balance.update", "description": "Permission to update employee leave balances", "module_name": "hr"},
+    {"name": "Adjust Leave Balance", "code": "leave_balance.adjust", "description": "Permission to manually adjust employee leave balances", "module_name": "hr"},
+    {"name": "Delete Leave Balance", "code": "leave_balance.delete", "description": "Permission to remove employee leave balances", "module_name": "hr"},
+    {"name": "Restore Leave Balance", "code": "leave_balance.restore", "description": "Permission to restore soft-deleted leave balances", "module_name": "hr"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},
