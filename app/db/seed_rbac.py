@@ -86,6 +86,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Leave Balance", "code": "leave_balance.delete", "description": "Permission to remove employee leave balances", "module_name": "hr"},
     {"name": "Restore Leave Balance", "code": "leave_balance.restore", "description": "Permission to restore soft-deleted leave balances", "module_name": "hr"},
 
+    # Leave Request Workflow Permissions
+    {"name": "Create Leave Request", "code": "leave_request.create", "description": "Permission to create leave request applications", "module_name": "hr"},
+    {"name": "Read Leave Request", "code": "leave_request.read", "description": "Permission to view leave request applications", "module_name": "hr"},
+    {"name": "Submit Leave Request", "code": "leave_request.submit", "description": "Permission to submit leave requests for approval", "module_name": "hr"},
+    {"name": "Approve Leave Request", "code": "leave_request.approve", "description": "Permission to approve employee leave requests", "module_name": "hr"},
+    {"name": "Reject Leave Request", "code": "leave_request.reject", "description": "Permission to reject employee leave requests", "module_name": "hr"},
+    {"name": "Cancel Leave Request", "code": "leave_request.cancel", "description": "Permission to cancel leave request applications", "module_name": "hr"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

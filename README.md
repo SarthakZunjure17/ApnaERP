@@ -8,6 +8,34 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## HR Domain — Enterprise Leave Request Workflow (Milestone HR-12)
+
+### Overview
+The Enterprise Leave Request Workflow module (`app/models/leave_request.py`, `app/services/leave_request.py`) provides a state-machine driven engine for employee leave applications, working day calculations, policy enforcement, overlap prevention, leave balance updating, and workflow notifications.
+
+### Key Technical Capabilities
+- **Strict State Machine Workflow**:
+  - `Draft` -> `Pending` (Submission)
+  - `Pending` -> `Approved` (Approval)
+  - `Pending` -> `Rejected` (Rejection)
+  - `Approved` -> `Cancelled` (Cancellation prior to start date)
+  - Terminal States: `Rejected`, `Cancelled`, `Completed`. Rejects invalid transitions (`INVALID_WORKFLOW_TRANSITION`).
+- **Working Day Calculation Engine**:
+  - Automatically calculates net working days between `start_date` and `end_date` inclusive, excluding Saturdays, Sundays, and organizational `Holiday` records. Supports half-day applications (`total_days = 0.5`).
+- **Policy & Overlap Validation Rules**:
+  - Half-day permission check (`HALF_DAY_NOT_PERMITTED`).
+  - Max consecutive days cap (`EXCEEDS_MAX_CONSECUTIVE_DAYS`).
+  - Gender restriction validation (`GENDER_RESTRICTION_MISMATCH`).
+  - Overlap prevention rejecting active overlapping leave applications (`OVERLAPPING_LEAVE_REQUEST`).
+  - Leave balance validation (`INSUFFICIENT_LEAVE_BALANCE`).
+- **Leave Balance Updating**:
+  - Upon approval, automatically updates `LeaveBalance.availed_days` and recalculates `remaining_days`. Restores availed days if an approved leave is cancelled prior to start date.
+- **Redis Caching & Celery Telemetry**:
+  - Redis caching (`leave_request:employee:{emp_id}:*`), audit trails (`LEAVE_REQUEST_CREATE`, `LEAVE_REQUEST_SUBMIT`, `LEAVE_REQUEST_APPROVE`, `LEAVE_REQUEST_REJECT`, `LEAVE_REQUEST_CANCEL`, `LEAVE_REQUEST_COMPLETE`), and background notification dispatch (`send_leave_request_notification_task`).
+- **RBAC Security**: Protected by permissions (`leave_request.create`, `leave_request.read`, `leave_request.submit`, `leave_request.approve`, `leave_request.reject`, `leave_request.cancel`).
+
+---
+
 ## HR Domain — Enterprise Leave Balance Management (Milestone HR-11)
 
 ### Overview

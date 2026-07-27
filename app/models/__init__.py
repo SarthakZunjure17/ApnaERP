@@ -16,6 +16,7 @@ from app.models.attendance import Attendance
 from app.models.shift_assignment import ShiftAssignment
 from app.models.leave_type import LeaveType
 from app.models.leave_balance import LeaveBalance
+from app.models.leave_request import LeaveRequest
 
 __all__ = [
     "User",
@@ -38,4 +39,5 @@ __all__ = [
     "ShiftAssignment",
     "LeaveType",
     "LeaveBalance",
+    "LeaveRequest",
 ]

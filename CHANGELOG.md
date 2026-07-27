@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.4] - 2026-07-27
+
+### Milestone HR-12 — Enterprise Leave Request Workflow
+
+#### Added
+- **LeaveRequest ORM Model (`app/models/leave_request.py`)**: Entity managing workflow leave applications (`employee_id`, `leave_type_id`, `start_date`, `end_date`, `total_days`, `is_half_day`, `half_day_session`, `reason`, `status`, `submitted_at`, `reviewed_at`, `reviewed_by`, `reviewer_comments`, soft deletion & timestamp mixins).
+- **Pydantic v2 Schemas (`app/schemas/leave_request.py`)**: `LeaveRequestCreate`, `LeaveRequestUpdate`, `LeaveRequestReviewRequest`, `LeaveRequestCancelRequest`, `LeaveRequestResponse`, `LeaveRequestListResponse`, `LeaveRequestStatusEnum`, `HalfDaySessionEnum`.
+- **Leave Request Repository (`app/repositories/leave_request.py`)**: `LeaveRequestRepository` providing employee request queries (`get_employee_requests_paginated`), overlap detection (`get_overlapping_requests`), pending approval queries (`get_pending_requests_paginated`), soft deletion, and entity restoration (`restore`).
+- **Leave Request Service (`app/services/leave_request.py`)**: Workflow service layer implementing state machine transitions (`Draft` -> `Pending` -> `Approved` / `Rejected` -> `Cancelled`), working day calculation engine (excluding weekends & organizational holidays), policy checks (half-day, max consecutive days, gender restrictions, overlap prevention), leave balance updates upon approval/cancellation, Redis caching (`leave_request:employee:{emp_id}:*`), audit logging (`LEAVE_REQUEST_CREATE`, `LEAVE_REQUEST_SUBMIT`, `LEAVE_REQUEST_APPROVE`, `LEAVE_REQUEST_REJECT`, `LEAVE_REQUEST_CANCEL`, `LEAVE_REQUEST_COMPLETE`), and Celery notification dispatch.
+- **Background Notification Task (`app/tasks/leave_request_tasks.py`)**: Asynchronous Celery task (`send_leave_request_notification_task`) broadcasting workflow alerts to managers, employees, and HR.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `leave_request.create`, `leave_request.read`, `leave_request.submit`, `leave_request.approve`, `leave_request.reject`, `leave_request.cancel` bound to `Super Admin` and `HR Manager` roles.
+- **Leave Request API Router (`app/api/v1/endpoints/leave_request.py`)**: Endpoints (`GET /leave-requests`, `GET /leave-requests/{id}`, `GET /employees/{id}/leave-requests`, `POST /leave-requests`, `POST /leave-requests/{id}/submit`, `POST /leave-requests/{id}/approve`, `POST /leave-requests/{id}/reject`, `POST /leave-requests/{id}/cancel`).
+- **Database Migration (`alembic/versions/2c2104f01875_phase_hr12_implement_leave_request.py`)**: Applied database migration creating `leave_requests` table with indexes on `employee_id`, `leave_type_id`, `start_date`, `end_date`, `status`, and `reviewed_by`.
+- **Architecture Decision Record (`docs/adr/ADR-0014-leave-request-workflow.md`)**: Documented workflow state machine matrix, working day calculation engine, policy checks, leave balance reservation/updating, and future integration hooks.
+
+---
+
 ## [v0.4.3] - 2026-07-27
 
 ### Milestone HR-11 — Enterprise Leave Balance Management
