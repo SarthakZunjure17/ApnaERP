@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.2] - 2026-07-27
+
+### Milestone Payroll-3 — Employee Compensation Management
+
+#### Added
+- **EmployeeCompensation ORM Entity (`app/models/employee_compensation.py`)**: Model representing employee compensation policies (`employee_id`, `salary_structure_id`, `effective_from`, `effective_to`, `annual_ctc`, `monthly_gross_salary`, `monthly_net_salary`, `status`, `revision_number`, `previous_compensation_id`, `remarks`, `approved_by`, `approved_at`, soft deletion & timestamp mixins).
+- **Pydantic v2 DTOs (`app/schemas/employee_compensation.py`)**: `EmployeeCompensationCreate`, `EmployeeCompensationRevise`, `EmployeeCompensationUpdate`, `EmployeeCompensationResponse`, `EmployeeCompensationListResponse`, `CompensationStatusEnum`.
+- **Employee Compensation Repository (`app/repositories/employee_compensation.py`)**: `EmployeeCompensationRepository` providing active compensation lookup, compensation history retrieval, future policy queries, effective date overlap checks, soft deletion, and entity restoration.
+- **Employee Compensation Service (`app/services/employee_compensation.py`)**: Service layer enforcing single active compensation policy constraints (auto-expires previous active compensation policy upon new activation), non-overlapping effective dates, revision numbering, Redis cache invalidation (`employee_compensation:*`), audit logging (`COMPENSATION_ASSIGN`, `COMPENSATION_REVISE`, `COMPENSATION_ACTIVATE`, `COMPENSATION_CANCEL`, `COMPENSATION_UPDATE`, `COMPENSATION_DELETE`, `COMPENSATION_RESTORE`), and Celery notification task dispatch.
+- **Background Notification Task (`app/tasks/compensation_tasks.py`)**: Asynchronous Celery task (`send_compensation_notification_task`) broadcasting compensation policy modification alerts to HR and Employees.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `compensation.create`, `compensation.read`, `compensation.update`, `compensation.activate`, `compensation.cancel`, `compensation.delete` bound to `Super Admin` and `HR Manager` roles.
+- **Employee Compensation API Router (`app/api/v1/endpoints/employee_compensation.py`)**: Endpoints (`GET /employee-compensations`, `GET /employee-compensations/{id}`, `GET /employees/{id}/compensation`, `GET /employees/{id}/compensation/history`, `POST /employee-compensations`, `PUT /employee-compensations/{id}`, `POST /employee-compensations/{id}/activate`, `POST /employee-compensations/{id}/cancel`, `DELETE /employee-compensations/{id}`, `PATCH /employee-compensations/{id}/restore`).
+- **Database Migration (`alembic/versions/a3cad77f4bbb_phase_v052_implement_employee_.py`)**: Applied database migration creating `employee_compensations` table with foreign keys and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0018-employee-compensation.md`)**: Documented employee compensation architecture, revision history, effective dating, and future payroll processing hooks.
+
+---
+
 ## [v0.5.1] - 2026-07-27
 
 ### Milestone Payroll-2 — Enterprise Salary Structures

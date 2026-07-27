@@ -8,6 +8,21 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## Payroll Domain — Employee Compensation Management (Milestone Payroll-3 v0.5.2)
+
+### Overview
+The Employee Compensation Management module (`app/models/employee_compensation.py`, `app/services/employee_compensation.py`) assigns Salary Structure templates to employees while maintaining complete effective date history, revision tracking, and state transitions (`Draft`, `Active`, `Expired`, `Cancelled`).
+
+### Key Technical Capabilities
+- **Employee Compensation Policies**: Assigns `SalaryStructure` templates to employees with `annual_ctc`, `monthly_gross_salary`, `effective_from`, and `effective_to`.
+- **Single Active Policy Enforcement**: Enforces that only ONE compensation policy can be `Active` per employee. Activating a new policy automatically sets the previous active policy status to `Expired`.
+- **Revision Tracking**: Links compensation revisions to `previous_compensation_id` and automatically increments `revision_number`.
+- **Date Overlap Prevention**: Prevents overlapping effective date ranges for the same employee across active/draft compensation policies.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`employee_compensation:*`), audit logging (`COMPENSATION_*`), and background notification dispatch (`send_compensation_notification_task`).
+- **RBAC Security**: Protected by permissions (`compensation.create`, `compensation.read`, `compensation.update`, `compensation.activate`, `compensation.cancel`, `compensation.delete`).
+
+---
+
 ## Payroll Domain — Enterprise Salary Structures (Milestone Payroll-2 v0.5.1)
 
 ### Overview

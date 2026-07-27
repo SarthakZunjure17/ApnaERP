@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     departments,
     employee_documents,
     employees,
+    employee_compensation,
     files,
     health,
     holidays,
@@ -51,3 +52,4 @@ api_router.include_router(leave_request.router, prefix="/leave-requests", tags=[
 api_router.include_router(approval.router, prefix="", tags=["Enterprise Approval Engine"])
 api_router.include_router(salary_component.router, prefix="", tags=["Enterprise Salary Components"])
 api_router.include_router(salary_structure.router, prefix="", tags=["Enterprise Salary Structures"])
+api_router.include_router(employee_compensation.router, prefix="", tags=["Employee Compensation Management"])

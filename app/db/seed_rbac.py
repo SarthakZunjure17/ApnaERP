@@ -117,6 +117,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Salary Structure", "code": "salary_structure.delete", "description": "Permission to delete salary structure templates", "module_name": "payroll"},
     {"name": "Restore Salary Structure", "code": "salary_structure.restore", "description": "Permission to restore deleted salary structure templates", "module_name": "payroll"},
 
+    # Employee Compensation Management Permissions
+    {"name": "Create Compensation", "code": "compensation.create", "description": "Permission to assign or revise employee compensation", "module_name": "payroll"},
+    {"name": "Read Compensation", "code": "compensation.read", "description": "Permission to view employee compensation records and history", "module_name": "payroll"},
+    {"name": "Update Compensation", "code": "compensation.update", "description": "Permission to update employee compensation drafts", "module_name": "payroll"},
+    {"name": "Activate Compensation", "code": "compensation.activate", "description": "Permission to activate employee compensation policies", "module_name": "payroll"},
+    {"name": "Cancel Compensation", "code": "compensation.cancel", "description": "Permission to cancel employee compensation policies", "module_name": "payroll"},
+    {"name": "Delete Compensation", "code": "compensation.delete", "description": "Permission to delete employee compensation records", "module_name": "payroll"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},
