@@ -52,6 +52,7 @@ logs/
 # Database / Storage
 *.db
 *.sqlite3
+uploads/
 
 # Docker
 docker/.env

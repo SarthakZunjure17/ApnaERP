@@ -12,6 +12,7 @@ from app.models.position import Position
 from app.models.hr_configuration import HRConfiguration
 from app.models.shift import Shift
 from app.models.holiday import Holiday
+from app.models.attendance import Attendance
 
 __all__ = [
     "User",
@@ -30,4 +31,5 @@ __all__ = [
     "HRConfiguration",
     "Shift",
     "Holiday",
+    "Attendance",
 ]

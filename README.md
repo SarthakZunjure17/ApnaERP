@@ -6,7 +6,23 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
+
+---
+
+## HR Domain — Enterprise Attendance Engine (Milestone HR-8)
+
+### Overview
+The Attendance Engine (`app/models/attendance.py`, `app/services/attendance_engine.py`, `app/services/attendance.py`) provides a domain-driven business rules engine that dynamically synthesizes data from `Employee`, `Shift`, `Holiday Calendar`, and `HR Configuration` to evaluate daily attendance statuses, worked/expected minutes, tardiness, and early departures.
+
+### Key Technical Capabilities
+- **Deterministic Business Rules Engine (`AttendanceEngine`)**: Isolated domain service computing status (`Present`, `Late`, `Half Day`, `Absent`, `Holiday`, `Weekend`, `On Leave`, `Missing Check-in`, `Missing Check-out`) and timing metrics independently from API controllers.
+- **Overnight Shift Calculations**: Supports shifts spanning midnight (`end_time <= start_time`, e.g. 22:00 to 06:00), evaluating grace periods and tardiness across date boundaries.
+- **Weekend & Holiday Integration**: Automatically checks `HRConfiguration.weekend_configuration` and `HolidayRepository` lookups to assign non-working statuses.
+- **Locked Record Guard**: Records locked (`is_locked = True`) for payroll processing block check-ins, check-outs, and manual corrections (HTTP 400 `ATTENDANCE_LOCKED`).
+- **Manual HR Corrections & Audit Trail**: Requires mandatory justification notes for manual corrections and records audit events (`ATTENDANCE_CHECKIN`, `ATTENDANCE_CHECKOUT`, `ATTENDANCE_CORRECT`, `ATTENDANCE_LOCK`).
+- **Redis Caching & Celery Telemetry**: Caches active attendance listings (`attendance:today`) and dispatches Celery background tasks (`send_attendance_notification_task`).
+- **RBAC Enforcement**: Protected by permissions (`attendance.read`, `attendance.checkin`, `attendance.checkout`, `attendance.correct`, `attendance.lock`).
 
 ---
 

@@ -47,13 +47,14 @@ async def test_holiday_repository_crud_and_lookups():
     """Tests HolidayRepository CRUD operations and unique lookups."""
     async with AsyncSessionLocal() as session:
         code = f"HOL-REPO-{uuid.uuid4().hex[:6]}"
+        country = f"Country-{uuid.uuid4().hex[:4]}"
         holiday_in = HolidayCreate(
             code=code,
             name=f"Test Repo Holiday {code}",
             description="Repository unit test holiday",
             holiday_date=datetime.date(2026, 8, 15),
             holiday_type=HolidayType.NATIONAL,
-            country="India",
+            country=country,
             state_region=None,
             is_half_day=False,
             is_recurring_annually=True,
@@ -71,7 +72,7 @@ async def test_holiday_repository_crud_and_lookups():
         assert await holiday_repository.exists_by_code(session, code) is True
 
         by_date_region = await holiday_repository.get_by_date_and_region(
-            session, holiday_date=datetime.date(2026, 8, 15), country="India", state_region=None
+            session, holiday_date=datetime.date(2026, 8, 15), country=country, state_region=None
         )
         assert by_date_region is not None
         assert by_date_region.id == holiday.id
@@ -83,44 +84,44 @@ async def test_holiday_service_validations_and_recurring():
     async with AsyncSessionLocal() as session:
         service = HolidayService(session)
 
-        # 1. Create Annual Recurring Holiday (e.g. Independence Day on Aug 15, 2020)
         code = f"HOL-REC-{uuid.uuid4().hex[:6]}"
+        country = f"Country-{uuid.uuid4().hex[:4]}"
         rec_data = HolidayCreate(
             code=code,
             name=f"Annual Independence Day {code}",
             holiday_date=datetime.date(2020, 8, 15),
             holiday_type=HolidayType.NATIONAL,
-            country="India",
+            country=country,
             is_recurring_annually=True,
             is_active=True,
         )
         rec_holiday = await service.create_holiday(data=rec_data)
         assert rec_holiday.is_recurring_annually is True
 
-        # 2. Query holidays for Year 2026 (should project Aug 15, 2020 -> Aug 15, 2026)
-        year_holidays = await service.get_holidays_by_year(year=2026, country="India")
+        # Query holidays for Year 2026 (should project Aug 15, 2020 -> Aug 15, 2026)
+        year_holidays = await service.get_holidays_by_year(year=2026, country=country)
         matching = [h for h in year_holidays if h.code == code]
         assert len(matching) == 1
         assert matching[0].holiday_date == datetime.date(2026, 8, 15)
 
-        # 3. Query holidays by specific date (Aug 15, 2027)
+        # Query holidays by specific date (Aug 15, 2027)
         date_holidays = await service.get_holidays_by_date(
-            target_date=datetime.date(2027, 8, 15), country="India"
+            target_date=datetime.date(2027, 8, 15), country=country
         )
         matching_date = [h for h in date_holidays if h.code == code]
         assert len(matching_date) == 1
 
-        # 4. Duplicate Code Error
+        # Duplicate Code Error
         with pytest.raises(ApnaERPException) as exc_info:
             await service.create_holiday(data=rec_data)
         assert exc_info.value.error_code == "DUPLICATE_HOLIDAY_CODE"
 
-        # 5. Duplicate Date + Region Error
+        # Duplicate Date + Region Error
         dup_date_data = HolidayCreate(
             code=f"HOL-DUP-{uuid.uuid4().hex[:6]}",
             name="Duplicate Date Holiday",
             holiday_date=datetime.date(2020, 8, 15),
-            country="India",
+            country=country,
             state_region=None,
         )
         with pytest.raises(ApnaERPException) as exc_info:
@@ -133,15 +134,16 @@ async def test_holiday_api_endpoints(async_client: AsyncClient, admin_token: str
     """Tests RESTful API endpoints for Holiday Calendar Management."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     code = f"HOL-API-{uuid.uuid4().hex[:6]}"
+    country = f"Country-{uuid.uuid4().hex[:4]}"
 
     # 1. Create Holiday via POST /api/v1/holidays
     payload = {
         "code": code,
         "name": f"API New Year Holiday {code}",
         "description": "Created via API test",
-        "holiday_date": "2026-01-01",
+        "holiday_date": "2026-03-15",
         "holiday_type": "National",
-        "country": "India",
+        "country": country,
         "state_region": None,
         "is_half_day": False,
         "is_recurring_annually": True,
@@ -167,16 +169,16 @@ async def test_holiday_api_endpoints(async_client: AsyncClient, admin_token: str
 
     # 3. Get Holidays by Year via GET /api/v1/holidays/year/2026
     year_res = await async_client.get(
-        "/api/v1/holidays/year/2026?country=India",
+        f"/api/v1/holidays/year/2026?country={country}",
         headers=headers,
     )
     assert year_res.status_code == 200
     year_items = year_res.json()
     assert any(h["code"] == code for h in year_items)
 
-    # 4. Get Holidays by Date via GET /api/v1/holidays/date/2026-01-01
+    # 4. Get Holidays by Date via GET /api/v1/holidays/date/2026-03-15
     date_res = await async_client.get(
-        "/api/v1/holidays/date/2026-01-01?country=India",
+        f"/api/v1/holidays/date/2026-03-15?country={country}",
         headers=headers,
     )
     assert date_res.status_code == 200

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
+    attendance,
     audit,
     auth,
     departments,
@@ -35,3 +36,4 @@ api_router.include_router(positions.router, prefix="", tags=["Position Managemen
 api_router.include_router(hr_configurations.router, prefix="", tags=["HR Configuration & Policies"])
 api_router.include_router(shifts.router, prefix="/shifts", tags=["Shift Management"])
 api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
+api_router.include_router(attendance.router, prefix="/attendance", tags=["Enterprise Attendance Engine"])

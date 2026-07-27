@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.4.0] - 2026-07-27
+
+### Milestone HR-8 — Enterprise Attendance Engine
+
+#### Added
+- **Attendance ORM Model (`app/models/attendance.py`)**: Daily attendance record entity storing `employee_id`, `attendance_date`, `shift_id`, `check_in_time`, `check_out_time`, `break_minutes`, `worked_minutes`, `expected_minutes`, `late_minutes`, `early_departure_minutes`, `attendance_status`, `is_manual_correction`, `corrected_by_user_id`, `correction_notes`, `is_locked`, and soft deletion fields. Unique constraint on `(employee_id, attendance_date)`.
+- **Attendance Engine Domain Service (`app/services/attendance_engine.py`)**: Pure, deterministic business rules engine evaluating attendance status (`Present`, `Late`, `Half Day`, `Absent`, `Holiday`, `Weekend`, `On Leave`, `Missing Check-in`, `Missing Check-out`) and calculating worked minutes, expected minutes, tardiness, and early departure across day and overnight shift boundaries.
+- **Pydantic v2 Schemas (`app/schemas/attendance.py`)**: `AttendanceStatus` Enum, `CheckInRequest`, `CheckOutRequest`, `AttendanceCorrectionRequest`, `AttendanceLockRequest`, `AttendanceResponse`, `AttendanceSummary`, `AttendanceListResponse`.
+- **Attendance Repository (`app/repositories/attendance.py`)**: Extends `BaseRepository` with `get_by_employee_and_date`, `get_monthly_attendance`, `get_department_attendance`, and aggregated range `get_summary`.
+- **Attendance Service Layer (`app/services/attendance.py`)**: Coordinates business validations, check-in, check-out, manual HR corrections with audit notes, payroll record locking, Redis caching (`attendance:today`), enterprise audit logging (`ATTENDANCE_CHECKIN`, `ATTENDANCE_CHECKOUT`, `ATTENDANCE_CORRECT`, `ATTENDANCE_LOCK`), and Celery notification dispatch.
+- **Background Notification Task (`app/tasks/attendance_tasks.py`)**: Asynchronous Celery task (`send_attendance_notification_task`) processing late arrival alerts, missing check-outs, and manual corrections.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `attendance.read`, `attendance.checkin`, `attendance.checkout`, `attendance.correct`, `attendance.lock` bound to `Super Admin` and `HR Manager` roles.
+- **Attendance API Router (`app/api/v1/endpoints/attendance.py`)**: RESTful endpoints (`GET /attendance`, `GET /attendance/{id}`, `GET /attendance/employee/{id}`, `GET /attendance/month`, `POST /attendance/checkin`, `POST /attendance/checkout`, `PATCH /attendance/correct`, `PATCH /attendance/lock`). Registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/184caa5625f2_phase_hr8_implement_attendance_engine_.py`)**: Applied database migration creating `attendance` table.
+- **Architecture Decision Record (`docs/adr/ADR-0010-attendance-engine.md`)**: Documented attendance engine architecture, state machine, overnight shift calculation rules, locked record protection, and integration contracts for Leave and Payroll modules.
+- **Test Suite (`tests/test_attendance.py`)**: Pytest suite validating domain calculations, overnight shifts, holiday/weekend scenarios, check-in/out workflows, manual corrections, record locking, RBAC permissions, audit logging, Redis caching, Celery telemetry, and full regression testing.
+
+---
+
 ## [v0.3.0] - 2026-07-26
 
 ### Milestone HR-7 — Enterprise Holiday Calendar

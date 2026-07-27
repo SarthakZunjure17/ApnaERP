@@ -58,6 +58,13 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Holiday", "code": "holiday.delete", "description": "Permission to remove official holiday calendar entries", "module_name": "hr"},
     {"name": "Restore Holiday", "code": "holiday.restore", "description": "Permission to restore soft-deleted holiday calendar entries", "module_name": "hr"},
 
+    # Attendance Engine Permissions
+    {"name": "Read Attendance", "code": "attendance.read", "description": "Permission to view employee attendance records", "module_name": "hr"},
+    {"name": "Check-in Attendance", "code": "attendance.checkin", "description": "Permission to record employee check-in", "module_name": "hr"},
+    {"name": "Check-out Attendance", "code": "attendance.checkout", "description": "Permission to record employee check-out", "module_name": "hr"},
+    {"name": "Correct Attendance", "code": "attendance.correct", "description": "Permission to manually correct attendance records", "module_name": "hr"},
+    {"name": "Lock Attendance", "code": "attendance.lock", "description": "Permission to lock attendance records for payroll", "module_name": "hr"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},
@@ -139,6 +146,7 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             or perm_code.startswith("hr_configuration.")
             or perm_code.startswith("shift.")
             or perm_code.startswith("holiday.")
+            or perm_code.startswith("attendance.")
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=hr_manager_role.id, permission_id=perm_obj.id
