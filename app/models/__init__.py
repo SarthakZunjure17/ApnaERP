@@ -14,6 +14,7 @@ from app.models.shift import Shift
 from app.models.holiday import Holiday
 from app.models.attendance import Attendance
 from app.models.shift_assignment import ShiftAssignment
+from app.models.leave_type import LeaveType
 
 __all__ = [
     "User",
@@ -34,4 +35,5 @@ __all__ = [
     "Holiday",
     "Attendance",
     "ShiftAssignment",
+    "LeaveType",
 ]

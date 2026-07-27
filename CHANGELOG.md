@@ -5,6 +5,21 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.2] - 2026-07-27
+
+### Milestone HR-10 — Enterprise Leave Types & Policies
+
+#### Added
+- **LeaveType ORM Model (`app/models/leave_type.py`)**: Entity representing organizational leave policies (`code`, `name`, `description`, `is_paid`, `requires_approval`, `allow_half_day`, `allow_negative_balance`, `annual_allocation`, `carry_forward_allowed`, `max_carry_forward`, `max_consecutive_days`, `gender_restriction`, `is_active`, soft deletion & timestamp mixins).
+- **Pydantic v2 Schemas (`app/schemas/leave_type.py`)**: `LeaveTypeCreate`, `LeaveTypeUpdate`, `LeaveTypeResponse`, `LeaveTypeListResponse`, `GenderRestrictionEnum`.
+- **Leave Type Repository (`app/repositories/leave_type.py`)**: `LeaveTypeRepository` providing code/name lookups, soft deletion, and entity restoration (`restore`).
+- **Leave Type Service (`app/services/leave_type.py`)**: Service layer enforcing policy validations (code/name uniqueness, carry forward caps, consecutive day limits), Redis caching (`leave_type:list`, `leave_type:detail:{id}`), audit logging (`LEAVE_TYPE_CREATE`, `LEAVE_TYPE_UPDATE`, `LEAVE_TYPE_DELETE`, `LEAVE_TYPE_RESTORE`), and background notification dispatch.
+- **Background Notification Task (`app/tasks/leave_type_tasks.py`)**: Asynchronous Celery task (`send_leave_policy_change_notification_task`) broadcasting policy change events to HR Admins.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `leave_type.create`, `leave_type.read`, `leave_type.update`, `leave_type.delete`, `leave_type.restore` bound to `Super Admin` and `HR Manager` roles.
+- **Leave Type API Router (`app/api/v1/endpoints/leave_type.py`)**: Endpoints (`GET /leave-types`, `GET /leave-types/{id}`, `POST /leave-types`, `PUT /leave-types/{id}`, `DELETE /leave-types/{id}`, `PATCH /leave-types/{id}/restore`).
+- **Database Migration (`alembic/versions/49c913ab7229_phase_hr10_implement_leave_type.py`)**: Applied database migration creating `leave_types` table with unique indexes on `code` and `name`.
+- **Architecture Decision Record (`docs/adr/ADR-0012-leave-types.md`)**: Documented organizational leave policy architecture, carry-forward validation rules, cache invalidation, and integration points for future Leave Request & Payroll modules.
+
 ---
 
 ## [v0.4.1] - 2026-07-27

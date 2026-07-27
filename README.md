@@ -8,6 +8,24 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## HR Domain — Enterprise Leave Types & Policies (Milestone HR-10)
+
+### Overview
+The Enterprise Leave Types & Policies module (`app/models/leave_type.py`, `app/services/leave_type.py`) provides an organization-wide policy registry defining leave rules, annual allocations, carry-forward caps, consecutive day limits, half-day permissions, approval requirements, and gender restrictions.
+
+### Key Technical Capabilities
+- **Reusable Policy Registry**: Defines entitlement policies (`Annual Leave`, `Sick Leave`, `Casual Leave`, `Maternity Leave`, `Paternity Leave`, `Work From Home`, `Unpaid Leave`) applicable across all enterprise employees.
+- **Strict Business Validation Rules**:
+  - Code & Name Uniqueness (`DUPLICATE_LEAVE_CODE`, `DUPLICATE_LEAVE_NAME`).
+  - `annual_allocation >= 0`.
+  - `max_carry_forward <= annual_allocation`.
+  - If `carry_forward_allowed` is `False`, `max_carry_forward` must be `0`.
+  - `max_consecutive_days > 0`.
+- **Policy Restoration Support**: `PATCH /leave-types/{id}/restore` endpoint and `restore()` repository method for restoring soft-deleted policies.
+- **Future Module Integration**: Designed for direct integration with Leave Request Engines, Leave Balance Calculation Services, and Payroll Overtime/Unpaid Leave Deduction systems.
+- **Redis Caching & Celery Telemetry**: Automatic Redis caching (`leave_type:list`, `leave_type:detail:{id}`) with pattern invalidation, audit logging (`LEAVE_TYPE_CREATE`, `LEAVE_TYPE_UPDATE`, `LEAVE_TYPE_DELETE`, `LEAVE_TYPE_RESTORE`), and background notification dispatch (`send_leave_policy_change_notification_task`).
+- **RBAC Security**: Protected by permissions (`leave_type.create`, `leave_type.read`, `leave_type.update`, `leave_type.delete`, `leave_type.restore`).
+
 ---
 
 ## HR Domain — Enterprise Shift Assignment & Scheduling (Milestone HR-9)

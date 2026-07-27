@@ -71,6 +71,13 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Update Shift Assignment", "code": "shift_assignment.update", "description": "Permission to update employee shift assignments", "module_name": "hr"},
     {"name": "Delete Shift Assignment", "code": "shift_assignment.delete", "description": "Permission to remove employee shift assignments", "module_name": "hr"},
 
+    # Leave Types & Policies Permissions
+    {"name": "Create Leave Type", "code": "leave_type.create", "description": "Permission to create organizational leave types and policies", "module_name": "hr"},
+    {"name": "Read Leave Type", "code": "leave_type.read", "description": "Permission to view organizational leave types and policies", "module_name": "hr"},
+    {"name": "Update Leave Type", "code": "leave_type.update", "description": "Permission to update organizational leave types and policies", "module_name": "hr"},
+    {"name": "Delete Leave Type", "code": "leave_type.delete", "description": "Permission to remove organizational leave types and policies", "module_name": "hr"},
+    {"name": "Restore Leave Type", "code": "leave_type.restore", "description": "Permission to restore soft-deleted leave types and policies", "module_name": "hr"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

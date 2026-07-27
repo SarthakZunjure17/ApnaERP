@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     health,
     holidays,
     hr_configurations,
+    leave_type,
     notifications,
     positions,
     rbac,
@@ -39,3 +40,4 @@ api_router.include_router(shifts.router, prefix="/shifts", tags=["Shift Manageme
 api_router.include_router(shift_assignment.router, prefix="/shift-assignments", tags=["Shift Assignment & Scheduling"])
 api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
 api_router.include_router(attendance.router, prefix="/attendance", tags=["Enterprise Attendance Engine"])
+api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Enterprise Leave Types & Policies"])
