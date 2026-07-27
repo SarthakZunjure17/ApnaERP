@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     positions,
     rbac,
     root,
+    shift_assignment,
     shifts,
     templates,
 )
@@ -35,5 +36,6 @@ api_router.include_router(employee_documents.router, prefix="", tags=["Employee 
 api_router.include_router(positions.router, prefix="", tags=["Position Management"])
 api_router.include_router(hr_configurations.router, prefix="", tags=["HR Configuration & Policies"])
 api_router.include_router(shifts.router, prefix="/shifts", tags=["Shift Management"])
+api_router.include_router(shift_assignment.router, prefix="/shift-assignments", tags=["Shift Assignment & Scheduling"])
 api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
 api_router.include_router(attendance.router, prefix="/attendance", tags=["Enterprise Attendance Engine"])

@@ -161,9 +161,12 @@ class AttendanceService:
 
         # 3. Shift & Policy Lookups
         shift = None
-        shift_id_to_use = data.shift_id or employee.shift_id
-        if shift_id_to_use:
-            shift = await self.shift_repo.get_by_id(self.db, shift_id_to_use)
+        if data.shift_id:
+            shift = await self.shift_repo.get_by_id(self.db, data.shift_id)
+        else:
+            from app.services.shift_assignment import ShiftAssignmentService
+            shift_assign_service = ShiftAssignmentService(self.db)
+            shift = await shift_assign_service.resolve_shift_for_date(employee.id, target_date)
 
         hr_config = await self.hr_config_repo.get_active_configuration(self.db)
         holidays = await self.holiday_repo.get_holidays_by_date(
@@ -317,9 +320,12 @@ class AttendanceService:
 
         # 3. Shift & Policy Lookups
         shift = None
-        shift_id_to_use = existing.shift_id or employee.shift_id
-        if shift_id_to_use:
-            shift = await self.shift_repo.get_by_id(self.db, shift_id_to_use)
+        if existing.shift_id:
+            shift = await self.shift_repo.get_by_id(self.db, existing.shift_id)
+        else:
+            from app.services.shift_assignment import ShiftAssignmentService
+            shift_assign_service = ShiftAssignmentService(self.db)
+            shift = await shift_assign_service.resolve_shift_for_date(existing.employee_id, existing.attendance_date)
 
         hr_config = await self.hr_config_repo.get_active_configuration(self.db)
         holidays = await self.holiday_repo.get_holidays_by_date(
@@ -392,6 +398,10 @@ class AttendanceService:
         shift = None
         if attendance.shift_id:
             shift = await self.shift_repo.get_by_id(self.db, attendance.shift_id)
+        else:
+            from app.services.shift_assignment import ShiftAssignmentService
+            shift_assign_service = ShiftAssignmentService(self.db)
+            shift = await shift_assign_service.resolve_shift_for_date(attendance.employee_id, attendance.attendance_date)
 
         hr_config = await self.hr_config_repo.get_active_configuration(self.db)
         holidays = await self.holiday_repo.get_holidays_by_date(

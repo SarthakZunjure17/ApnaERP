@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.4.1] - 2026-07-27
+
+### Milestone HR-9 — Enterprise Shift Assignment & Scheduling
+
+#### Added
+- **ShiftAssignment ORM Model (`app/models/shift_assignment.py`)**: Entity representing effective-dated employee shift assignments (`employee_id`, `shift_id`, `effective_from`, `effective_to`, `assignment_type`, `reason`, `assigned_by`, `is_active`, soft deletion & timestamp mixins).
+- **Pydantic v2 Schemas (`app/schemas/shift_assignment.py`)**: `AssignmentType` Enum (`Permanent`, `Temporary`, `Rotation`), `ShiftAssignmentCreate`, `ShiftAssignmentUpdate`, `ShiftAssignmentEndRequest`, `ShiftAssignmentResponse`, `ShiftAssignmentListResponse`.
+- **Shift Assignment Repository (`app/repositories/shift_assignment.py`)**: `ShiftAssignmentRepository` providing active assignment resolution for dates, overlap detection (`check_overlap`), paginated queries, and locked attendance detection (`has_locked_attendance_in_range`).
+- **Shift Assignment Service (`app/services/shift_assignment.py`)**: Business logic for `assign_shift`, `update_assignment`, `end_assignment`, `delete_assignment`, and `resolve_shift_for_date`. Implements date range validation, overlap prevention, locked attendance immutability, Redis caching (`shift_assignment:active`), audit logging (`SHIFT_ASSIGNMENT_CREATE`, `SHIFT_ASSIGNMENT_UPDATE`, `SHIFT_ASSIGNMENT_END`, `SHIFT_ASSIGNMENT_DELETE`), and Celery notification dispatch.
+- **Attendance Engine Integration (`app/services/attendance.py`)**: Updated `AttendanceService` to resolve shifts historically via `ShiftAssignmentService.resolve_shift_for_date` rather than depending on static `Employee.shift_id`.
+- **Background Notification Task (`app/tasks/shift_assignment_tasks.py`)**: Asynchronous Celery task (`send_shift_assignment_notification_task`) processing shift assignment alerts to employees and managers.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `shift_assignment.create`, `shift_assignment.read`, `shift_assignment.update`, `shift_assignment.delete` bound to `Super Admin` and `HR Manager` roles.
+- **Shift Assignment API Router (`app/api/v1/endpoints/shift_assignment.py`)**: Endpoints (`GET /shift-assignments`, `GET /employees/{id}/shift-assignments`, `GET /shift-assignments/{id}`, `POST /shift-assignments`, `PUT /shift-assignments/{id}`, `PATCH /shift-assignments/{id}/end`, `DELETE /shift-assignments/{id}`).
+- **Database Migration (`alembic/versions/b05ba39bc33a_phase_hr9_implement_shift_assignment.py`)**: Applied database migration creating `shift_assignments` table with composite index `(employee_id, effective_from, effective_to)`.
+- **Architecture Decision Record (`docs/adr/ADR-0011-shift-assignment.md`)**: Documented effective-dated scheduling architecture, overlap validation logic, attendance resolution, locked attendance guards, and cache invalidation rules.
+- **Test Suite (`tests/test_shift_assignments.py`)**: Comprehensive test suite verifying CRUD operations, date overlap detection, historical shift resolution, attendance engine integration, locked attendance immutability, Redis cache invalidation, Celery task dispatch, RBAC enforcement, and audit trail logging.
+
+---
+
 ## [v0.4.0] - 2026-07-27
 
 ### Milestone HR-8 — Enterprise Attendance Engine

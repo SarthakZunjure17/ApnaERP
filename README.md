@@ -10,6 +10,21 @@ ApnaERP is a production-grade, modular, high-performance Enterprise Resource Pla
 
 ---
 
+## HR Domain — Enterprise Shift Assignment & Scheduling (Milestone HR-9)
+
+### Overview
+The Shift Assignment & Scheduling module (`app/models/shift_assignment.py`, `app/services/shift_assignment.py`) enables effective-dated shift scheduling (`effective_from`, `effective_to`) for employees. Attendance calculations dynamically resolve shift schedules by date history rather than relying on static employee profiles.
+
+### Key Technical Capabilities
+- **Effective-Dated Scheduling**: Supports `Permanent`, `Temporary`, and `Rotation` schedule assignments with explicit start dates and optional open-ended end dates (`NULL`).
+- **Date Overlap Prevention**: Strict interval validation (`check_overlap`) prevents overlapping active shift assignments for an employee.
+- **Historical Attendance Shift Resolution**: Attendance Engine resolves the effective shift for any historical date `D` via `ShiftAssignment` -> `Shift` -> `Attendance Engine`.
+- **Locked Attendance Protection**: Prevents modifying, ending, or soft-deleting shift assignments if an `Attendance` record in that date range is locked for payroll (`is_locked = True`).
+- **Redis High-Performance Caching & Celery Telemetry**: Caches active shift lookups (`shift_assignment:active:{emp_id}:{date}`) with automatic cache invalidation upon assignment updates. Dispatches Celery background tasks (`send_shift_assignment_notification_task`) and records audit events (`SHIFT_ASSIGNMENT_CREATE`, `SHIFT_ASSIGNMENT_UPDATE`, `SHIFT_ASSIGNMENT_END`, `SHIFT_ASSIGNMENT_DELETE`).
+- **RBAC Enforcement**: Secured via permissions (`shift_assignment.create`, `shift_assignment.read`, `shift_assignment.update`, `shift_assignment.delete`).
+
+---
+
 ## HR Domain — Enterprise Attendance Engine (Milestone HR-8)
 
 ### Overview

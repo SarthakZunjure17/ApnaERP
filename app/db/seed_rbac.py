@@ -65,6 +65,12 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Correct Attendance", "code": "attendance.correct", "description": "Permission to manually correct attendance records", "module_name": "hr"},
     {"name": "Lock Attendance", "code": "attendance.lock", "description": "Permission to lock attendance records for payroll", "module_name": "hr"},
 
+    # Shift Assignment & Scheduling Permissions
+    {"name": "Create Shift Assignment", "code": "shift_assignment.create", "description": "Permission to assign shift schedules to employees", "module_name": "hr"},
+    {"name": "Read Shift Assignment", "code": "shift_assignment.read", "description": "Permission to view employee shift assignments", "module_name": "hr"},
+    {"name": "Update Shift Assignment", "code": "shift_assignment.update", "description": "Permission to update employee shift assignments", "module_name": "hr"},
+    {"name": "Delete Shift Assignment", "code": "shift_assignment.delete", "description": "Permission to remove employee shift assignments", "module_name": "hr"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

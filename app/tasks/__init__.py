@@ -7,6 +7,7 @@ from app.tasks.position_tasks import send_position_notification_task
 from app.tasks.shift_tasks import send_shift_notification_task
 from app.tasks.holiday_tasks import send_holiday_notification_task
 from app.tasks.attendance_tasks import send_attendance_notification_task
+from app.tasks.shift_assignment_tasks import send_shift_assignment_notification_task
 from app.tasks.system_tasks import system_health_check_task, system_ping_task
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "send_shift_notification_task",
     "send_holiday_notification_task",
     "send_attendance_notification_task",
+    "send_shift_assignment_notification_task",
 ]
