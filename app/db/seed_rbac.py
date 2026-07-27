@@ -110,6 +110,13 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Salary Component", "code": "salary_component.delete", "description": "Permission to delete salary component definitions", "module_name": "payroll"},
     {"name": "Restore Salary Component", "code": "salary_component.restore", "description": "Permission to restore deleted salary components", "module_name": "payroll"},
 
+    # Enterprise Salary Structure Permissions
+    {"name": "Create Salary Structure", "code": "salary_structure.create", "description": "Permission to create salary structure templates", "module_name": "payroll"},
+    {"name": "Read Salary Structure", "code": "salary_structure.read", "description": "Permission to view salary structure templates", "module_name": "payroll"},
+    {"name": "Update Salary Structure", "code": "salary_structure.update", "description": "Permission to update salary structure templates", "module_name": "payroll"},
+    {"name": "Delete Salary Structure", "code": "salary_structure.delete", "description": "Permission to delete salary structure templates", "module_name": "payroll"},
+    {"name": "Restore Salary Structure", "code": "salary_structure.restore", "description": "Permission to restore deleted salary structure templates", "module_name": "payroll"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

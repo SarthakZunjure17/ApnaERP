@@ -8,6 +8,21 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## Payroll Domain — Enterprise Salary Structures (Milestone Payroll-2 v0.5.1)
+
+### Overview
+The Enterprise Salary Structures module (`app/models/salary_structure.py`, `app/services/salary_structure.py`) provides reusable compensation template structures composed of multiple ordered Salary Components with baseline values and optional overrides.
+
+### Key Technical Capabilities
+- **Reusable Compensation Templates**: Structure templates (`code`, `name`, `currency`, `effective_from`, `effective_to`) ready for employee assignment.
+- **Component Mapping & Ordering**: Maps `SalaryComponent` instances to `SalaryStructure` with explicit `component_order` and baseline `component_value`.
+- **Component Duplication Prevention**: Enforces `unique(salary_structure_id, salary_component_id)` to prevent component duplication within the same structure.
+- **Effective Date Validation**: Validates `effective_to >= effective_from`.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`salary_structure:*`), audit logging (`SALARY_STRUCTURE_*`), and background notification dispatch (`send_payroll_structure_notification_task`).
+- **RBAC Security**: Protected by permissions (`salary_structure.create`, `salary_structure.read`, `salary_structure.update`, `salary_structure.delete`, `salary_structure.restore`).
+
+---
+
 ## Payroll Domain — Enterprise Salary Components (Milestone Payroll-1 v0.5.0)
 
 ### Overview

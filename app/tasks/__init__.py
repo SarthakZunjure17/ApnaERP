@@ -13,6 +13,7 @@ from app.tasks.leave_balance_tasks import send_leave_balance_adjustment_notifica
 from app.tasks.leave_request_tasks import send_leave_request_notification_task
 from app.tasks.approval_tasks import send_approval_notification_task
 from app.tasks.payroll_component_tasks import send_payroll_component_notification_task
+from app.tasks.payroll_structure_tasks import send_payroll_structure_notification_task
 from app.tasks.system_tasks import system_health_check_task, system_ping_task
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "send_leave_request_notification_task",
     "send_approval_notification_task",
     "send_payroll_component_notification_task",
+    "send_payroll_structure_notification_task",
 ]

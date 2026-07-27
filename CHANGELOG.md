@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.1] - 2026-07-27
+
+### Milestone Payroll-2 — Enterprise Salary Structures
+
+#### Added
+- **SalaryStructure & SalaryStructureComponent ORM Entities (`app/models/salary_structure.py`)**: Models representing reusable salary structure templates (`code`, `name`, `description`, `currency`, `effective_from`, `effective_to`, `is_active`, soft deletion & timestamp mixins) and structure component mappings (`salary_structure_id`, `salary_component_id`, `component_order`, `component_value`, `calculation_method_override`, `is_active`, unique constraint `(salary_structure_id, salary_component_id)`).
+- **Pydantic v2 DTOs (`app/schemas/salary_structure.py`)**: `SalaryStructureCreate`, `SalaryStructureUpdate`, `SalaryStructureResponse`, `SalaryStructureListResponse`, `SalaryStructureComponentCreate`, `SalaryStructureComponentUpdate`, `SalaryStructureComponentResponse`.
+- **Salary Structure Repository (`app/repositories/salary_structure.py`)**: `SalaryStructureRepository` and `SalaryStructureComponentRepository` providing structure CRUD, component mapping lookup, soft deletion, and entity restoration.
+- **Salary Structure Service (`app/services/salary_structure.py`)**: Service layer enforcing unique code and name constraints, effective date range validity (`effective_to >= effective_from`), component duplication prevention, Redis cache invalidation (`salary_structure:*`), audit logging (`SALARY_STRUCTURE_CREATE`, `SALARY_STRUCTURE_UPDATE`, `SALARY_STRUCTURE_DELETE`, `SALARY_STRUCTURE_RESTORE`, `SALARY_STRUCTURE_COMPONENT_ADD`, `SALARY_STRUCTURE_COMPONENT_UPDATE`, `SALARY_STRUCTURE_COMPONENT_REMOVE`), and Celery notification task dispatch.
+- **Background Notification Task (`app/tasks/payroll_structure_tasks.py`)**: Asynchronous Celery task (`send_payroll_structure_notification_task`) broadcasting structure modification alerts to Payroll Administrators.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `salary_structure.create`, `salary_structure.read`, `salary_structure.update`, `salary_structure.delete`, `salary_structure.restore` bound to `Super Admin` and `HR Manager` roles.
+- **Salary Structure API Router (`app/api/v1/endpoints/salary_structure.py`)**: Endpoints (`GET /salary-structures`, `GET /salary-structures/{id}`, `POST /salary-structures`, `PUT /salary-structures/{id}`, `DELETE /salary-structures/{id}`, `PATCH /salary-structures/{id}/restore`, `POST /salary-structures/{id}/components`, `PUT /salary-structures/{id}/components/{componentId}`, `DELETE /salary-structures/{id}/components/{componentId}`).
+- **Database Migration (`alembic/versions/553f93450df0_phase_v051_implement_salary_structure.py`)**: Applied database migration creating `salary_structures` and `salary_structure_components` tables with foreign keys and unique constraints.
+- **Architecture Decision Record (`docs/adr/ADR-0017-salary-structures.md`)**: Documented salary structures architecture, component mapping rules, statutory indicators, and future employee assignment hooks.
+
+---
+
 ## [v0.5.0] - 2026-07-27
 
 ### Milestone Payroll-1 — Enterprise Salary Components
