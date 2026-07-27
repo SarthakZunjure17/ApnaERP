@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] - 2026-07-27
+
+### Milestone Payroll-1 — Enterprise Salary Components
+
+#### Added
+- **SalaryComponent ORM Entity (`app/models/salary_component.py`)**: Entity representing organization-wide payroll component definitions (`code`, `name`, `description`, `type`, `calculation_method`, `default_value`, `percentage_value`, `is_taxable`, `is_pf_applicable`, `is_esi_applicable`, `is_active`, `display_order`, soft deletion & timestamp mixins).
+- **Pydantic v2 DTOs (`app/schemas/salary_component.py`)**: `SalaryComponentCreate`, `SalaryComponentUpdate`, `SalaryComponentResponse`, `SalaryComponentListResponse`, `ComponentTypeEnum`, `CalculationMethodEnum`.
+- **Salary Component Repository (`app/repositories/salary_component.py`)**: `SalaryComponentRepository` providing CRUD operations, lookup by code/name/display_order, active components query, soft deletion, and entity restoration.
+- **Salary Component Service (`app/services/salary_component.py`)**: Service layer enforcing unique code, name, and display order constraints, calculation method rules (`Percentage` requires `percentage_value > 0`), Redis cache invalidation (`salary_component:*`), audit logging (`SALARY_COMPONENT_CREATE`, `SALARY_COMPONENT_UPDATE`, `SALARY_COMPONENT_DELETE`, `SALARY_COMPONENT_RESTORE`), and Celery notification task dispatch.
+- **Background Notification Task (`app/tasks/payroll_component_tasks.py`)**: Asynchronous Celery task (`send_payroll_component_notification_task`) broadcasting component change alerts to Payroll Administrators.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `salary_component.create`, `salary_component.read`, `salary_component.update`, `salary_component.delete`, `salary_component.restore` bound to `Super Admin` and `HR Manager` roles.
+- **Salary Component API Router (`app/api/v1/endpoints/salary_component.py`)**: Endpoints (`GET /salary-components`, `GET /salary-components/{id}`, `POST /salary-components`, `PUT /salary-components/{id}`, `DELETE /salary-components/{id}`, `PATCH /salary-components/{id}/restore`).
+- **Database Migration (`alembic/versions/0c3454e55b21_phase_v050_implement_salary_component.py`)**: Applied database migration creating `salary_components` table with unique indexes on `code`, `name`, and `display_order`.
+- **Architecture Decision Record (`docs/adr/ADR-0016-salary-components.md`)**: Documented salary components architecture, calculation method rules, statutory indicators, and future payroll integration hooks.
+
+---
+
 ## [v0.4.5] - 2026-07-27
 
 ### Milestone Platform — Enterprise Approval Workflow Engine

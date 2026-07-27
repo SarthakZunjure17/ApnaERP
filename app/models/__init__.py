@@ -23,6 +23,7 @@ from app.models.approval_workflow import (
     ApprovalRequest,
     ApprovalHistory,
 )
+from app.models.salary_component import SalaryComponent
 
 __all__ = [
     "User",
@@ -50,4 +51,5 @@ __all__ = [
     "ApprovalStep",
     "ApprovalRequest",
     "ApprovalHistory",
+    "SalaryComponent",
 ]

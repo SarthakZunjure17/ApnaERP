@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     positions,
     rbac,
     root,
+    salary_component,
     shift_assignment,
     shifts,
     templates,
@@ -47,3 +48,4 @@ api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Enter
 api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Enterprise Leave Balance Management"])
 api_router.include_router(leave_request.router, prefix="/leave-requests", tags=["Enterprise Leave Request Workflow"])
 api_router.include_router(approval.router, prefix="", tags=["Enterprise Approval Engine"])
+api_router.include_router(salary_component.router, prefix="", tags=["Enterprise Salary Components"])

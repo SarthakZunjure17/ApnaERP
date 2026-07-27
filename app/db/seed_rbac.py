@@ -103,6 +103,13 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Approve Approval Step", "code": "approval.approve", "description": "Permission to approve steps in approval requests", "module_name": "platform"},
     {"name": "Reject Approval Step", "code": "approval.reject", "description": "Permission to reject approval requests", "module_name": "platform"},
 
+    # Enterprise Salary Component Permissions
+    {"name": "Create Salary Component", "code": "salary_component.create", "description": "Permission to create salary component definitions", "module_name": "payroll"},
+    {"name": "Read Salary Component", "code": "salary_component.read", "description": "Permission to view salary component definitions", "module_name": "payroll"},
+    {"name": "Update Salary Component", "code": "salary_component.update", "description": "Permission to update salary component definitions", "module_name": "payroll"},
+    {"name": "Delete Salary Component", "code": "salary_component.delete", "description": "Permission to delete salary component definitions", "module_name": "payroll"},
+    {"name": "Restore Salary Component", "code": "salary_component.restore", "description": "Permission to restore deleted salary components", "module_name": "payroll"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

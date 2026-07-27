@@ -8,6 +8,24 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## Payroll Domain — Enterprise Salary Components (Milestone Payroll-1 v0.5.0)
+
+### Overview
+The Enterprise Salary Components module (`app/models/salary_component.py`, `app/services/salary_component.py`) provides an organization-wide catalog defining payroll building blocks (Earnings: Basic, HRA, Allowances, Bonus; Deductions: PF, ESI, Professional Tax, Income Tax).
+
+### Key Technical Capabilities
+- **Organization-Wide Component Catalog**: Standardized component definitions decoupled from individual employee records.
+- **Categorization & Calculation Methods**:
+  - `type`: `Earning` or `Deduction`.
+  - `calculation_method`: `Fixed`, `Percentage`, or `Formula` (reserved for future calculation evaluation).
+- **Statutory & Tax Rule Indicators**: Flags for `is_taxable`, `is_pf_applicable`, `is_esi_applicable`.
+- **Display Ordering & Uniqueness Rules**: Enforces unique `code`, unique `name`, and unique `display_order` across active components.
+- **Calculation Validation Rules**: Validates that `Percentage` calculation method includes valid `percentage_value` (0.01 to 100.0) and `Fixed` includes valid `default_value`.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`salary_component:*`), audit logging (`SALARY_COMPONENT_CREATE/UPDATE/DELETE/RESTORE`), and background notification dispatch (`send_payroll_component_notification_task`).
+- **RBAC Security**: Protected by permissions (`salary_component.create`, `salary_component.read`, `salary_component.update`, `salary_component.delete`, `salary_component.restore`).
+
+---
+
 ## Platform Domain — Enterprise Approval Workflow Engine (Milestone Platform v0.4.5)
 
 ### Overview
