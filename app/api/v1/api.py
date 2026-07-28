@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     leave_balance,
     leave_request,
     notifications,
+    payroll_engine,
     positions,
     rbac,
     root,
@@ -53,3 +54,4 @@ api_router.include_router(approval.router, prefix="", tags=["Enterprise Approval
 api_router.include_router(salary_component.router, prefix="", tags=["Enterprise Salary Components"])
 api_router.include_router(salary_structure.router, prefix="", tags=["Enterprise Salary Structures"])
 api_router.include_router(employee_compensation.router, prefix="", tags=["Employee Compensation Management"])
+api_router.include_router(payroll_engine.router, prefix="", tags=["Enterprise Payroll Processing Engine"])

@@ -167,6 +167,20 @@ class RedisManager:
         except RedisError as e:
             raise RedisOperationError(f"Redis delete failed for keys {keys}: {e}")
 
+    async def delete_pattern(self, pattern: str) -> int:
+        """Deletes all keys matching the given pattern using SCAN."""
+        try:
+            client = self.get_client()
+            keys = []
+            async for key in client.scan_iter(match=pattern):
+                keys.append(key)
+            if keys:
+                return await client.delete(*keys)
+            return 0
+        except Exception as e:
+            logger.warning(f"Redis delete_pattern failed for pattern '{pattern}': {e}")
+            return 0
+
     async def exists(self, *keys: str) -> int:
         """Returns count of existing keys."""
         try:

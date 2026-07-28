@@ -4,8 +4,10 @@ from typing import List, Optional
 import uuid
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.employee_compensation import EmployeeCompensation
+from app.models.salary_structure import SalaryStructure, SalaryStructureComponent
 from app.repositories.base_repository import BaseRepository
 from app.schemas.employee_compensation import (
     EmployeeCompensationCreate,
@@ -32,6 +34,11 @@ class EmployeeCompensationRepository(
         """Retrieves the currently Active compensation policy for an employee."""
         query = (
             select(EmployeeCompensation)
+            .options(
+                selectinload(EmployeeCompensation.salary_structure)
+                .selectinload(SalaryStructure.components)
+                .selectinload(SalaryStructureComponent.component)
+            )
             .where(
                 EmployeeCompensation.employee_id == employee_id,
                 EmployeeCompensation.status == "Active",

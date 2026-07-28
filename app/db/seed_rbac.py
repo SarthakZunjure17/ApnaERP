@@ -125,6 +125,12 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Cancel Compensation", "code": "compensation.cancel", "description": "Permission to cancel employee compensation policies", "module_name": "payroll"},
     {"name": "Delete Compensation", "code": "compensation.delete", "description": "Permission to delete employee compensation records", "module_name": "payroll"},
 
+    # Enterprise Payroll Processing Engine Permissions
+    {"name": "Generate Payroll", "code": "payroll.generate", "description": "Permission to create periods and generate employee payroll runs", "module_name": "payroll"},
+    {"name": "Read Payroll", "code": "payroll.read", "description": "Permission to view payroll periods and generated records", "module_name": "payroll"},
+    {"name": "Approve Payroll", "code": "payroll.approve", "description": "Permission to approve calculated payroll records", "module_name": "payroll"},
+    {"name": "Lock Payroll", "code": "payroll.lock", "description": "Permission to lock payroll periods against further changes", "module_name": "payroll"},
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

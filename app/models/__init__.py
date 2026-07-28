@@ -26,6 +26,7 @@ from app.models.approval_workflow import (
 from app.models.salary_component import SalaryComponent
 from app.models.salary_structure import SalaryStructure, SalaryStructureComponent
 from app.models.employee_compensation import EmployeeCompensation
+from app.models.payroll_period import PayrollPeriod, PayrollRecord, PayrollRecordComponent
 
 __all__ = [
     "User",
@@ -57,4 +58,7 @@ __all__ = [
     "SalaryStructure",
     "SalaryStructureComponent",
     "EmployeeCompensation",
+    "PayrollPeriod",
+    "PayrollRecord",
+    "PayrollRecordComponent",
 ]

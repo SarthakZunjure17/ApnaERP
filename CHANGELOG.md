@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.3] - 2026-07-27
+
+### Milestone Payroll-4 — Enterprise Payroll Processing Engine
+
+#### Added
+- **Payroll Period & Record ORM Entities (`app/models/payroll_period.py`)**: Models representing discrete payroll cycles (`PayrollPeriod`: `period_code`, `start_date`, `end_date`, `status`), employee payroll run outputs (`PayrollRecord`: `payroll_period_id`, `employee_id`, `employee_compensation_id`, `working_days`, `present_days`, `leave_days`, `paid_leave_days`, `unpaid_leave_days`, `overtime_hours`, `gross_salary`, `total_earnings`, `total_deductions`, `net_salary`, `status`, unique constraint `(payroll_period_id, employee_id)`), and line-item breakdown (`PayrollRecordComponent`: `payroll_record_id`, `salary_component_id`, `component_name`, `component_type`, `amount`).
+- **Pydantic v2 DTOs (`app/schemas/payroll_period.py`)**: `PayrollPeriodCreate`, `PayrollPeriodResponse`, `PayrollPeriodListResponse`, `PayrollRecordResponse`, `PayrollRecordListResponse`, `PayrollRecordComponentResponse`, `PayrollSummaryResponse`.
+- **Repository Layer (`app/repositories/payroll_period.py`)**: `PayrollPeriodRepository`, `PayrollRecordRepository`, and `PayrollRecordComponentRepository` providing period lookup, date range queries, employee history retrieval, and component breakdown queries.
+- **Payroll Engine Service (`app/services/payroll_engine.py`)**: Core calculation engine integrating `EmployeeCompensation`, `SalaryStructureComponent` mappings, `Attendance` logs, and `LeaveRequest` approvals. Calculates proration ratios, gross salary, component earnings/deductions, net salary, period locking semantics, Redis cache invalidation (`payroll:*`), audit logging (`PAYROLL_PERIOD_CREATE`, `PAYROLL_GENERATE`, `PAYROLL_RECALCULATE`, `PAYROLL_APPROVE`, `PAYROLL_LOCK`), and Celery notification task dispatch.
+- **Background Notification Task (`app/tasks/payroll_engine_tasks.py`)**: Asynchronous Celery task (`send_payroll_notification_task`) broadcasting payroll generation, approval, and locking alerts to Payroll Team, HR, and Finance.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `payroll.generate`, `payroll.read`, `payroll.approve`, `payroll.lock` bound to `Super Admin` and `HR Manager` roles.
+- **Payroll Engine REST API Router (`app/api/v1/endpoints/payroll_engine.py`)**: Endpoints (`GET /payroll-periods`, `POST /payroll-periods`, `GET /payroll-periods/{id}`, `POST /payroll-periods/{id}/generate`, `POST /payroll-periods/{id}/approve`, `POST /payroll-periods/{id}/lock`, `GET /payroll-records`, `GET /payroll-records/{id}`, `GET /employees/{id}/payroll`).
+- **Database Migration (`alembic/versions/ec95e52571cb_phase_v053_implement_payroll_engine.py`)**: Applied database migration creating `payroll_periods`, `payroll_records`, and `payroll_record_components` tables with foreign keys and unique constraints.
+- **Architecture Decision Record (`docs/adr/ADR-0019-payroll-engine.md`)**: Documented payroll calculation engine architecture, attendance/leave proration integration, period locking rules, and future tax engine hooks.
+
+---
+
 ## [v0.5.2] - 2026-07-27
 
 ### Milestone Payroll-3 — Employee Compensation Management

@@ -15,6 +15,7 @@ from app.tasks.approval_tasks import send_approval_notification_task
 from app.tasks.payroll_component_tasks import send_payroll_component_notification_task
 from app.tasks.payroll_structure_tasks import send_payroll_structure_notification_task
 from app.tasks.compensation_tasks import send_compensation_notification_task
+from app.tasks.payroll_engine_tasks import send_payroll_notification_task
 from app.tasks.system_tasks import system_health_check_task, system_ping_task
 
 __all__ = [
@@ -40,4 +41,5 @@ __all__ = [
     "send_payroll_component_notification_task",
     "send_payroll_structure_notification_task",
     "send_compensation_notification_task",
+    "send_payroll_notification_task",
 ]

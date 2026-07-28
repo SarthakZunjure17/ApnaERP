@@ -8,6 +8,21 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
 
+## Payroll Domain — Enterprise Payroll Processing Engine (Milestone Payroll-4 v0.5.3)
+
+### Overview
+The Enterprise Payroll Processing Engine (`app/models/payroll_period.py`, `app/services/payroll_engine.py`) generates and stores employee payroll records for processing periods by combining active `EmployeeCompensation` policies, `SalaryStructureComponent` definitions, `Attendance` logs (present vs half-days), and `LeaveRequest` approvals (paid vs unpaid leave).
+
+### Key Technical Capabilities
+- **Payroll Period Lifecycle**: Creates and manages processing cycles (`period_code`, `start_date`, `end_date`, `status`: `Draft`, `Processing`, `Completed`, `Locked`).
+- **Attendance & Leave Proration**: Computes proration ratios based on attendance present days and approved paid leave days against total period working days.
+- **Line-Item Component Breakdown**: Calculates exact line-item earnings and deductions (`PayrollRecordComponent`) derived from active salary structure templates.
+- **Single Record & Period Lock Semantics**: Enforces `unique(payroll_period_id, employee_id)` and prevents any recalculation or modification on `Locked` periods.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`payroll:*`), audit logging (`PAYROLL_*`), and background notification dispatch (`send_payroll_notification_task`).
+- **RBAC Security**: Protected by permissions (`payroll.generate`, `payroll.read`, `payroll.approve`, `payroll.lock`).
+
+---
+
 ## Payroll Domain — Employee Compensation Management (Milestone Payroll-3 v0.5.2)
 
 ### Overview
