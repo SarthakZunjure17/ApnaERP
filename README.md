@@ -6,7 +6,22 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, and Docker.
+
+## Payroll Domain — Enterprise Statutory Compliance Engine (Milestone Payroll-6 v0.5.5)
+
+### Overview
+The Enterprise Statutory Compliance Engine (`app/models/country.py`, `app/models/statutory_rule.py`, `app/models/employee_statutory_profile.py`, `app/services/statutory_compliance.py`) calculates statutory payroll deductions (Provident Fund, ESI, Professional Tax, Income Tax, and custom deductions) driven by effective-dated rules and tiered salary slabs without hardcoded logic. Built-in support for India is provided initially, while establishing a future-proof foundation for global expansion (USA, UK, UAE, etc.).
+
+### Key Technical Capabilities
+- **Country Independence**: `Country` jurisdiction model (`code`, `name`, `currency`, `is_active`) reusable across all ERP modules.
+- **Configurable Deduction Rule Engine**: Defines statutory rules (`StatutoryRule`) with rule types (`Provident Fund`, `ESI`, `Professional Tax`, `Income Tax`, `Other`), calculation methods (`Fixed`, `Percentage`, `Slab`), priority evaluation ordering, and effective dating (`effective_from`, `effective_to`).
+- **Tiered Salary Slab Calculations**: `StatutoryRuleSlab` configures ranges (`min_amount <= gross_salary <= max_amount`) with associated fixed amounts and percentage rates.
+- **Employee Statutory Profiles**: Manages `EmployeeStatutoryProfile` holding tax IDs, PF/ESI numbers, feature flags (`pf_enabled`, `esi_enabled`, etc.), and enforcing **Single Active Profile** per employee.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`country:*`, `statutory_rule:*`, `statutory_profile:*`), audit logging (`COUNTRY_*`, `STATUTORY_*`), and Celery notification task (`send_statutory_rule_notification_task`).
+- **RBAC Security**: Protected by permissions (`country.create/read/update/delete`, `statutory_rule.create/read/update/delete`, `statutory_profile.create/read/update`).
+
+---
 
 ## Payroll Domain — Enterprise Payroll Runs & Payslips (Milestone Payroll-5 v0.5.4)
 

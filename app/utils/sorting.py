@@ -38,3 +38,25 @@ def apply_sorting(query: Select, model: Any, sorting: Optional[List[SortCriterio
         query = query.order_by(*order_clauses)
 
     return query
+
+def parse_sort_query(sort_str: Optional[str]) -> Optional[List[SortCriterion]]:
+    """
+    Parses a sort query string (e.g. "code,-created_at") into a list of SortCriterion objects.
+    """
+    if not sort_str:
+        return None
+    criteria = []
+    for item in sort_str.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if item.startswith("-"):
+            criteria.append(SortCriterion(field=item[1:], order=SortOrder.DESC))
+        elif ":" in item:
+            parts = item.split(":", 1)
+            order = SortOrder.DESC if parts[1].lower() == "desc" else SortOrder.ASC
+            criteria.append(SortCriterion(field=parts[0], order=order))
+        else:
+            criteria.append(SortCriterion(field=item, order=SortOrder.ASC))
+    return criteria if criteria else None
+

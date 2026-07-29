@@ -1,6 +1,6 @@
 import math
 from typing import Generic, List, TypeVar
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
@@ -17,18 +17,34 @@ class PaginationParams(BaseModel):
         return (self.page - 1) * self.page_size
 
 
-class PaginatedResult(Generic[T]):
+class PaginatedResult(BaseModel, Generic[T]):
     """
     Container holding paginated query results and metadata.
     """
-    def __init__(self, items: List[T], total: int, page: int, page_size: int):
-        self.items = items
-        self.total = total
-        self.page = page
-        self.page_size = page_size
-        self.total_pages = math.ceil(total / page_size) if page_size > 0 else 0
-        self.has_next = page < self.total_pages
-        self.has_prev = page > 1
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    items: List[T]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+
+    def __init__(self, items: List[T], total: int, page: int, page_size: int, **data):
+        total_pages = data.pop("total_pages", math.ceil(total / page_size) if page_size > 0 else 0)
+        has_next = data.pop("has_next", page < total_pages)
+        has_prev = data.pop("has_prev", page > 1)
+        super().__init__(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+            has_next=has_next,
+            has_prev=has_prev,
+            **data,
+        )
 
 
 def paginate_list(items: List[T], total: int, params: PaginationParams) -> PaginatedResult[T]:

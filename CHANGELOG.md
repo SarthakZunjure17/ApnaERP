@@ -5,6 +5,23 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.5] - 2026-07-29
+
+### Milestone Payroll-6 — Enterprise Statutory Compliance Engine
+
+#### Added
+- **`Country`, `StatutoryRule`, `StatutoryRuleSlab`, and `EmployeeStatutoryProfile` ORM Entities (`app/models/country.py`, `app/models/statutory_rule.py`, `app/models/employee_statutory_profile.py`)**: Models representing reusable country jurisdictions (`Country`), statutory deduction policies (`StatutoryRule`: `rule_code`, `rule_name`, `country_id`, `rule_type`, `calculation_method`, `effective_from`, `effective_to`, `priority`, `is_active`), tiered salary slab boundaries (`StatutoryRuleSlab`: `min_amount`, `max_amount`, `percentage`, `fixed_amount`, `sequence`), and employee compliance profiles (`EmployeeStatutoryProfile`: `employee_id`, `country_id`, `pf_enabled`, `esi_enabled`, `professional_tax_enabled`, `income_tax_enabled`, `tax_identification_number`, `pf_number`, `esi_number`, `effective_from`, `effective_to`, `is_active`).
+- **Pydantic v2 DTO Schemas (`app/schemas/country.py`, `app/schemas/statutory_rule.py`, `app/schemas/employee_statutory_profile.py`)**: Schemas for Countries, Statutory Rules, Rule Slabs, Employee Profiles, and Statutory Deduction Calculation requests/responses.
+- **Repository Layer (`app/repositories/country.py`, `app/repositories/statutory_rule.py`, `app/repositories/employee_statutory_profile.py`)**: Data repositories providing filtering, code lookups, priority sorting, date-effective rule resolution, and pagination.
+- **Statutory Compliance Domain Service (`app/services/statutory_compliance.py`)**: Domain service implementing country management, statutory rules & slabs management, employee profile assignment with **single active profile enforcement**, effective rule resolution, calculation engine (Fixed, Percentage, Slab), Redis cache invalidation (`country:*`, `statutory_rule:*`, `statutory_profile:*`), and audit logging (`COUNTRY_*`, `STATUTORY_RULE_*`, `STATUTORY_SLAB_*`, `STATUTORY_PROFILE_*`).
+- **Background Celery Task (`app/tasks/statutory_tasks.py`)**: `send_statutory_rule_notification_task` alerting Payroll Administrators on rule creation, modification, activation, or deactivation.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `country.create`, `country.read`, `country.update`, `country.delete`, `statutory_rule.create`, `statutory_rule.read`, `statutory_rule.update`, `statutory_rule.delete`, `statutory_profile.create`, `statutory_profile.read`, `statutory_profile.update`.
+- **REST API Routers (`app/api/v1/endpoints/country.py`, `app/api/v1/endpoints/statutory_rule.py`, `app/api/v1/endpoints/employee_statutory_profile.py`)**: Endpoints (`GET/POST/PUT/DELETE /countries`, `GET/POST/PUT/DELETE /statutory-rules`, `POST/PUT/DELETE /statutory-rules/slabs`, `POST /statutory-rules/calculate`, `GET/POST/PUT /employee-statutory-profiles`, `GET /employees/{id}/statutory-profile`).
+- **Database Migration (`alembic/versions/87b928321932_phase_v055_implement_statutory_.py`)**: Applied database migration creating `countries`, `statutory_rules`, `statutory_rule_slabs`, and `employee_statutory_profiles` tables with foreign keys and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0021-statutory-compliance-engine.md`)**: Documented country-independent architecture, rule & slab calculation model, effective dating, and security controls.
+
+---
+
 ## [v0.5.4] - 2026-07-29
 
 ### Milestone Payroll-5 — Enterprise Payroll Runs & Payslips

@@ -140,6 +140,19 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Publish Payslip", "code": "payslip.publish", "description": "Permission to publish generated payslips to employees", "module_name": "payroll"},
     {"name": "Read Payslip", "code": "payslip.read", "description": "Permission to view and download payslip documents", "module_name": "payroll"},
 
+    # Statutory Compliance Engine Permissions
+    {"name": "Create Country", "code": "country.create", "description": "Permission to create countries", "module_name": "payroll"},
+    {"name": "Read Country", "code": "country.read", "description": "Permission to view countries", "module_name": "payroll"},
+    {"name": "Update Country", "code": "country.update", "description": "Permission to update countries", "module_name": "payroll"},
+    {"name": "Delete Country", "code": "country.delete", "description": "Permission to delete countries", "module_name": "payroll"},
+    {"name": "Create Statutory Rule", "code": "statutory_rule.create", "description": "Permission to create statutory rules", "module_name": "payroll"},
+    {"name": "Read Statutory Rule", "code": "statutory_rule.read", "description": "Permission to view statutory rules", "module_name": "payroll"},
+    {"name": "Update Statutory Rule", "code": "statutory_rule.update", "description": "Permission to update statutory rules", "module_name": "payroll"},
+    {"name": "Delete Statutory Rule", "code": "statutory_rule.delete", "description": "Permission to delete statutory rules", "module_name": "payroll"},
+    {"name": "Create Statutory Profile", "code": "statutory_profile.create", "description": "Permission to assign employee statutory profiles", "module_name": "payroll"},
+    {"name": "Read Statutory Profile", "code": "statutory_profile.read", "description": "Permission to view employee statutory profiles", "module_name": "payroll"},
+    {"name": "Update Statutory Profile", "code": "statutory_profile.update", "description": "Permission to update employee statutory profiles", "module_name": "payroll"},
+
 
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},

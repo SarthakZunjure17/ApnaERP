@@ -4,10 +4,12 @@ from app.api.v1.endpoints import (
     attendance,
     audit,
     auth,
+    country,
     departments,
     employee_documents,
     employees,
     employee_compensation,
+    employee_statutory_profile,
     files,
     health,
     holidays,
@@ -26,6 +28,7 @@ from app.api.v1.endpoints import (
     salary_structure,
     shift_assignment,
     shifts,
+    statutory_rule,
     templates,
 )
 
@@ -59,4 +62,8 @@ api_router.include_router(employee_compensation.router, prefix="", tags=["Employ
 api_router.include_router(payroll_engine.router, prefix="", tags=["Enterprise Payroll Processing Engine"])
 api_router.include_router(payroll_run.router, prefix="/payroll-runs", tags=["Enterprise Payroll Runs"])
 api_router.include_router(payslip.router, prefix="", tags=["Enterprise Employee Payslips"])
+api_router.include_router(country.router, prefix="", tags=["Country Jurisdiction Management"])
+api_router.include_router(statutory_rule.router, prefix="", tags=["Statutory Compliance Rules & Slabs"])
+api_router.include_router(employee_statutory_profile.router, prefix="", tags=["Employee Statutory Profiles"])
+
 
