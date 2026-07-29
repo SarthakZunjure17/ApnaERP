@@ -36,7 +36,16 @@ from app.api.v1.endpoints import (
     shifts,
     statutory_rule,
     templates,
+    category,
+    unit_of_measure,
+    brand,
+    warehouse,
+    storage_location,
+    product,
+    product_attribute,
+    product_document,
 )
+
 
 api_router = APIRouter()
 
@@ -77,6 +86,17 @@ api_router.include_router(payroll_analytics.router, prefix="", tags=["Payroll An
 api_router.include_router(bank_export.router, prefix="", tags=["Bank Export"])
 api_router.include_router(payroll_closing.router, prefix="", tags=["Payroll Closing"])
 api_router.include_router(financial_integration.router, prefix="", tags=["Financial Integration"])
+
+# Inventory Foundation Routers
+api_router.include_router(category.router, prefix="/categories", tags=["Product Categories"])
+api_router.include_router(unit_of_measure.router, prefix="/units-of-measure", tags=["Units of Measure"])
+api_router.include_router(brand.router, prefix="/brands", tags=["Brands"])
+api_router.include_router(warehouse.router, prefix="/warehouses", tags=["Warehouses"])
+api_router.include_router(storage_location.router, prefix="/storage-locations", tags=["Storage Locations"])
+api_router.include_router(product.router, prefix="/products", tags=["Product Master"])
+api_router.include_router(product_attribute.router, prefix="/product-attributes", tags=["Product Attributes"])
+api_router.include_router(product_document.router, prefix="", tags=["Product Documents"])
+
 
 
 

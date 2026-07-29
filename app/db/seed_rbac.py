@@ -181,17 +181,51 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Department", "code": "department.delete", "description": "Permission to remove departments", "module_name": "hr"},
     {"name": "Restore Department", "code": "department.restore", "description": "Permission to restore deleted departments", "module_name": "hr"},
 
+    # Inventory Foundation Permissions
+    {"name": "Create Category", "code": "inventory.category.create", "description": "Permission to create product categories", "module_name": "inventory"},
+    {"name": "Read Category", "code": "inventory.category.read", "description": "Permission to view product categories", "module_name": "inventory"},
+    {"name": "Update Category", "code": "inventory.category.update", "description": "Permission to update product categories", "module_name": "inventory"},
+    {"name": "Delete Category", "code": "inventory.category.delete", "description": "Permission to delete product categories", "module_name": "inventory"},
+
+    {"name": "Create Unit of Measure", "code": "inventory.unit.create", "description": "Permission to create units of measure", "module_name": "inventory"},
+    {"name": "Read Unit of Measure", "code": "inventory.unit.read", "description": "Permission to view units of measure", "module_name": "inventory"},
+    {"name": "Update Unit of Measure", "code": "inventory.unit.update", "description": "Permission to update units of measure", "module_name": "inventory"},
+    {"name": "Delete Unit of Measure", "code": "inventory.unit.delete", "description": "Permission to delete units of measure", "module_name": "inventory"},
+
+    {"name": "Create Brand", "code": "inventory.brand.create", "description": "Permission to create product brands", "module_name": "inventory"},
+    {"name": "Read Brand", "code": "inventory.brand.read", "description": "Permission to view product brands", "module_name": "inventory"},
+    {"name": "Update Brand", "code": "inventory.brand.update", "description": "Permission to update product brands", "module_name": "inventory"},
+    {"name": "Delete Brand", "code": "inventory.brand.delete", "description": "Permission to delete product brands", "module_name": "inventory"},
+
+    {"name": "Create Warehouse", "code": "inventory.warehouse.create", "description": "Permission to create warehouse facilities", "module_name": "inventory"},
+    {"name": "Read Warehouse", "code": "inventory.warehouse.read", "description": "Permission to view warehouse facilities", "module_name": "inventory"},
+    {"name": "Update Warehouse", "code": "inventory.warehouse.update", "description": "Permission to update warehouse facilities", "module_name": "inventory"},
+    {"name": "Delete Warehouse", "code": "inventory.warehouse.delete", "description": "Permission to delete warehouse facilities", "module_name": "inventory"},
+
+    {"name": "Create Storage Location", "code": "inventory.location.create", "description": "Permission to create storage locations", "module_name": "inventory"},
+    {"name": "Read Storage Location", "code": "inventory.location.read", "description": "Permission to view storage locations", "module_name": "inventory"},
+    {"name": "Update Storage Location", "code": "inventory.location.update", "description": "Permission to update storage locations", "module_name": "inventory"},
+    {"name": "Delete Storage Location", "code": "inventory.location.delete", "description": "Permission to delete storage locations", "module_name": "inventory"},
+
+    {"name": "Create Product", "code": "inventory.product.create", "description": "Permission to create products in product master", "module_name": "inventory"},
+    {"name": "Read Product", "code": "inventory.product.read", "description": "Permission to view products in product master", "module_name": "inventory"},
+    {"name": "Update Product", "code": "inventory.product.update", "description": "Permission to update products in product master", "module_name": "inventory"},
+    {"name": "Delete Product", "code": "inventory.product.delete", "description": "Permission to delete products in product master", "module_name": "inventory"},
+
+    {"name": "Create Product Attribute", "code": "inventory.attribute.create", "description": "Permission to create product attributes", "module_name": "inventory"},
+    {"name": "Read Product Attribute", "code": "inventory.attribute.read", "description": "Permission to view product attributes", "module_name": "inventory"},
+    {"name": "Update Product Attribute", "code": "inventory.attribute.update", "description": "Permission to update product attributes", "module_name": "inventory"},
+    {"name": "Delete Product Attribute", "code": "inventory.attribute.delete", "description": "Permission to delete product attributes", "module_name": "inventory"},
+
+    {"name": "Upload Product Document", "code": "inventory.document.upload", "description": "Permission to upload product documents", "module_name": "inventory"},
+    {"name": "Read Product Document", "code": "inventory.document.read", "description": "Permission to view product documents", "module_name": "inventory"},
+    {"name": "Delete Product Document", "code": "inventory.document.delete", "description": "Permission to delete product documents", "module_name": "inventory"},
+
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},
     {"name": "Update Inventory Items", "code": "inventory.update", "description": "Permission to modify inventory stock", "module_name": "inventory"},
     {"name": "Delete Inventory Items", "code": "inventory.delete", "description": "Permission to delete inventory stock", "module_name": "inventory"},
-
-    # Sales
-    {"name": "Create Sales Orders", "code": "sales.create", "description": "Permission to record sales orders", "module_name": "sales"},
-    {"name": "Read Sales Orders", "code": "sales.read", "description": "Permission to view sales orders", "module_name": "sales"},
-    {"name": "Update Sales Orders", "code": "sales.update", "description": "Permission to update sales orders", "module_name": "sales"},
-    {"name": "Delete Sales Orders", "code": "sales.delete", "description": "Permission to cancel/delete sales orders", "module_name": "sales"},
 ]
 
 DEFAULT_ROLES: List[Dict[str, str]] = [
@@ -230,9 +264,10 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             logger.info(f"Seeded role: {r_data['name']}")
         created_roles[r_data["name"]] = existing
 
-    # 3. Assign Permissions to Super Admin & HR Manager
+    # 3. Assign Permissions to Super Admin & HR Manager & Inventory Manager
     super_admin_role = created_roles.get("Super Admin")
     hr_manager_role = created_roles.get("HR Manager")
+    inventory_manager_role = created_roles.get("Inventory Manager")
 
     for perm_code, perm_obj in created_perms.items():
         if super_admin_role:
@@ -251,6 +286,10 @@ async def seed_rbac_data(db: AsyncSession) -> None:
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=hr_manager_role.id, permission_id=perm_obj.id
+            )
+        if inventory_manager_role and perm_code.startswith("inventory."):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=inventory_manager_role.id, permission_id=perm_obj.id
             )
 
 

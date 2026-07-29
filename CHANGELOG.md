@@ -5,6 +5,28 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0] - 2026-07-29
+
+### Milestone Inventory Foundation — Product Master Catalog (Inventory Domain Opened)
+
+#### Added
+- **Inventory ORM Entities (`app/models/`)**: Created 9 models: `ProductCategory`, `UnitOfMeasure`, `Brand`, `Warehouse`, `StorageLocation`, `Product`, `ProductAttribute`, `ProductAttributeValue`, and `ProductDocument`.
+- **Pydantic v2 DTO Schemas (`app/schemas/inventory.py`)**: Schemas and tree DTOs for Categories, Units of Measure, Brands, Warehouses, Storage Locations, Products, Attributes, and Documents.
+- **Repository Layer (`app/repositories/inventory_repos.py`)**: Repositories for all 9 entities with multi-column search, filtering, SKU/code uniqueness lookups, and hierarchy tree resolution.
+- **Domain Services (`app/services/inventory_services.py`)**:
+  - `CategoryService` & `StorageLocationService`: Infinite parent-child hierarchy tree resolution and circular reference validation.
+  - `UnitOfMeasureService` & `BrandService`: Standard unit definitions and brand catalog management with uniqueness guards.
+  - `WarehouseService`: Storage facility management and contact details.
+  - `ProductService`: Product Master catalog operations, multi-column search/filtering, SKU/barcode uniqueness validation, status state machine (`Draft` -> `Active` -> `Discontinued` -> `Archived`), and read-only enforcement for `Archived` products.
+  - `ProductAttributeService` & `ProductDocumentService`: Custom key-value attribute definitions and document file attachments.
+- **Background Celery Task (`app/tasks/inventory_tasks.py`)**: `send_inventory_notification_task` broadcasting alerts on warehouse creation/updates and product archival.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 24 permissions across `inventory.category.*`, `inventory.unit.*`, `inventory.brand.*`, `inventory.warehouse.*`, `inventory.location.*`, `inventory.product.*`, `inventory.attribute.*`, and `inventory.document.*`.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 8 API routers (`category.py`, `unit_of_measure.py`, `brand.py`, `warehouse.py`, `storage_location.py`, `product.py`, `product_attribute.py`, `product_document.py`) registered under `/api/v1`.
+- **Database Migration (`alembic/versions/00f4c360a213_phase_v060_implement_inventory_.py`)**: Migration creating inventory tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0023-inventory-foundation.md`)**: Architectural details on product master catalog, infinite category/location trees, status rules, and cache invalidation.
+
+---
+
 ## [v0.5.6] - 2026-07-29
 
 ### Milestone Payroll Finalization Suite — Enterprise Payroll Finalization Suite (Payroll Domain Completed)

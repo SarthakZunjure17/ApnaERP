@@ -8,6 +8,25 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Inventory Domain — Inventory Foundation (Milestone Inventory Foundation v0.6.0 - Inventory Domain Opened)
+
+### Overview
+The Inventory Foundation (`app/models/product_category.py`, `app/models/unit_of_measure.py`, `app/models/brand.py`, `app/models/warehouse.py`, `app/models/storage_location.py`, `app/models/product.py`, `app/models/product_attribute.py`, `app/models/product_document.py`, `app/services/inventory_services.py`) OPENS the Inventory Domain for ApnaERP. It establishes the Product Master catalog, unit measurement rules, warehouse/location structures, flexible key-value product attributes, and document attachments required for future stock ledger transactions, inventory movements, batch tracking, procurement, and sales.
+
+### Key Technical Capabilities
+- **Product Categories (`ProductCategory`)**: Infinite parent-child hierarchy tree support with circular parent reference prevention and code uniqueness validation.
+- **Units of Measure (`UnitOfMeasure`)**: Standardized measurement unit catalog with precision configuration, symbol uniqueness, and base unit references.
+- **Brands (`Brand`)**: Manufacturer and brand catalog management.
+- **Warehouses (`Warehouse`)**: Physical storage facilities with contact details and address management.
+- **Storage Locations (`StorageLocation`)**: Sub-locations (Shelf, Rack, Bin, Floor, Cold Storage, Quarantine, Receiving, Dispatch) with infinite hierarchy nesting scoped to a specific warehouse.
+- **Product Master Catalog (`Product`)**: Master records with SKU, Barcode, Product Type, Inventory flags, UOM references, Default Warehouse link, and lifecycle state machine (`Draft` -> `Active` -> `Discontinued` -> `Archived`).
+- **Product Immutability Guard**: `Archived` products are strictly read-only and reject any modification attempts.
+- **Product Attributes & Documents (`ProductAttribute`, `ProductDocument`)**: Extensible key-value attribute definitions and attached file document management.
+- **Redis Caching & Celery Telemetry**: Redis caching for hierarchy trees (`category:tree`, `location:tree`), audit logging (`CATEGORY_*`, `WAREHOUSE_*`, `STORAGE_LOCATION_*`, `PRODUCT_*`), and background Celery notification task (`send_inventory_notification_task`).
+- **RBAC Security**: Protected by 24 permissions (`inventory.category.*`, `inventory.unit.*`, `inventory.brand.*`, `inventory.warehouse.*`, `inventory.location.*`, `inventory.product.*`, `inventory.attribute.*`, `inventory.document.*`).
+
+---
+
 ## Payroll Domain — Enterprise Payroll Finalization Suite (Milestone Payroll Finalization Suite v0.5.6 - Payroll Domain Complete)
 
 ### Overview

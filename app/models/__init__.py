@@ -36,6 +36,14 @@ from app.models.payroll_adjustment import PayrollAdjustment
 from app.models.payroll_report_snapshot import PayrollReportSnapshot
 from app.models.payroll_closing import PayrollClosing
 from app.models.financial_posting_queue import FinancialPostingQueue
+from app.models.product_category import ProductCategory
+from app.models.unit_of_measure import UnitOfMeasure
+from app.models.brand import Brand
+from app.models.warehouse import Warehouse
+from app.models.storage_location import StorageLocation
+from app.models.product import Product
+from app.models.product_attribute import ProductAttribute, ProductAttributeValue
+from app.models.product_document import ProductDocument
 
 __all__ = [
     "User",
@@ -80,6 +88,13 @@ __all__ = [
     "PayrollReportSnapshot",
     "PayrollClosing",
     "FinancialPostingQueue",
+    "ProductCategory",
+    "UnitOfMeasure",
+    "Brand",
+    "Warehouse",
+    "StorageLocation",
+    "Product",
+    "ProductAttribute",
+    "ProductAttributeValue",
+    "ProductDocument",
 ]
-
-
