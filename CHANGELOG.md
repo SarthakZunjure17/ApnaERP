@@ -5,6 +5,25 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.4] - 2026-07-29
+
+### Milestone Payroll-5 — Enterprise Payroll Runs & Payslips
+
+#### Added
+- **`PayrollRun` & `Payslip` ORM Entities (`app/models/payroll_run.py`, `app/models/payslip.py`)**: Models representing execution batches (`PayrollRun`: `payroll_period_id`, `run_number`, `run_type`, `status`, `started_by`, `started_at`, `completed_at`, `locked_at`, `remarks`, unique constraint `(payroll_period_id, run_type)`) and employee payslip documents (`Payslip`: `payroll_record_id`, `payslip_number`, `employee_id`, `payroll_period_id`, `gross_salary`, `total_earnings`, `total_deductions`, `net_salary`, `pdf_file_id`, `generated_at`, `published_at`, `status`).
+- **Pydantic v2 DTO Schemas (`app/schemas/payroll_run.py`, `app/schemas/payslip.py`)**: `PayrollRunCreate`, `PayrollRunUpdate`, `PayrollRunResponse`, `PayslipResponse`, and status/type enums.
+- **Repository Layer (`app/repositories/payroll_run.py`, `app/repositories/payslip.py`)**: Repositories providing run lookup, period filtering, employee history, and pagination/sorting capabilities.
+- **ReportLab PDF Generator Utility (`app/utils/pdf_generator.py`)**: Utility (`generate_payslip_pdf_bytes`) compiling ReportLab PDF payslip documents in memory with company branding, employee details, period info, itemized earnings/deductions, gross/net totals, disclaimers, and currency formatting.
+- **File Storage Integration (`app/services/file.py`)**: Extended `FileService` with `upload_bytes()` to store binary PDF files in storage with SHA256 checksum deduplication and `File` record creation.
+- **Payroll Run & Payslip Service (`app/services/payroll_run.py`)**: Domain service managing run lifecycle (`Draft` -> `Processing` -> `Completed` -> `Locked`), ReportLab PDF batch generation, publication workflows (`Draft` -> `Generated` -> `Published`), streaming binary downloads (`download_payslip_pdf`), Redis cache invalidation (`payroll_run:*`, `payslip:*`), audit logging (`PAYROLL_RUN_CREATE`, `PAYROLL_RUN_START`, `PAYROLL_RUN_COMPLETE`, `PAYROLL_RUN_LOCK`, `PAYSLIP_GENERATE`, `PAYSLIP_PUBLISH`), and Celery notification task dispatch.
+- **Background Celery Tasks (`app/tasks/payroll_run_tasks.py`)**: `send_payroll_run_notification_task` (alerts Payroll Team on run completion/lock) and `send_payslip_published_notification_task` (notifies employees when payslips are published).
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `payroll_run.create`, `payroll_run.read`, `payroll_run.update`, `payroll_run.lock`, `payslip.generate`, `payslip.publish`, `payslip.read`.
+- **REST API Routers (`app/api/v1/endpoints/payroll_run.py`, `app/api/v1/endpoints/payslip.py`)**: Endpoints (`GET /payroll-runs`, `POST /payroll-runs`, `GET /payroll-runs/{id}`, `POST /payroll-runs/{id}/start`, `POST /payroll-runs/{id}/complete`, `POST /payroll-runs/{id}/lock`, `POST /payroll-runs/{id}/generate-payslips`, `POST /payroll-runs/{id}/publish-payslips`, `GET /payslips`, `GET /payslips/{id}`, `GET /employees/{id}/payslips`, `GET /payslips/{id}/download`).
+- **Database Migration (`alembic/versions/769cb83590b7_phase_v054_implement_payroll_runs_and_.py`)**: Applied database migration creating `payroll_runs` and `payslips` tables with foreign keys and unique constraints.
+- **Architecture Decision Record (`docs/adr/ADR-0020-payroll-runs-payslips.md`)**: Documented batch execution architecture, ReportLab PDF generation, File Storage integration, publication immutability, and security controls.
+
+---
+
 ## [v0.5.3] - 2026-07-27
 
 ### Milestone Payroll-4 — Enterprise Payroll Processing Engine

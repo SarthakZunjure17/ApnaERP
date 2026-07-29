@@ -131,6 +131,16 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Approve Payroll", "code": "payroll.approve", "description": "Permission to approve calculated payroll records", "module_name": "payroll"},
     {"name": "Lock Payroll", "code": "payroll.lock", "description": "Permission to lock payroll periods against further changes", "module_name": "payroll"},
 
+    # Enterprise Payroll Runs & Payslip Permissions
+    {"name": "Create Payroll Run", "code": "payroll_run.create", "description": "Permission to create payroll run batches", "module_name": "payroll"},
+    {"name": "Read Payroll Run", "code": "payroll_run.read", "description": "Permission to view payroll run batches", "module_name": "payroll"},
+    {"name": "Update Payroll Run", "code": "payroll_run.update", "description": "Permission to start and complete payroll runs", "module_name": "payroll"},
+    {"name": "Lock Payroll Run", "code": "payroll_run.lock", "description": "Permission to lock payroll run batches", "module_name": "payroll"},
+    {"name": "Generate Payslip", "code": "payslip.generate", "description": "Permission to generate ReportLab PDF payslips", "module_name": "payroll"},
+    {"name": "Publish Payslip", "code": "payslip.publish", "description": "Permission to publish generated payslips to employees", "module_name": "payroll"},
+    {"name": "Read Payslip", "code": "payslip.read", "description": "Permission to view and download payslip documents", "module_name": "payroll"},
+
+
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
     {"name": "Create HR Configuration", "code": "hr_configuration.create", "description": "Permission to create organization HR policies", "module_name": "hr"},

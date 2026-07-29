@@ -132,6 +132,71 @@ class FileService(BaseService[file_repository.__class__]):
 
         return file_record
 
+    async def upload_bytes(
+        self,
+        db: AsyncSession,
+        *,
+        content: bytes,
+        filename: str,
+        mime_type: str = "application/pdf",
+        uploader: Optional[User] = None,
+        entity_type: Optional[str] = None,
+        entity_id: Optional[str] = None,
+        is_public: bool = False,
+    ) -> File:
+        """
+        Saves raw bytes into storage, checks deduplication via SHA256, inserts File record, and logs audit event.
+        """
+        file_size = len(content)
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "pdf"
+        checksum = self.calculate_checksum(content)
+
+        existing_file = await self.repository.get_by_checksum(db, checksum)
+        if existing_file:
+            logger.info(f"Duplicate file upload_bytes (SHA256: {checksum}). Returning existing file record '{existing_file.id}'")
+            return existing_file
+
+        unique_stored_name = f"{uuid.uuid4().hex}.{ext}"
+
+        storage_path = await self.storage.save_file(
+            file_data=content,
+            stored_filename=unique_stored_name,
+        )
+
+        file_in = FileCreate(
+            original_filename=filename,
+            stored_filename=unique_stored_name,
+            file_extension=ext,
+            mime_type=mime_type,
+            file_size=file_size,
+            storage_path=storage_path,
+            uploaded_by_id=uploader.id if uploader else None,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            checksum=checksum,
+            is_public=is_public,
+        )
+
+        file_record = await self.repository.create(db, obj_in=file_in)
+
+        await log_audit(
+            db,
+            action="FILE_UPLOAD",
+            entity_type="File",
+            entity_id=file_record.id,
+            user_id=uploader.id if uploader else None,
+            username=uploader.username if uploader else "system",
+            new_data={
+                "original_filename": filename,
+                "file_size": file_size,
+                "mime_type": mime_type,
+                "checksum": checksum,
+            },
+            status_code=201,
+        )
+
+        return file_record
+
     async def get_file_for_download(
         self, db: AsyncSession, *, file_id: uuid.UUID, current_user: User
     ) -> Tuple[File, bytes]:

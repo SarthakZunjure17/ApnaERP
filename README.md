@@ -6,7 +6,23 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, and Docker.
+
+## Payroll Domain — Enterprise Payroll Runs & Payslips (Milestone Payroll-5 v0.5.4)
+
+### Overview
+The Enterprise Payroll Runs & Payslips module (`app/models/payroll_run.py`, `app/models/payslip.py`, `app/services/payroll_run.py`, `app/utils/pdf_generator.py`) organizes batch execution runs and generates ReportLab PDF payslip documents with File Storage integration and publication security controls.
+
+### Key Technical Capabilities
+- **Batch Execution (`PayrollRun`)**: Groups payroll executions by `Run Type` (`Regular`, `Off Cycle`, `Adjustment`) with unique constraint `(payroll_period_id, run_type)` and lifecycle states (`Draft`, `Processing`, `Completed`, `Locked`).
+- **ReportLab PDF Payslip Generation**: Generates clean PDF payslips in memory (`generate_payslip_pdf_bytes`) formatted with company branding, employee details, period info, itemized earnings/deductions, gross/net totals, disclaimers, and currency formatting.
+- **File Storage Integration**: Stores PDF files via `FileService.upload_bytes()` with SHA256 checksum deduplication and `File` record linking (`pdf_file_id`).
+- **Publication Workflow & Immutability**: Manages payslip state (`Draft` -> `Generated` -> `Published`). Employees access and download PDF streams (`/api/v1/payslips/{id}/download`) only after payslips are explicitly published by HR/Payroll Managers.
+- **Permanent Lock Guard**: Locking a `PayrollRun` (`status = "Locked"`) permanently prevents further execution or payslip modification.
+- **Redis Caching & Celery Telemetry**: Real-time Redis caching (`payroll_run:*`, `payslip:*`), audit logging (`PAYROLL_RUN_*`, `PAYSLIP_*`), and background Celery notification tasks (`send_payroll_run_notification_task`, `send_payslip_published_notification_task`).
+- **RBAC Security**: Protected by permissions (`payroll_run.create`, `payroll_run.read`, `payroll_run.update`, `payroll_run.lock`, `payslip.generate`, `payslip.publish`, `payslip.read`).
+
+---
 
 ## Payroll Domain — Enterprise Payroll Processing Engine (Milestone Payroll-4 v0.5.3)
 

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.employee import Employee
 from app.models.payroll_period import PayrollPeriod, PayrollRecord, PayrollRecordComponent
 from app.repositories.base_repository import BaseRepository
 from app.schemas.payroll_period import (
@@ -76,10 +77,13 @@ class PayrollRecordRepository(BaseRepository[PayrollRecord, Any, Any]):
     async def get_records_by_period(
         self, db: AsyncSession, period_id: uuid.UUID
     ) -> List[PayrollRecord]:
-        """Retrieves all generated PayrollRecords for a payroll period."""
+        """Retrieves all generated PayrollRecords for a payroll period with components, employee, and department."""
         query = (
             select(PayrollRecord)
-            .options(selectinload(PayrollRecord.components))
+            .options(
+                selectinload(PayrollRecord.components),
+                selectinload(PayrollRecord.employee).selectinload(Employee.department),
+            )
             .where(PayrollRecord.payroll_period_id == period_id)
             .order_by(PayrollRecord.created_at)
         )

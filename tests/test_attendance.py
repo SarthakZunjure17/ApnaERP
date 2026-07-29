@@ -302,7 +302,10 @@ async def test_attendance_service_locked_guard(sample_employee, sample_shift):
         await session.commit()
 
         # 3. Attempt check-out on locked record -> Expect ATTENDANCE_LOCKED
-        checkout_req = CheckOutRequest(employee_id=sample_employee.id)
+        checkout_req = CheckOutRequest(
+            employee_id=sample_employee.id,
+            check_out_time=datetime.datetime(2026, 7, 27, 17, 0, tzinfo=datetime.timezone.utc),
+        )
         with pytest.raises(ApnaERPException) as exc_info:
             await service.process_check_out(data=checkout_req)
         assert exc_info.value.error_code == "ATTENDANCE_LOCKED"

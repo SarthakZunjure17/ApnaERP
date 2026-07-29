@@ -27,6 +27,8 @@ from app.models.salary_component import SalaryComponent
 from app.models.salary_structure import SalaryStructure, SalaryStructureComponent
 from app.models.employee_compensation import EmployeeCompensation
 from app.models.payroll_period import PayrollPeriod, PayrollRecord, PayrollRecordComponent
+from app.models.payroll_run import PayrollRun
+from app.models.payslip import Payslip
 
 __all__ = [
     "User",
@@ -61,4 +63,7 @@ __all__ = [
     "PayrollPeriod",
     "PayrollRecord",
     "PayrollRecordComponent",
+    "PayrollRun",
+    "Payslip",
 ]
+
