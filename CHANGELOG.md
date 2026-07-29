@@ -5,6 +5,29 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.6] - 2026-07-29
+
+### Milestone Payroll Finalization Suite — Enterprise Payroll Finalization Suite (Payroll Domain Completed)
+
+#### Added
+- **`PayrollAdjustment`, `PayrollReportSnapshot`, `PayrollClosing`, and `FinancialPostingQueue` ORM Entities (`app/models/payroll_adjustment.py`, `app/models/payroll_report_snapshot.py`, `app/models/payroll_closing.py`, `app/models/financial_posting_queue.py`)**: Models representing post-calculation adjustments (`PayrollAdjustment`: `employee_id`, `payroll_period_id`, `adjustment_type`, `amount`, `currency`, `description`, `status`, `approved_by`, `approved_at`), generated report snapshots (`PayrollReportSnapshot`: `payroll_period_id`, `report_type`, `format`, `generated_by`, `generated_at`, `file_id`, `metadata_json`), period closing/reopening/archival state (`PayrollClosing`: `payroll_period_id`, `closed_by`, `closed_at`, `reopened_by`, `reopened_at`, `closing_remarks`, `status`), and decoupled financial integration queue items (`FinancialPostingQueue`: `payroll_period_id`, `posting_status`, `payload`, `posted_at`).
+- **Pydantic v2 DTO Schemas (`app/schemas/payroll_finalization.py`)**: Schemas for Adjustments (`PayrollAdjustmentCreate`, `PayrollAdjustmentUpdate`, `PayrollAdjustmentResponse`), Reports (`PayrollReportGenerateRequest`, `PayrollReportSnapshotResponse`), Analytics (`PayrollAnalyticsResponse`, `DepartmentPayrollCost`, `PayrollTrendItem`), Bank Export (`BankExportRequest`, `BankExportResponse`), Period Closing (`PayrollClosingRequest`, `PayrollReopenRequest`, `PayrollClosingResponse`), and Financial Queue (`FinancialPostingQueueResponse`).
+- **Repository Layer (`app/repositories/payroll_adjustment.py`, `app/repositories/payroll_finalization_repos.py`)**: Repositories providing filtering, period lookups, approved adjustment retrieval, snapshot querying, closing state management, and pending posting queue retrieval with pagination and sorting.
+- **Domain Services (`app/services/payroll_finalization_services.py`)**:
+  - `PayrollAdjustmentService`: Adjustments creation, update, approval (`Approved`), rejection (`Rejected`), deletion, and period immutability guard.
+  - `PayrollAnalyticsService`: Real-time executive metrics calculation (total cost, average salary, total earnings/deductions, highest/lowest salary, department cost breakdown, period trends).
+  - `PayrollReportService`: Formal payroll report generation and file snapshot storage in PDF, EXCEL, and CSV formats.
+  - `BankExportService`: Generation and file upload of bank-compatible payment export CSV files.
+  - `PayrollClosingService`: Period closing (`Closed`), audited reopening (`Open` with required reason log), and permanent archival (`Archived`).
+  - `FinancialIntegrationService`: Generation and publication of structured financial posting payloads (`FinancialPostingQueue`) exposing journal entry summaries for future GL integration without implementing an accounting module.
+- **Background Celery Task (`app/tasks/payroll_finalization_tasks.py`)**: `send_payroll_finalization_notification_task` broadcasting notification alerts on adjustment approvals/rejections, period closing/reopening, and financial posting payload publications.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 10 permissions `payroll.adjustment.create`, `payroll.adjustment.update`, `payroll.adjustment.delete`, `payroll.report.generate`, `payroll.analytics.read`, `payroll.bank.export`, `payroll.close`, `payroll.reopen`, `payroll.archive`, `payroll.financial.publish`.
+- **REST API Routers (`app/api/v1/endpoints/payroll_adjustment.py`, `app/api/v1/endpoints/payroll_report.py`, `app/api/v1/endpoints/payroll_analytics.py`, `app/api/v1/endpoints/bank_export.py`, `app/api/v1/endpoints/payroll_closing.py`, `app/api/v1/endpoints/financial_integration.py`)**: Endpoints for Adjustments, Reports generation & download, Analytics, Bank Export, Closing/Reopening/Archival, and Financial Integration payload publication.
+- **Database Migration (`alembic/versions/00f67d39bb21_phase_v056_implement_payroll_.py`)**: Applied migration creating `payroll_adjustments`, `payroll_report_snapshots`, `payroll_closings`, and `financial_posting_queue` tables.
+- **Architecture Decision Record (`docs/adr/ADR-0022-payroll-finalization-suite.md`)**: Documented finalization architecture, period immutability, report snapshotting, bank export, closing state machine, and financial integration queue abstractions.
+
+---
+
 ## [v0.5.5] - 2026-07-29
 
 ### Milestone Payroll-6 — Enterprise Statutory Compliance Engine

@@ -21,6 +21,7 @@ from app.tasks.payroll_run_tasks import (
     send_payslip_published_notification_task,
 )
 from app.tasks.statutory_tasks import send_statutory_rule_notification_task
+from app.tasks.payroll_finalization_tasks import send_payroll_finalization_notification_task
 from app.tasks.system_tasks import system_health_check_task, system_ping_task
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "send_payroll_run_notification_task",
     "send_payslip_published_notification_task",
     "send_statutory_rule_notification_task",
+    "send_payroll_finalization_notification_task",
 ]
 
 

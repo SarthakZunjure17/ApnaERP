@@ -32,6 +32,10 @@ from app.models.payslip import Payslip
 from app.models.country import Country
 from app.models.statutory_rule import StatutoryRule, StatutoryRuleSlab
 from app.models.employee_statutory_profile import EmployeeStatutoryProfile
+from app.models.payroll_adjustment import PayrollAdjustment
+from app.models.payroll_report_snapshot import PayrollReportSnapshot
+from app.models.payroll_closing import PayrollClosing
+from app.models.financial_posting_queue import FinancialPostingQueue
 
 __all__ = [
     "User",
@@ -72,6 +76,10 @@ __all__ = [
     "StatutoryRule",
     "StatutoryRuleSlab",
     "EmployeeStatutoryProfile",
+    "PayrollAdjustment",
+    "PayrollReportSnapshot",
+    "PayrollClosing",
+    "FinancialPostingQueue",
 ]
 
 

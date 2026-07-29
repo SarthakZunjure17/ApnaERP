@@ -6,7 +6,25 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
+
+## Payroll Domain — Enterprise Payroll Finalization Suite (Milestone Payroll Finalization Suite v0.5.6 - Payroll Domain Complete)
+
+### Overview
+The Enterprise Payroll Finalization Suite (`app/models/payroll_adjustment.py`, `app/models/payroll_report_snapshot.py`, `app/models/payroll_closing.py`, `app/models/financial_posting_queue.py`, `app/services/payroll_finalization_services.py`) COMPLETES and CLOSES the Enterprise Payroll domain for ApnaERP. It handles post-calculation adjustments, formal report snapshotting, executive analytics, bank disbursement exports, period closing/reopening/archival lifecycle, and exposes clean financial posting queue interfaces for future General Ledger integration.
+
+### Key Technical Capabilities
+- **Payroll Adjustments (`PayrollAdjustment`)**: Manages one-time earnings and deductions (Bonus, Incentive, Commission, Overtime, Arrears, Reimbursements, Loan Recovery, Manual Additions/Deductions) with approval workflow state machine (`Pending`, `Approved`, `Rejected`, `Applied`).
+- **Period Immutability Guard**: Enforces that Closed and Archived payroll periods are strictly immutable and reject any adjustment modifications or additions.
+- **Formal Payroll Reports & Snapshots (`PayrollReportSnapshot`)**: Generates and stores formal report snapshots (Salary Register, Department-wise Payroll, Employee Salary History, Payroll Summary, Deduction Summary, Earnings Summary, Cost Center Report, Monthly Payroll Register) in PDF, EXCEL, or CSV formats with file storage integration.
+- **Real-Time Payroll Analytics (`PayrollAnalyticsResponse`)**: Real-time aggregated metrics including total payroll cost, average salary, highest/lowest salary, department cost breakdowns, and period trend analysis.
+- **Bank Export CSV Generation**: Generates bank-compatible payment export CSV files containing employee bank accounts and net payable amounts for direct salary disbursement.
+- **Period Closing Lifecycle (`PayrollClosing`)**: Period closing (`Closed`), audited reopening (`Open` with mandatory reason logging), and permanent archival locking (`Archived`).
+- **Decoupled Financial Integration Interface (`FinancialPostingQueue`)**: Exposes standardized journal entry payloads (`debit_gross_salary_expense`, `credit_statutory_deductions_liability`, `credit_net_payroll_payable`) for future Finance module ingestion without implementing accounting tables in this milestone.
+- **Redis Caching & Celery Telemetry**: Real-time audit logging (`PAYROLL_ADJUSTMENT_*`, `PAYROLL_REPORT_*`, `PAYROLL_PERIOD_CLOSE`, `PAYROLL_FINANCIAL_PUBLISH`) and background Celery notification task (`send_payroll_finalization_notification_task`).
+- **RBAC Security**: Protected by 10 permissions (`payroll.adjustment.create/update/delete`, `payroll.report.generate`, `payroll.analytics.read`, `payroll.bank.export`, `payroll.close`, `payroll.reopen`, `payroll.archive`, `payroll.financial.publish`).
+
+---
 
 ## Payroll Domain — Enterprise Statutory Compliance Engine (Milestone Payroll-6 v0.5.5)
 

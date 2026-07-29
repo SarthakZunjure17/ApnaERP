@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     employee_compensation,
     employee_statutory_profile,
     files,
+    financial_integration,
     health,
     holidays,
     hr_configurations,
@@ -18,7 +19,12 @@ from app.api.v1.endpoints import (
     leave_balance,
     leave_request,
     notifications,
+    bank_export,
+    payroll_adjustment,
+    payroll_analytics,
+    payroll_closing,
     payroll_engine,
+    payroll_report,
     payroll_run,
     payslip,
     positions,
@@ -65,5 +71,12 @@ api_router.include_router(payslip.router, prefix="", tags=["Enterprise Employee 
 api_router.include_router(country.router, prefix="", tags=["Country Jurisdiction Management"])
 api_router.include_router(statutory_rule.router, prefix="", tags=["Statutory Compliance Rules & Slabs"])
 api_router.include_router(employee_statutory_profile.router, prefix="", tags=["Employee Statutory Profiles"])
+api_router.include_router(payroll_adjustment.router, prefix="", tags=["Payroll Adjustments"])
+api_router.include_router(payroll_report.router, prefix="", tags=["Payroll Reports"])
+api_router.include_router(payroll_analytics.router, prefix="", tags=["Payroll Analytics"])
+api_router.include_router(bank_export.router, prefix="", tags=["Bank Export"])
+api_router.include_router(payroll_closing.router, prefix="", tags=["Payroll Closing"])
+api_router.include_router(financial_integration.router, prefix="", tags=["Financial Integration"])
+
 
 

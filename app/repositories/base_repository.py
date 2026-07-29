@@ -107,12 +107,15 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         Creates a new entity record in the database.
         """
-        if isinstance(obj_in, dict):
+        if isinstance(obj_in, self.model):
+            db_obj = obj_in
+            create_data = {c.name: str(getattr(db_obj, c.name)) for c in db_obj.__table__.columns if hasattr(db_obj, c.name)}
+        elif isinstance(obj_in, dict):
             create_data = obj_in
+            db_obj = self.model(**create_data)
         else:
             create_data = obj_in.model_dump(exclude_unset=True)
-
-        db_obj = self.model(**create_data)
+            db_obj = self.model(**create_data)
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)

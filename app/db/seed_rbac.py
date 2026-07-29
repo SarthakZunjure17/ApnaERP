@@ -153,6 +153,18 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Statutory Profile", "code": "statutory_profile.read", "description": "Permission to view employee statutory profiles", "module_name": "payroll"},
     {"name": "Update Statutory Profile", "code": "statutory_profile.update", "description": "Permission to update employee statutory profiles", "module_name": "payroll"},
 
+    # Payroll Finalization Suite Permissions
+    {"name": "Create Payroll Adjustment", "code": "payroll.adjustment.create", "description": "Permission to create payroll adjustments", "module_name": "payroll"},
+    {"name": "Update Payroll Adjustment", "code": "payroll.adjustment.update", "description": "Permission to update payroll adjustments", "module_name": "payroll"},
+    {"name": "Delete Payroll Adjustment", "code": "payroll.adjustment.delete", "description": "Permission to delete payroll adjustments", "module_name": "payroll"},
+    {"name": "Generate Payroll Report", "code": "payroll.report.generate", "description": "Permission to generate payroll report snapshots", "module_name": "payroll"},
+    {"name": "Read Payroll Analytics", "code": "payroll.analytics.read", "description": "Permission to view payroll analytics dashboard", "module_name": "payroll"},
+    {"name": "Export Bank Payment File", "code": "payroll.bank.export", "description": "Permission to generate bank payment CSV exports", "module_name": "payroll"},
+    {"name": "Close Payroll Period", "code": "payroll.close", "description": "Permission to close completed payroll periods", "module_name": "payroll"},
+    {"name": "Reopen Payroll Period", "code": "payroll.reopen", "description": "Permission to reopen closed payroll periods", "module_name": "payroll"},
+    {"name": "Archive Payroll Period", "code": "payroll.archive", "description": "Permission to archive closed payroll periods", "module_name": "payroll"},
+    {"name": "Publish Financial Payload", "code": "payroll.financial.publish", "description": "Permission to publish financial posting queue payloads", "module_name": "payroll"},
+
 
     # HR Configuration & Organization Policy Permissions
     {"name": "Read HR Configuration", "code": "hr_configuration.read", "description": "Permission to view organization HR policies", "module_name": "hr"},
