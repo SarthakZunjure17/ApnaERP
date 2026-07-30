@@ -44,6 +44,11 @@ from app.models.storage_location import StorageLocation
 from app.models.product import Product
 from app.models.product_attribute import ProductAttribute, ProductAttributeValue
 from app.models.product_document import ProductDocument
+from app.models.inventory_transaction_type import InventoryTransactionType
+from app.models.stock_ledger import StockLedger
+from app.models.stock_balance import StockBalance
+from app.models.inventory_adjustment import InventoryAdjustment
+from app.models.opening_stock import OpeningStock
 
 __all__ = [
     "User",
@@ -97,4 +102,9 @@ __all__ = [
     "ProductAttribute",
     "ProductAttributeValue",
     "ProductDocument",
+    "InventoryTransactionType",
+    "StockLedger",
+    "StockBalance",
+    "InventoryAdjustment",
+    "OpeningStock",
 ]

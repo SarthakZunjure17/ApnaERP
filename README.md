@@ -8,6 +8,23 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Inventory Domain — Stock Management Engine (Milestone Inventory Stock Management Engine v0.6.1)
+
+### Overview
+The Inventory Stock Management Engine (`app/models/inventory_transaction_type.py`, `app/models/stock_ledger.py`, `app/models/stock_balance.py`, `app/models/inventory_adjustment.py`, `app/models/opening_stock.py`, `app/services/stock_engine_services.py`) implements the enterprise stock engine for ApnaERP. ALL physical inventory movement across products, warehouses, and storage locations must be recorded through an immutable stock ledger (`StockLedger`). Current stock balances are derived from ledger history, with `StockBalance` serving as a read-optimized projection and cache table.
+
+### Key Technical Capabilities
+- **Immutable Stock Ledger (`StockLedger`)**: Central physical transaction log storing product, warehouse, location, transaction type, quantity, direction, unit, and calculated `running_balance`. Ledger entries are strictly insert-only and read-only. Updates or deletions are prohibited.
+- **Inventory Transaction Classifications (`InventoryTransactionType`)**: 13 transaction types (`OPENING_STOCK`, `PURCHASE_RECEIPT`, `SALES_ISSUE`, `STOCK_ADJUSTMENT`, `TRANSFER_IN`, `TRANSFER_OUT`, `PRODUCTION_RECEIPT`, `PRODUCTION_CONSUMPTION`, `RETURN_IN`, `RETURN_OUT`, `CYCLE_COUNT`, `SYSTEM_CORRECTION`) with direction flags (`IN`, `OUT`, `TRANSFER`, `ADJUSTMENT`, `SYSTEM`).
+- **Derived Balance Projections (`StockBalance`)**: Read-optimized table aggregating current available, reserved, damaged, and in-transit quantities. Derived from `StockLedger` history with forced recalculation and auto-repair background tasks.
+- **Negative Stock Validation**: Evaluates transactions against `Product.allow_negative_stock`. If disabled (`False`), transactions that would reduce total running balance below zero are blocked with `ValidationException`.
+- **Inventory Adjustment Workflow (`InventoryAdjustment`)**: Manages physical count discrepancies via 3-stage lifecycle (`Draft` -> `Approved` -> `Applied`). Applying an adjustment generates a `STOCK_ADJUSTMENT` ledger entry.
+- **Opening Stock Initialization (`OpeningStock`)**: Manages initial warehouse stock onboarding with duplicate reference and product location guards.
+- **Redis Caching & Celery Telemetry**: Automatic Redis cache invalidation (`stock_balance:*`, `warehouse_summary:*`, `product_stock:*`), background tasks (`refresh_stock_balance_task`, `detect_balance_inconsistencies_task`, `send_stock_notification_task`), and audit logging (`STOCK_LEDGER_CREATE`, `OPENING_STOCK_CREATE`, `INVENTORY_ADJUSTMENT_*`).
+- **RBAC Security**: Protected by 8 permissions (`inventory.transaction.read`, `inventory.ledger.read`, `inventory.balance.read`, `inventory.opening.create`, `inventory.adjustment.create`, `inventory.adjustment.approve`, `inventory.adjustment.apply`).
+
+---
+
 ## Inventory Domain — Inventory Foundation (Milestone Inventory Foundation v0.6.0 - Inventory Domain Opened)
 
 ### Overview

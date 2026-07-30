@@ -44,6 +44,11 @@ from app.api.v1.endpoints import (
     product,
     product_attribute,
     product_document,
+    inventory_transaction_type,
+    stock_ledger,
+    opening_stock,
+    inventory_adjustment,
+    stock_balance,
 )
 
 
@@ -97,6 +102,9 @@ api_router.include_router(product.router, prefix="/products", tags=["Product Mas
 api_router.include_router(product_attribute.router, prefix="/product-attributes", tags=["Product Attributes"])
 api_router.include_router(product_document.router, prefix="", tags=["Product Documents"])
 
-
-
-
+# Inventory Stock Engine Routers
+api_router.include_router(inventory_transaction_type.router, prefix="/inventory/transaction-types", tags=["Inventory Transaction Types"])
+api_router.include_router(stock_ledger.router, prefix="/inventory/ledger", tags=["Stock Ledger"])
+api_router.include_router(opening_stock.router, prefix="/inventory/opening-stock", tags=["Opening Stock"])
+api_router.include_router(inventory_adjustment.router, prefix="/inventory/adjustments", tags=["Inventory Adjustments"])
+api_router.include_router(stock_balance.router, prefix="/inventory/balances", tags=["Stock Balances & Projections"])

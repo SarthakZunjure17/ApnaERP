@@ -221,6 +221,15 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Product Document", "code": "inventory.document.read", "description": "Permission to view product documents", "module_name": "inventory"},
     {"name": "Delete Product Document", "code": "inventory.document.delete", "description": "Permission to delete product documents", "module_name": "inventory"},
 
+    # Stock Engine Permissions
+    {"name": "Read Transaction Types", "code": "inventory.transaction.read", "description": "Permission to view inventory transaction types", "module_name": "inventory"},
+    {"name": "Read Stock Ledger", "code": "inventory.ledger.read", "description": "Permission to view stock ledger entries", "module_name": "inventory"},
+    {"name": "Read Stock Balances", "code": "inventory.balance.read", "description": "Permission to view current stock balances and projections", "module_name": "inventory"},
+    {"name": "Create Opening Stock", "code": "inventory.opening.create", "description": "Permission to create opening stock initialization records", "module_name": "inventory"},
+    {"name": "Create Inventory Adjustment", "code": "inventory.adjustment.create", "description": "Permission to create inventory adjustment proposals", "module_name": "inventory"},
+    {"name": "Approve Inventory Adjustment", "code": "inventory.adjustment.approve", "description": "Permission to approve inventory adjustment proposals", "module_name": "inventory"},
+    {"name": "Apply Inventory Adjustment", "code": "inventory.adjustment.apply", "description": "Permission to apply approved inventory adjustments to stock ledger", "module_name": "inventory"},
+
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},
@@ -237,12 +246,27 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Employee", "description": "Basic employee access privileges"},
 ]
 
+DEFAULT_TRANSACTION_TYPES: List[Dict[str, str]] = [
+    {"code": "OPENING_STOCK", "name": "Opening Stock", "direction": "IN", "description": "Initial stock entry upon product or warehouse initialization"},
+    {"code": "PURCHASE_RECEIPT", "name": "Purchase Receipt", "direction": "IN", "description": "Stock received from procurement vendor"},
+    {"code": "SALES_ISSUE", "name": "Sales Issue", "direction": "OUT", "description": "Stock issued for sales fulfillment"},
+    {"code": "STOCK_ADJUSTMENT", "name": "Stock Adjustment", "direction": "ADJUSTMENT", "description": "Physical count adjustment or variance correction"},
+    {"code": "TRANSFER_IN", "name": "Transfer In", "direction": "IN", "description": "Internal stock transfer received"},
+    {"code": "TRANSFER_OUT", "name": "Transfer Out", "direction": "OUT", "description": "Internal stock transfer issued"},
+    {"code": "PRODUCTION_RECEIPT", "name": "Production Receipt", "direction": "IN", "description": "Finished goods received from manufacturing"},
+    {"code": "PRODUCTION_CONSUMPTION", "name": "Production Consumption", "direction": "OUT", "description": "Raw materials consumed in manufacturing"},
+    {"code": "RETURN_IN", "name": "Return In", "direction": "IN", "description": "Customer sales return received"},
+    {"code": "RETURN_OUT", "name": "Return Out", "direction": "OUT", "description": "Vendor purchase return issued"},
+    {"code": "CYCLE_COUNT", "name": "Cycle Count", "direction": "ADJUSTMENT", "description": "Cycle count audit variance"},
+    {"code": "SYSTEM_CORRECTION", "name": "System Correction", "direction": "SYSTEM", "description": "Automated system balance reconciliation"},
+]
+
 
 async def seed_rbac_data(db: AsyncSession) -> None:
     """
-    Idempotently seeds default roles and permission definitions into database.
+    Idempotently seeds default roles, permission definitions, and inventory transaction types into database.
     """
-    logger.info("Seeding RBAC permissions and default roles...")
+    logger.info("Seeding RBAC permissions, default roles, and inventory transaction types...")
     
     # 1. Seed Permissions
     created_perms = {}
@@ -264,7 +288,15 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             logger.info(f"Seeded role: {r_data['name']}")
         created_roles[r_data["name"]] = existing
 
-    # 3. Assign Permissions to Super Admin & HR Manager & Inventory Manager
+    # 3. Seed Inventory Transaction Types
+    from app.repositories.stock_engine_repos import inventory_transaction_type_repository
+    for t_data in DEFAULT_TRANSACTION_TYPES:
+        existing = await inventory_transaction_type_repository.get_by_code(db, t_data["code"])
+        if not existing:
+            await inventory_transaction_type_repository.create(db, obj_in=t_data)
+            logger.info(f"Seeded inventory transaction type: {t_data['code']}")
+
+    # 4. Assign Permissions to Super Admin, HR Manager, and Inventory Manager
     super_admin_role = created_roles.get("Super Admin")
     hr_manager_role = created_roles.get("HR Manager")
     inventory_manager_role = created_roles.get("Inventory Manager")
@@ -299,3 +331,5 @@ async def run_seed() -> None:
     """
     async with AsyncSessionLocal() as session:
         await seed_rbac_data(session)
+
+

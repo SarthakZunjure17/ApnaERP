@@ -5,6 +5,34 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.1] - 2026-07-30
+
+### Milestone Inventory Stock Management Engine — Enterprise Stock Ledger Engine
+
+#### Added
+- **Stock Ledger Engine ORM Entities (`app/models/`)**: Created 5 models:
+  - `InventoryTransactionType`: Classification for inventory movements (`OPENING_STOCK`, `PURCHASE_RECEIPT`, `SALES_ISSUE`, `STOCK_ADJUSTMENT`, etc.) with direction flags (`IN`, `OUT`, `TRANSFER`, `ADJUSTMENT`, `SYSTEM`).
+  - `StockLedger`: Immutable physical stock ledger storing product, warehouse, location, transaction type, quantity, direction, unit, and calculated `running_balance`. Direct updates/deletions prohibited.
+  - `StockBalance`: Read-optimized projection/cache table aggregating available, reserved, damaged, and in-transit quantities derived from ledger history.
+  - `InventoryAdjustment`: Stock adjustment proposal entity supporting 3-stage lifecycle (`Draft` -> `Approved` -> `Applied`). Applying an adjustment generates a `STOCK_ADJUSTMENT` ledger entry.
+  - `OpeningStock`: Initial stock initialization record for warehouse onboarding.
+- **Pydantic v2 DTO Schemas (`app/schemas/stock_engine.py`)**: Request/Response schemas for Transaction Types, Stock Ledger, Stock Balances, Warehouse Summaries, Product Summaries, Opening Stock, and Inventory Adjustments.
+- **Repository Layer (`app/repositories/stock_engine_repos.py`)**: `InventoryTransactionTypeRepository`, `StockLedgerRepository` (latest running balance lookup, multi-column ledger queries with pagination/search, derived ledger balance calculation), `StockBalanceRepository` (upsert balance projections, product/warehouse/location balance queries), `OpeningStockRepository` (duplicate reference and product location guards), and `InventoryAdjustmentRepository`.
+- **Domain Services (`app/services/stock_engine_services.py`)**:
+  - `InventoryTransactionTypeService`: Transaction classification lookups.
+  - `StockLedgerService`: Immutable ledger entry execution, running balance calculation, **negative stock enforcement** against `Product.allow_negative_stock`, Redis cache invalidation (`stock_balance:*`, `warehouse_summary:*`, `product_stock:*`), and audit logging (`STOCK_LEDGER_CREATE`).
+  - `StockBalanceService`: Projection calculation directly from ledger history, cached warehouse/product summaries, and forced recalculations.
+  - `OpeningStockService`: Initial stock creation, duplicate guards, and automatic `OPENING_STOCK` ledger entry generation.
+  - `InventoryAdjustmentService`: Adjustment proposal lifecycle (`Draft` -> `Approved` -> `Applied`), variance calculation, and automatic `STOCK_ADJUSTMENT` ledger entry generation.
+- **Background Celery Tasks (`app/tasks/stock_engine_tasks.py`)**: `refresh_stock_balance_task` (async projection refresh), `detect_balance_inconsistencies_task` (reconciliation and auto-repair), and `send_stock_notification_task` (stock telemetry alerts).
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 13 default `InventoryTransactionType` records and 8 permissions (`inventory.transaction.read`, `inventory.ledger.read`, `inventory.balance.read`, `inventory.opening.create`, `inventory.adjustment.create`, `inventory.adjustment.approve`, `inventory.adjustment.apply`) mapped to `Super Admin` and `Inventory Manager` roles.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 5 API routers (`inventory_transaction_type.py`, `stock_ledger.py`, `opening_stock.py`, `inventory_adjustment.py`, `stock_balance.py`) registered under `/api/v1`.
+- **Database Migration (`alembic/versions/c8a97096a1e6_phase_v061_implement_stock_ledger_engine.py`)**: Migration creating inventory transaction types, stock ledgers, stock balances, inventory adjustments, and opening stocks tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0024-stock-ledger.md`)**: Architectural details on immutable ledger pattern, derived balance projections, negative stock enforcement, and adjustment workflows.
+- **Automated Test Suite (`tests/test_stock_ledger_engine.py`)**: 7 comprehensive tests covering transaction type seeding, opening stock creation, duplicate prevention, adjustment lifecycle, negative stock validation, balance recalculation, and API endpoints.
+
+---
+
 ## [v0.6.0] - 2026-07-29
 
 ### Milestone Inventory Foundation — Product Master Catalog (Inventory Domain Opened)

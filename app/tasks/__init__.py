@@ -24,6 +24,11 @@ from app.tasks.statutory_tasks import send_statutory_rule_notification_task
 from app.tasks.payroll_finalization_tasks import send_payroll_finalization_notification_task
 from app.tasks.inventory_tasks import send_inventory_notification_task
 from app.tasks.system_tasks import system_health_check_task, system_ping_task
+from app.tasks.stock_engine_tasks import (
+    detect_balance_inconsistencies_task,
+    refresh_stock_balance_task,
+    send_stock_notification_task,
+)
 
 __all__ = [
     "BaseTask",
@@ -54,7 +59,7 @@ __all__ = [
     "send_statutory_rule_notification_task",
     "send_payroll_finalization_notification_task",
     "send_inventory_notification_task",
+    "refresh_stock_balance_task",
+    "detect_balance_inconsistencies_task",
+    "send_stock_notification_task",
 ]
-
-
-
