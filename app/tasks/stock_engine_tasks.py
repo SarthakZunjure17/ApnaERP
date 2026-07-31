@@ -10,6 +10,15 @@ from app.db.session import AsyncSessionLocal
 logger = logging.getLogger("app.tasks.stock_engine")
 
 
+def _run_async_task(coro):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    else:
+        return loop.create_task(coro)
+
+
 @celery_app.task(name="app.tasks.stock_engine_tasks.refresh_stock_balance_task")
 def refresh_stock_balance_task(product_id_str: str, warehouse_id_str: str, location_id_str: Optional[str] = None):
     """
@@ -24,7 +33,7 @@ def refresh_stock_balance_task(product_id_str: str, warehouse_id_str: str, locat
             await stock_balance_service.recalculate_balance_projection(session, p_id, w_id, l_id)
             logger.info(f"[Task] Successfully refreshed stock balance projection for Product {p_id}, Warehouse {w_id}.")
 
-    return asyncio.run(_run())
+    return _run_async_task(_run())
 
 
 @celery_app.task(name="app.tasks.stock_engine_tasks.detect_balance_inconsistencies_task")
@@ -50,15 +59,13 @@ def detect_balance_inconsistencies_task():
             logger.info(f"[Task] Inconsistency audit complete. Scanned {len(balances)} balances, repaired {repaired_count}.")
         return repaired_count
 
-    return asyncio.run(_run())
+    return _run_async_task(_run())
 
 
 @celery_app.task(name="app.tasks.stock_engine_tasks.send_stock_notification_task")
-def send_stock_notification_task(event_name: str, details: str):
+def send_stock_notification_task(event_name: str, details: str) -> str:
     """
     Celery background task broadcasting notification telemetry for stock movements and approvals.
     """
-    async def _run():
-        logger.info(f"[Task Notification] Event: '{event_name}', Details: '{details}'")
-
-    return asyncio.run(_run())
+    logger.info(f"[Task Notification] Event: '{event_name}', Details: '{details}'")
+    return f"Successfully processed stock notification for event '{event_name}'"
