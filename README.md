@@ -8,6 +8,24 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Inventory Domain — Warehouse Operations Engine (Milestone Warehouse Operations Engine v0.6.2)
+
+### Overview
+The Warehouse Operations Engine (`app/models/goods_receipt.py`, `app/models/goods_issue.py`, `app/models/stock_transfer.py`, `app/services/warehouse_operations_services.py`) implements independent warehouse execution operations for ApnaERP. It manages physical inventory execution documents for incoming inventory (`GoodsReceipt`), outgoing inventory (`GoodsIssue`), and internal stock transfers (`StockTransfer`). All warehouse operations execute physical inventory movement exclusively through `StockLedgerService`, ensuring that direct stock balance modifications are strictly prohibited and every physical movement generates immutable `StockLedger` entries.
+
+### Key Technical Capabilities
+- **Goods Receipt Execution (`GoodsReceipt`, `GoodsReceiptItem`)**: Incoming stock document supporting 3-stage lifecycle (`Draft` -> `Approved` -> `Received` | `Cancelled`). Receiving physical stock automatically generates `StockLedger` IN entries with transaction type `PURCHASE_RECEIPT`.
+- **Goods Issue Execution (`GoodsIssue`, `GoodsIssueItem`)**: Outgoing stock document supporting 3-stage lifecycle (`Draft` -> `Approved` -> `Issued` | `Cancelled`). Issuing inventory validates negative stock rules against `Product.allow_negative_stock` and automatically generates `StockLedger` OUT entries (`SALES_ISSUE` or `PRODUCTION_CONSUMPTION`).
+- **Stock Transfer Execution (`StockTransfer`, `StockTransferItem`)**: Warehouse stock transfer document supporting 4-stage lifecycle (`Draft` -> `Approved` -> `In Transit` [Dispatch OUT] -> `Completed` [Receive IN] | `Cancelled`). Preserves total system inventory quantity while moving stock between different warehouses or storage locations.
+- **Stock Ledger Integration Rule**: Warehouse execution documents NEVER modify `StockBalance` directly. All movements invoke `StockLedgerService.create_ledger_entry`.
+- **Document Immutability**: Executed or terminal documents (`Received`, `Issued`, `Completed`, `Cancelled`) are strictly immutable and read-only.
+- **Cancelled Document Guarantee**: Cancelled documents generate zero `StockLedger` entries.
+- **Validation Guards**: Validates active warehouses and storage locations, source and destination warehouse distinction (`source_warehouse_id != destination_warehouse_id`), and product inventory eligibility.
+- **Redis Caching & Celery Telemetry**: Automatic Redis cache invalidation (`stock_balance:*`, `warehouse_summary:*`), background task (`send_warehouse_notification_task`), and audit logging (`GOODS_RECEIPT_*`, `GOODS_ISSUE_*`, `STOCK_TRANSFER_*`).
+- **RBAC Security**: Protected by 19 permissions (`inventory.receipt.*`, `inventory.issue.*`, `inventory.transfer.*`, `inventory.execute.warehouse`).
+
+---
+
 ## Inventory Domain — Stock Management Engine (Milestone Inventory Stock Management Engine v0.6.1)
 
 ### Overview

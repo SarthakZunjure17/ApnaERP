@@ -58,10 +58,19 @@ async def auth_headers(async_client: AsyncClient):
     user_id = uuid.UUID(reg_resp.json()["id"])
 
     async with AsyncSessionLocal() as session:
+        from app.db.seed_rbac import seed_rbac_data
+        from app.repositories.rbac import role_repository, user_role_repository
         user = await user_repository.get_by_id(session, user_id)
-        if user:
+        role = await role_repository.get_by_name(session, "Super Admin")
+        if not role:
+            await seed_rbac_data(session)
+            role = await role_repository.get_by_name(session, "Super Admin")
+        if user and role:
             user.is_superuser = True
+            await user_role_repository.assign_role_to_user(session, user_id=user.id, role_id=role.id)
             await session.commit()
+
+
 
     login_resp = await async_client.post(
         "/api/v1/auth/login",

@@ -49,6 +49,9 @@ from app.api.v1.endpoints import (
     opening_stock,
     inventory_adjustment,
     stock_balance,
+    goods_receipt,
+    goods_issue,
+    stock_transfer,
 )
 
 
@@ -108,3 +111,9 @@ api_router.include_router(stock_ledger.router, prefix="/inventory/ledger", tags=
 api_router.include_router(opening_stock.router, prefix="/inventory/opening-stock", tags=["Opening Stock"])
 api_router.include_router(inventory_adjustment.router, prefix="/inventory/adjustments", tags=["Inventory Adjustments"])
 api_router.include_router(stock_balance.router, prefix="/inventory/balances", tags=["Stock Balances & Projections"])
+
+# Warehouse Operations Engine Routers
+api_router.include_router(goods_receipt.router, prefix="/inventory/goods-receipts", tags=["Goods Receipts"])
+api_router.include_router(goods_issue.router, prefix="/inventory/goods-issues", tags=["Goods Issues"])
+api_router.include_router(stock_transfer.router, prefix="/inventory/stock-transfers", tags=["Stock Transfers"])
+

@@ -5,6 +5,31 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.2] - 2026-07-31
+
+### Milestone Warehouse Operations Engine — Independent Execution Documents
+
+#### Added
+- **Warehouse Operations ORM Entities (`app/models/`)**: Created 6 models across 3 independent document modules:
+  - `GoodsReceipt` & `GoodsReceiptItem`: Incoming physical inventory receiving document supporting 3-stage lifecycle (`Draft` -> `Approved` -> `Received` | `Cancelled`). Executing a receipt generates immutable `StockLedger` IN entries with transaction type `PURCHASE_RECEIPT`.
+  - `GoodsIssue` & `GoodsIssueItem`: Outgoing physical inventory document supporting 3-stage lifecycle (`Draft` -> `Approved` -> `Issued` | `Cancelled`). Executing an issue validates negative stock rules against `Product.allow_negative_stock` and generates `StockLedger` OUT entries (`SALES_ISSUE` or `PRODUCTION_CONSUMPTION`).
+  - `StockTransfer` & `StockTransferItem`: Warehouse stock transfer document supporting 4-stage lifecycle (`Draft` -> `Approved` -> `In Transit` [Dispatch OUT] -> `Completed` [Receive IN] | `Cancelled`). Preserves total system inventory quantity across warehouses and storage locations.
+- **Pydantic v2 DTO Schemas (`app/schemas/warehouse_operations.py`)**: Request/Response schemas for Goods Receipts, Goods Issues, and Stock Transfers.
+- **Repository Layer (`app/repositories/warehouse_operations_repos.py`)**: `GoodsReceiptRepository`, `GoodsIssueRepository`, and `StockTransferRepository` providing status filtering, date range queries, pagination, search, and document number uniqueness validation.
+- **Domain Services (`app/services/warehouse_operations_services.py`)**:
+  - `WarehouseExecutionService`: High-level execution orchestrator integrating directly with `StockLedgerService.create_ledger_entry`.
+  - `GoodsReceiptService`: Receipt CRUD, approval, receipt execution, and cancellation.
+  - `GoodsIssueService`: Issue CRUD, approval, negative stock limits validation, issue execution, and cancellation.
+  - `StockTransferService`: Transfer CRUD, approval, source warehouse dispatch (`In Transit`), destination warehouse completion (`Completed`), and cancellation. Validates that source warehouse and location are not identical to destination (`source_warehouse_id != destination_warehouse_id`).
+- **Background Celery Tasks (`app/tasks/warehouse_operations_tasks.py`)**: `send_warehouse_notification_task` broadcasting alerts to Receiving, Dispatch, and Inventory Management teams on document status changes.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 19 permissions (`inventory.receipt.*`, `inventory.issue.*`, `inventory.transfer.*`, `inventory.execute.warehouse`) mapped to `Super Admin` and `Inventory Manager` roles.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 3 API routers (`goods_receipt.py`, `goods_issue.py`, `stock_transfer.py`) registered under `/api/v1/inventory/`.
+- **Database Migration (`alembic/versions/b8b2e8a866c5_phase_v062_implement_warehouse_.py`)**: Alembic migration creating `goods_receipts`, `goods_receipt_items`, `goods_issues`, `goods_issue_items`, `stock_transfers`, `stock_transfer_items` tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0025-warehouse-operations.md`)**: Architectural details on standalone warehouse execution lifecycle, stock ledger integration, document immutability, and validation rules.
+- **Automated Test Suite (`tests/test_warehouse_operations.py`)**: 5 comprehensive tests covering Goods Receipt lifecycle, Goods Issue lifecycle & negative stock validation, Stock Transfer dispatch/completion & quantity preservation, document cancellation zero-ledger guarantee, and REST API endpoints.
+
+---
+
 ## [v0.6.1] - 2026-07-30
 
 ### Milestone Inventory Stock Management Engine — Enterprise Stock Ledger Engine

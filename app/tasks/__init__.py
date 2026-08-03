@@ -29,6 +29,7 @@ from app.tasks.stock_engine_tasks import (
     refresh_stock_balance_task,
     send_stock_notification_task,
 )
+from app.tasks.warehouse_operations_tasks import send_warehouse_notification_task
 
 __all__ = [
     "BaseTask",
@@ -62,4 +63,6 @@ __all__ = [
     "refresh_stock_balance_task",
     "detect_balance_inconsistencies_task",
     "send_stock_notification_task",
+    "send_warehouse_notification_task",
 ]
+

@@ -49,6 +49,9 @@ from app.models.stock_ledger import StockLedger
 from app.models.stock_balance import StockBalance
 from app.models.inventory_adjustment import InventoryAdjustment
 from app.models.opening_stock import OpeningStock
+from app.models.goods_receipt import GoodsReceipt, GoodsReceiptItem
+from app.models.goods_issue import GoodsIssue, GoodsIssueItem
+from app.models.stock_transfer import StockTransfer, StockTransferItem
 
 __all__ = [
     "User",
@@ -107,4 +110,11 @@ __all__ = [
     "StockBalance",
     "InventoryAdjustment",
     "OpeningStock",
+    "GoodsReceipt",
+    "GoodsReceiptItem",
+    "GoodsIssue",
+    "GoodsIssueItem",
+    "StockTransfer",
+    "StockTransferItem",
 ]
+

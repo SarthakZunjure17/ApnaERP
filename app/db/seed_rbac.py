@@ -230,12 +230,39 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Approve Inventory Adjustment", "code": "inventory.adjustment.approve", "description": "Permission to approve inventory adjustment proposals", "module_name": "inventory"},
     {"name": "Apply Inventory Adjustment", "code": "inventory.adjustment.apply", "description": "Permission to apply approved inventory adjustments to stock ledger", "module_name": "inventory"},
 
+    # Warehouse Operations Engine Permissions
+    {"name": "Create Goods Receipt", "code": "inventory.receipt.create", "description": "Permission to create goods receipt documents", "module_name": "inventory"},
+    {"name": "Read Goods Receipt", "code": "inventory.receipt.read", "description": "Permission to view goods receipt documents", "module_name": "inventory"},
+    {"name": "Update Goods Receipt", "code": "inventory.receipt.update", "description": "Permission to modify draft goods receipt documents", "module_name": "inventory"},
+    {"name": "Approve Goods Receipt", "code": "inventory.receipt.approve", "description": "Permission to approve goods receipt documents", "module_name": "inventory"},
+    {"name": "Receive Goods Receipt", "code": "inventory.receipt.receive", "description": "Permission to receive goods receipt and generate stock ledger entries", "module_name": "inventory"},
+    {"name": "Cancel Goods Receipt", "code": "inventory.receipt.cancel", "description": "Permission to cancel goods receipt documents", "module_name": "inventory"},
+
+    {"name": "Create Goods Issue", "code": "inventory.issue.create", "description": "Permission to create goods issue documents", "module_name": "inventory"},
+    {"name": "Read Goods Issue", "code": "inventory.issue.read", "description": "Permission to view goods issue documents", "module_name": "inventory"},
+    {"name": "Update Goods Issue", "code": "inventory.issue.update", "description": "Permission to modify draft goods issue documents", "module_name": "inventory"},
+    {"name": "Approve Goods Issue", "code": "inventory.issue.approve", "description": "Permission to approve goods issue documents", "module_name": "inventory"},
+    {"name": "Issue Goods Issue", "code": "inventory.issue.issue", "description": "Permission to issue goods issue and generate stock ledger OUT entries", "module_name": "inventory"},
+    {"name": "Cancel Goods Issue", "code": "inventory.issue.cancel", "description": "Permission to cancel goods issue documents", "module_name": "inventory"},
+
+    {"name": "Create Stock Transfer", "code": "inventory.transfer.create", "description": "Permission to create stock transfer proposals", "module_name": "inventory"},
+    {"name": "Read Stock Transfer", "code": "inventory.transfer.read", "description": "Permission to view stock transfer documents", "module_name": "inventory"},
+    {"name": "Update Stock Transfer", "code": "inventory.transfer.update", "description": "Permission to modify draft stock transfer documents", "module_name": "inventory"},
+    {"name": "Approve Stock Transfer", "code": "inventory.transfer.approve", "description": "Permission to approve stock transfer proposals", "module_name": "inventory"},
+    {"name": "Dispatch Stock Transfer", "code": "inventory.transfer.dispatch", "description": "Permission to dispatch stock transfer out of source warehouse", "module_name": "inventory"},
+    {"name": "Receive Stock Transfer", "code": "inventory.transfer.receive", "description": "Permission to receive stock transfer at destination warehouse", "module_name": "inventory"},
+    {"name": "Complete Stock Transfer", "code": "inventory.transfer.complete", "description": "Permission to complete stock transfer and finalize stock ledger entries", "module_name": "inventory"},
+    {"name": "Cancel Stock Transfer", "code": "inventory.transfer.cancel", "description": "Permission to cancel stock transfer documents", "module_name": "inventory"},
+
+    {"name": "Execute Warehouse Operation", "code": "inventory.execute.warehouse", "description": "Permission to execute warehouse operations", "module_name": "inventory"},
+
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},
     {"name": "Update Inventory Items", "code": "inventory.update", "description": "Permission to modify inventory stock", "module_name": "inventory"},
     {"name": "Delete Inventory Items", "code": "inventory.delete", "description": "Permission to delete inventory stock", "module_name": "inventory"},
 ]
+
 
 DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Super Admin", "description": "Unrestricted administrative authority across all modules"},
