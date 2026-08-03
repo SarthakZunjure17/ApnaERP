@@ -52,6 +52,15 @@ from app.api.v1.endpoints import (
     goods_receipt,
     goods_issue,
     stock_transfer,
+    batches,
+    serial_numbers,
+    lots,
+    stock_reservations,
+    cycle_counts,
+    inventory_reports,
+    inventory_analytics,
+    inventory_search,
+    inventory_import_export,
 )
 
 
@@ -116,4 +125,16 @@ api_router.include_router(stock_balance.router, prefix="/inventory/balances", ta
 api_router.include_router(goods_receipt.router, prefix="/inventory/goods-receipts", tags=["Goods Receipts"])
 api_router.include_router(goods_issue.router, prefix="/inventory/goods-issues", tags=["Goods Issues"])
 api_router.include_router(stock_transfer.router, prefix="/inventory/stock-transfers", tags=["Stock Transfers"])
+
+# Inventory Advanced Domain Completion Routers
+api_router.include_router(batches.router, prefix="/inventory/batches", tags=["Batch Management"])
+api_router.include_router(serial_numbers.router, prefix="/inventory/serials", tags=["Serial Number Tracking"])
+api_router.include_router(lots.router, prefix="/inventory/lots", tags=["Lot Tracking"])
+api_router.include_router(stock_reservations.router, prefix="/inventory/reservations", tags=["Stock Reservations"])
+api_router.include_router(cycle_counts.router, prefix="/inventory/cycle-counts", tags=["Cycle Counting"])
+api_router.include_router(inventory_reports.router, prefix="/inventory/reports", tags=["Inventory Reports"])
+api_router.include_router(inventory_analytics.router, prefix="/inventory/analytics", tags=["Inventory Analytics"])
+api_router.include_router(inventory_search.router, prefix="/inventory/search", tags=["Global Inventory Search"])
+api_router.include_router(inventory_import_export.router, prefix="/inventory/import-export", tags=["Inventory Import Export"])
+
 

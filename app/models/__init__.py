@@ -52,6 +52,12 @@ from app.models.opening_stock import OpeningStock
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptItem
 from app.models.goods_issue import GoodsIssue, GoodsIssueItem
 from app.models.stock_transfer import StockTransfer, StockTransferItem
+from app.models.batch import Batch
+from app.models.serial_number import SerialNumber
+from app.models.lot import Lot
+from app.models.stock_reservation import StockReservation
+from app.models.cycle_count import CycleCount, CycleCountItem
+from app.models.inventory_analytics_snapshot import InventoryAnalyticsSnapshot
 
 __all__ = [
     "User",
@@ -116,5 +122,13 @@ __all__ = [
     "GoodsIssueItem",
     "StockTransfer",
     "StockTransferItem",
+    "Batch",
+    "SerialNumber",
+    "Lot",
+    "StockReservation",
+    "CycleCount",
+    "CycleCountItem",
+    "InventoryAnalyticsSnapshot",
 ]
+
 

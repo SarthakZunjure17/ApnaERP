@@ -5,7 +5,40 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.3] - 2026-08-03
+
+### Milestone Inventory Domain Completion — Advanced Enterprise Capabilities
+
+#### Added
+- **Advanced Inventory Database Models (`app/models/`)**:
+  - `Batch`: Manufacturing/expiry dates, supplier refs, status (`Active`, `Expired`, `Consumed`), and current quantity.
+  - `SerialNumber`: Globally unique serial numbers with warehouse/location assignments and state transition history log (`Available`, `Reserved`, `Sold`, `Returned`, `Scrapped`).
+  - `Lot`: Production and supplier lot tracking with extended lineage and QA metadata.
+  - `StockReservation`: Stock reservation entity for Sales/Manufacturing/Procurement/Internal demand without modifying physical stock.
+  - `CycleCount` & `CycleCountItem`: Physical stock count audit document with variance calculation and automatic adjustment generation.
+  - `InventoryAnalyticsSnapshot`: Valuation, turnover ratio, warehouse utilization, and stock breakdown snapshots.
+- **Pydantic DTO Schemas (`app/schemas/inventory_advanced.py`)**: DTOs for Batches, Serials, Lots, Reservations, Cycle Counts, Reports, Analytics, Search, and Import/Export.
+- **Repository Layer (`app/repositories/inventory_advanced_repos.py`)**: Repositories for Batch, SerialNumber, Lot, StockReservation, CycleCount, and InventoryAnalytics.
+- **Domain Event Publisher (`app/core/domain_events.py`)**: Event bus emitting `StockReceived`, `StockIssued`, `StockTransferred`, `StockReserved`, `BatchExpired`, `InventoryAdjusted`, and `StockCountCompleted`.
+- **Domain Services (`app/services/`)**:
+  - `BatchService`: Batch tracking, expiration scanning, and FEFO/FIFO batch allocation logic.
+  - `SerialNumberService`: Unique serial tracking and lifecycle state transitions.
+  - `LotService`: Production/supplier lot management and lineage search.
+  - `StockReservationService`: Stock reservation engine reducing available quantity without modifying stock ledger.
+  - `CycleCountService`: Physical inventory audit workflow; auto-generates and applies stock adjustments for non-zero variance items.
+  - `InventoryReportService`: Stock Valuation Report, Inventory Aging Report (0-30, 31-60, 61-90, 90+ days), and Movement Analysis Report (Fast, Slow, Dead Stock).
+  - `InventoryAnalyticsService`: Executive Dashboard KPIs with Redis caching and snapshotting.
+  - `InventorySearchService`: Unified multi-field global search across SKUs, Barcodes, Batches, Serials, Lots, Warehouses, and Locations.
+  - `InventoryImportExportService`: Streaming CSV export and bulk CSV import engine.
+- **Background Celery Tasks (`app/tasks/inventory_advanced_tasks.py`)**: Scheduled tasks `scan_batch_expiries_task`, `cleanup_expired_reservations_task`, and `refresh_inventory_analytics_task`.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 18 new permissions across `inventory.batch.*`, `inventory.serial.*`, `inventory.lot.*`, `inventory.reservation.*`, `inventory.cycle_count.*`, `inventory.reports.*`, `inventory.analytics.*`, `inventory.import_export.*`.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 9 API routers registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/d9e3f12a4b56_phase_v063_inventory_domain_completion.py`)**: Alembic migration creating `batches`, `serial_numbers`, `lots`, `stock_reservations`, `cycle_counts`, `cycle_count_items`, and `inventory_analytics_snapshots` tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0026-inventory-domain-completion.md`)**: ADR covering batch allocation strategies, serial lifecycle tracking, stock reservation guarantees, cycle count adjustments, executive reporting, and domain events.
+- **Automated Test Suite (`tests/test_advanced_inventory.py`)**: 7 comprehensive test cases verifying 100% of the advanced inventory domain.
+
 ## [v0.6.2] - 2026-07-31
+
 
 ### Milestone Warehouse Operations Engine — Independent Execution Documents
 

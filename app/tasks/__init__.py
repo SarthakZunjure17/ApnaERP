@@ -30,6 +30,11 @@ from app.tasks.stock_engine_tasks import (
     send_stock_notification_task,
 )
 from app.tasks.warehouse_operations_tasks import send_warehouse_notification_task
+from app.tasks.inventory_advanced_tasks import (
+    cleanup_expired_reservations_task,
+    refresh_inventory_analytics_task,
+    scan_batch_expiries_task,
+)
 
 __all__ = [
     "BaseTask",
@@ -64,5 +69,9 @@ __all__ = [
     "detect_balance_inconsistencies_task",
     "send_stock_notification_task",
     "send_warehouse_notification_task",
+    "scan_batch_expiries_task",
+    "cleanup_expired_reservations_task",
+    "refresh_inventory_analytics_task",
 ]
+
 

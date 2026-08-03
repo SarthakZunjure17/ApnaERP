@@ -8,7 +8,24 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Inventory Domain — Advanced Domain Completion (Milestone Inventory Domain Completion v0.6.3)
+
+### Overview
+The Advanced Inventory Domain (`app/models/batch.py`, `app/models/serial_number.py`, `app/models/lot.py`, `app/models/stock_reservation.py`, `app/models/cycle_count.py`, `app/services/inventory_advanced_services.py`, `app/services/inventory_report_services.py`) completes the Enterprise Inventory Domain within ApnaERP. It introduces Batch Management, FEFO/FIFO Batch Allocation, Serial Number Tracking, Lot Traceability, Stock Reservations without stock mutation, Cycle Count Audits with automatic adjustment generation, Executive Reports & Analytics, Global Multi-field Search, Bulk CSV Import/Export, and structured Domain Event publishing.
+
+### Key Technical Capabilities
+- **Batch Management & FEFO/FIFO Allocation (`Batch`)**: Batch creation with manufacturing/expiry dates, supplier references, and active/expired/consumed status tracking. Built-in FEFO (First-Expired, First-Out) and FIFO allocation strategies. Scheduled daily Celery task (`scan_batch_expiries_task`) scans expiries and fires `BatchExpired` events.
+- **Serial Number Lifecycle Tracking (`SerialNumber`)**: Tracks individual high-value items with globally unique serial numbers. Maintains JSONB history log tracking transitions (`Available` -> `Reserved` -> `Sold` -> `Returned` -> `Scrapped`).
+- **Lot Tracking & Lineage (`Lot`)**: Production and supplier lot tracking with extended lineage and QA test metadata.
+- **Stock Reservation Engine (`StockReservation`)**: Secures physical inventory for pending demand (Sales/Manufacturing/Procurement/Internal) without modifying physical `StockLedger`. Reduces available quantity calculation (`available_qty = total_qty - reserved_qty`). Celery task `cleanup_expired_reservations_task` automatically releases expired reservations.
+- **Cycle Count Audit & Variance Adjustment (`CycleCount`, `CycleCountItem`)**: Physical stock audit document. Approval of a cycle count with non-zero variance automatically generates and applies immutable `StockLedger` entries with direction `ADJUSTMENT`.
+- **Executive Reports, Analytics & Search**: Real-time Stock Valuation Report, Inventory Aging Report (0-30, 31-60, 61-90, 90+ days), Movement Analysis Report (Fast, Slow, Dead Stock), Redis-cached Dashboard Analytics, and Global Search API searching SKUs, Barcodes, Batches, Serials, Lots, Warehouses, and Locations.
+- **CSV Import/Export Engine & Domain Events**: Streaming CSV export and bulk import engine. Emits structured domain events (`StockReceived`, `StockIssued`, `StockTransferred`, `StockReserved`, `BatchExpired`, `InventoryAdjusted`, `StockCountCompleted`).
+
+---
+
 ## Inventory Domain — Warehouse Operations Engine (Milestone Warehouse Operations Engine v0.6.2)
+
 
 ### Overview
 The Warehouse Operations Engine (`app/models/goods_receipt.py`, `app/models/goods_issue.py`, `app/models/stock_transfer.py`, `app/services/warehouse_operations_services.py`) implements independent warehouse execution operations for ApnaERP. It manages physical inventory execution documents for incoming inventory (`GoodsReceipt`), outgoing inventory (`GoodsIssue`), and internal stock transfers (`StockTransfer`). All warehouse operations execute physical inventory movement exclusively through `StockLedgerService`, ensuring that direct stock balance modifications are strictly prohibited and every physical movement generates immutable `StockLedger` entries.

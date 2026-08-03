@@ -256,12 +256,38 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
 
     {"name": "Execute Warehouse Operation", "code": "inventory.execute.warehouse", "description": "Permission to execute warehouse operations", "module_name": "inventory"},
 
+    # Inventory Advanced Domain Completion Permissions
+    {"name": "Create Batch", "code": "inventory.batch.create", "description": "Permission to create product batches", "module_name": "inventory"},
+    {"name": "Read Batch", "code": "inventory.batch.read", "description": "Permission to view product batches", "module_name": "inventory"},
+    {"name": "Update Batch", "code": "inventory.batch.update", "description": "Permission to update product batches", "module_name": "inventory"},
+    {"name": "Delete Batch", "code": "inventory.batch.delete", "description": "Permission to delete product batches", "module_name": "inventory"},
+
+    {"name": "Create Serial Number", "code": "inventory.serial.create", "description": "Permission to register serial numbers", "module_name": "inventory"},
+    {"name": "Read Serial Number", "code": "inventory.serial.read", "description": "Permission to view serial numbers", "module_name": "inventory"},
+    {"name": "Update Serial Number", "code": "inventory.serial.update", "description": "Permission to update serial number status and location", "module_name": "inventory"},
+
+    {"name": "Create Lot", "code": "inventory.lot.create", "description": "Permission to create production lots", "module_name": "inventory"},
+    {"name": "Read Lot", "code": "inventory.lot.read", "description": "Permission to view production lots", "module_name": "inventory"},
+
+    {"name": "Create Stock Reservation", "code": "inventory.reservation.create", "description": "Permission to reserve stock", "module_name": "inventory"},
+    {"name": "Read Stock Reservation", "code": "inventory.reservation.read", "description": "Permission to view stock reservations", "module_name": "inventory"},
+    {"name": "Cancel Stock Reservation", "code": "inventory.reservation.cancel", "description": "Permission to cancel stock reservations", "module_name": "inventory"},
+
+    {"name": "Create Cycle Count", "code": "inventory.cycle_count.create", "description": "Permission to create cycle count documents", "module_name": "inventory"},
+    {"name": "Read Cycle Count", "code": "inventory.cycle_count.read", "description": "Permission to view cycle count documents", "module_name": "inventory"},
+    {"name": "Approve Cycle Count", "code": "inventory.cycle_count.approve", "description": "Permission to approve cycle count and trigger stock adjustment", "module_name": "inventory"},
+
+    {"name": "Read Inventory Reports", "code": "inventory.reports.read", "description": "Permission to view inventory reports", "module_name": "inventory"},
+    {"name": "Read Inventory Analytics", "code": "inventory.analytics.read", "description": "Permission to view inventory analytics and dashboard", "module_name": "inventory"},
+    {"name": "Execute Import Export", "code": "inventory.import_export.execute", "description": "Permission to import and export inventory data", "module_name": "inventory"},
+
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},
     {"name": "Update Inventory Items", "code": "inventory.update", "description": "Permission to modify inventory stock", "module_name": "inventory"},
     {"name": "Delete Inventory Items", "code": "inventory.delete", "description": "Permission to delete inventory stock", "module_name": "inventory"},
 ]
+
 
 
 DEFAULT_ROLES: List[Dict[str, str]] = [
