@@ -276,8 +276,27 @@ class RedisManager:
             raise RedisOperationError(f"Redis flushdb failed: {e}")
 
 
+    async def get_json(self, key: str) -> Optional[Any]:
+        """Gets JSON-decoded data from Redis."""
+        val = await self.get(key)
+        if val is None:
+            return None
+        import json
+        try:
+            return json.loads(val)
+        except Exception:
+            return None
+
+    async def set_json(self, key: str, value: Any, expire: Optional[int] = None) -> bool:
+        """Sets JSON-encoded data in Redis with optional expiration."""
+        import json
+        json_str = json.dumps(value)
+        return await self.set(key, json_str, ex=expire)
+
+
 # Singleton RedisManager instance
 redis_manager = RedisManager()
+
 
 
 async def get_redis_client() -> Redis:
