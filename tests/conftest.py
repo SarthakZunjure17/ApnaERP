@@ -5,10 +5,15 @@ import pytest_asyncio
 import fakeredis.aioredis
 from httpx import ASGITransport, AsyncClient
 from app.core.redis import redis_manager
+from app.core.celery import celery_app
 from app.db.base import Base
 from app.db.seed_rbac import seed_rbac_data
 from app.db.session import AsyncSessionLocal, sync_engine
 from app.main import app
+
+# Configure Celery in eager mode for tests
+celery_app.conf.task_always_eager = True
+celery_app.conf.task_eager_propagates = True
 
 
 @pytest.fixture(scope="session", autouse=True)

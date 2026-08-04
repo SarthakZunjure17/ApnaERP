@@ -94,7 +94,12 @@ def has_permission(permission_code: str) -> Callable:
     return permission_checker
 
 
+# Alias for dependency injection
+require_permission = has_permission
+
+
 def has_role(role_name: str) -> Callable:
+
     """
     Dependency factory verifying that the authenticated user possesses the required role.
     Superusers bypass specific role checks.

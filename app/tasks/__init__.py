@@ -35,6 +35,11 @@ from app.tasks.inventory_advanced_tasks import (
     refresh_inventory_analytics_task,
     scan_batch_expiries_task,
 )
+from app.tasks.procurement_tasks import (
+    calculate_supplier_performance_task,
+    check_expiring_quotations_task,
+    refresh_procurement_analytics_task,
+)
 
 __all__ = [
     "BaseTask",
@@ -72,6 +77,10 @@ __all__ = [
     "scan_batch_expiries_task",
     "cleanup_expired_reservations_task",
     "refresh_inventory_analytics_task",
+    "calculate_supplier_performance_task",
+    "refresh_procurement_analytics_task",
+    "check_expiring_quotations_task",
 ]
+
 
 

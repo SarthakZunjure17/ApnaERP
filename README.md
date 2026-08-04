@@ -8,7 +8,24 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Procurement Domain — Enterprise Purchasing Architecture (Release v0.7.0)
+
+### Overview
+The Procurement Domain (`app/models/supplier.py`, `app/models/purchase_requisition.py`, `app/models/rfq.py`, `app/models/supplier_quotation.py`, `app/models/purchase_order.py`, `app/models/purchase_return.py`, `app/services/supplier_services.py`, `app/services/purchase_order_services.py`, `app/services/purchase_return_services.py`) implements the complete Enterprise Procurement platform for ApnaERP. It manages the full purchasing lifecycle: Supplier Master Management, Purchase Requisitions (PR), Requests For Quotations (RFQ), Supplier Bids/Quotations, Purchase Orders (PO), and Purchase Returns.
+
+### Key Technical Capabilities
+- **Supplier Master Management (`Supplier`, `SupplierCategory`, `SupplierContact`, `SupplierAddress`, `SupplierDocument`, `SupplierRating`)**: Comprehensive Vendor Master storing corporate tax IDs, GST/VAT numbers, credit limits, payment terms, currency, bank details, ratings, on-time delivery rates, and cumulative spend. Includes supplier blacklisting and rating aggregation.
+- **Purchase Requisitions (`PurchaseRequisition`, `PurchaseRequisitionItem`)**: Internal demand requests initiated by departments or employees. Integrates with `ApprovalEngineService` (`WF_PURCHASE_REQUISITION`). Requisition items track partial/full fulfillment upon conversion to POs.
+- **Request For Quotations & Sourcing (`RFQ`, `RFQSupplier`, `RFQComparisonMatrix`)**: Sourcing documents issued to invited suppliers. Features dynamic Quotation Comparison Matrix generation (`get_comparison_matrix`) comparing unit prices, total amounts, lead times, payment terms, and vendor quality ratings across submitted bids.
+- **Supplier Quotations (`SupplierQuotation`, `SupplierQuotationItem`)**: Commercial bids submitted by suppliers with itemized pricing, tax percentages, discounts, lead times, and expiration tracking (`check_expiring_quotations_task`).
+- **Purchase Order & Goods Receipt Integration (`PurchaseOrder`, `PurchaseOrderItem`)**: Legally binding purchase orders supporting revision history, multi-warehouse line item delivery destinations, and approval workflow integration (`WF_PURCHASE_ORDER`). Physical stock receiving via `receive_goods` invokes `GoodsReceiptService.create_receipt` and `WarehouseExecutionService.execute_goods_receipt` without code duplication, generating immutable `StockLedger` IN entries (`PURCHASE_RECEIPT`) and updating PO line item counters (`received_quantity`).
+- **Purchase Returns & Stock Reversals (`PurchaseReturn`, `PurchaseReturnItem`)**: Physical stock returns back to vendors. Executing a return via `process_return` triggers stock reversal through `StockLedgerService` (`RETURN_OUT`), updating PO `returned_quantity` counters and inventory balances.
+- **Finance Decoupling & Event-Driven Architecture**: Procurement is completely decoupled from Finance. Broadcasts domain events (`SupplierCreated`, `PurchaseRequisitionSubmitted`, `RFQIssued`, `QuotationReceived`, `PurchaseOrderApproved`, `PurchaseOrderCancelled`, `GoodsReceived`, `PurchaseReturned`) for downstream financial or analytical event consumers.
+
+---
+
 ## Inventory Domain — Advanced Domain Completion (Milestone Inventory Domain Completion v0.6.3)
+
 
 ### Overview
 The Advanced Inventory Domain (`app/models/batch.py`, `app/models/serial_number.py`, `app/models/lot.py`, `app/models/stock_reservation.py`, `app/models/cycle_count.py`, `app/services/inventory_advanced_services.py`, `app/services/inventory_report_services.py`) completes the Enterprise Inventory Domain within ApnaERP. It introduces Batch Management, FEFO/FIFO Batch Allocation, Serial Number Tracking, Lot Traceability, Stock Reservations without stock mutation, Cycle Count Audits with automatic adjustment generation, Executive Reports & Analytics, Global Multi-field Search, Bulk CSV Import/Export, and structured Domain Event publishing.

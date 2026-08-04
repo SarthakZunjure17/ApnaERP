@@ -5,7 +5,45 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.0] - 2026-08-04
+
+### Milestone Procurement Domain Completion — Production-Grade Purchasing Architecture
+
+#### Added
+- **Procurement Database ORM Models (`app/models/`)**:
+  - `SupplierCategory`: Industry and material classification for vendor masters.
+  - `Supplier`: Comprehensive Vendor Master containing GST/VAT numbers, corporate tax IDs, credit limits, payment terms, currency, bank details, ratings, on-time delivery rates, and total spend.
+  - `SupplierContact`: Multi-contact directory with designation and primary contact flags.
+  - `SupplierAddress`: Multi-address locator (Billing, Shipping, Head Office, Branch).
+  - `SupplierDocument`: Digital file attachments (tax certificates, contracts, ISO audits).
+  - `SupplierRating`: Historical evaluator score reviews and performance feedback.
+  - `PurchaseRequisition` & `PurchaseRequisitionItem`: Internal demand requisitions with priority and status workflow.
+  - `RFQ` & `RFQSupplier`: Sourcing documents soliciting commercial bids with invited vendor tracking.
+  - `SupplierQuotation` & `SupplierQuotationItem`: Supplier commercial bids with itemized unit prices, tax percentages, discounts, lead times, and validity dates.
+  - `PurchaseOrder` & `PurchaseOrderItem`: Legally binding purchase orders with multi-warehouse line item delivery destinations, revision numbers, and receiving counters (`received_quantity`).
+  - `PurchaseReturn` & `PurchaseReturnItem`: Vendor return documents executing physical stock reversals via `StockLedgerService` (`RETURN_OUT`).
+  - `ProcurementReportSnapshot`: Periodic executive telemetry snapshots for procurement purchasing spend, open POs, and vendor metrics.
+- **Pydantic DTO Schemas (`app/schemas/procurement.py`)**: Full validation suite for Suppliers, Categories, Contacts, Addresses, Requisitions, RFQs, Quotations, Orders, Returns, Reports, Analytics, Search, and Import/Export.
+- **Repository Layer (`app/repositories/procurement_repos.py`)**: 13 async repositories implementing `BaseRepository` for all Procurement entities.
+- **Domain Event Publisher (`app/core/domain_events.py`)**: Event bus emitting `SupplierCreated`, `PurchaseRequisitionSubmitted`, `RFQIssued`, `QuotationReceived`, `PurchaseOrderApproved`, `PurchaseOrderCancelled`, `GoodsReceived`, and `PurchaseReturned`.
+- **Domain Services (`app/services/`)**:
+  - `SupplierService` & `SupplierPerformanceService`: Supplier lifecycle management, blacklisting, rating aggregation, and spend recalculation.
+  - `PurchaseRequisitionService`: PR creation, editing, approval engine integration, cancellation, and fulfillment tracking.
+  - `RFQService`: RFQ management, supplier invitation, issuing, and dynamic Quotation Comparison Matrix generation.
+  - `QuotationService`: Supplier bid calculation, tax & discount breakdown, validity tracking, and approval.
+  - `PurchaseOrderService`: PO management, revision history, approval workflow integration, and seamless Goods Receipt integration via `GoodsReceiptService.create_receipt` and `WarehouseExecutionService.execute_goods_receipt`.
+  - `PurchaseReturnService`: Vendor return creation and stock reversal execution via `StockLedgerService.create_ledger_entry` (`RETURN_OUT`).
+  - `ProcurementReportService` & `ProcurementAnalyticsService`: Purchase Register, Supplier Ledger, Executive Dashboard KPIs with Redis caching, and snapshotting.
+  - `ProcurementSearchService`: Unified multi-field search across Suppliers, POs, RFQs, Quotations, and PRs.
+  - `ProcurementImportExportService`: Streaming CSV export and bulk CSV import engine.
+- **Background Celery Tasks (`app/tasks/procurement_tasks.py`)**: Scheduled tasks `calculate_supplier_performance_task`, `refresh_procurement_analytics_task`, and `check_expiring_quotations_task`.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 20+ permissions across `procurement.supplier.*`, `procurement.requisition.*`, `procurement.rfq.*`, `procurement.quotation.*`, `procurement.purchase_order.*`, `procurement.purchase_return.*`, `procurement.analytics.*`, `procurement.reports.*`, `procurement.import_export.*`, and added the `Procurement Manager` role.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 10 API routers registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/e7f8a91b2c3d_phase_v070_procurement_domain_completion.py`)**: Alembic migration creating 17 new procurement tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0026-procurement-domain.md`)**: ADR covering procurement domain architecture, Goods Receipt integration, vendor return stock reversals, event-driven integration, and finance decoupling.
+
 ## [v0.6.3] - 2026-08-03
+
 
 ### Milestone Inventory Domain Completion — Advanced Enterprise Capabilities
 

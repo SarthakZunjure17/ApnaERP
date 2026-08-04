@@ -779,7 +779,7 @@ class ProductDocumentService:
                 "product_id": d.product_id,
                 "file_id": d.file_id,
                 "document_type": d.document_type,
-                "file_name": file_rec.file_name if file_rec else None,
+                "file_name": file_rec.original_filename if file_rec else None,
                 "mime_type": file_rec.mime_type if file_rec else None,
                 "created_at": d.created_at,
             })

@@ -74,8 +74,8 @@ class ProductCategoryUpdate(BaseModel):
 
 class ProductCategoryResponse(ProductCategoryBase):
     id: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -170,8 +170,8 @@ class WarehouseUpdate(BaseModel):
 
 class WarehouseResponse(WarehouseBase):
     id: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -202,8 +202,8 @@ class StorageLocationUpdate(BaseModel):
 
 class StorageLocationResponse(StorageLocationBase):
     id: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -332,8 +332,8 @@ class ProductResponse(ProductBase):
     brand_name: Optional[str] = None
     base_unit_name: Optional[str] = None
     default_warehouse_name: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

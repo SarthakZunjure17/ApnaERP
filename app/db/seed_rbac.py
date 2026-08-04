@@ -276,10 +276,46 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Create Cycle Count", "code": "inventory.cycle_count.create", "description": "Permission to create cycle count documents", "module_name": "inventory"},
     {"name": "Read Cycle Count", "code": "inventory.cycle_count.read", "description": "Permission to view cycle count documents", "module_name": "inventory"},
     {"name": "Approve Cycle Count", "code": "inventory.cycle_count.approve", "description": "Permission to approve cycle count and trigger stock adjustment", "module_name": "inventory"},
-
     {"name": "Read Inventory Reports", "code": "inventory.reports.read", "description": "Permission to view inventory reports", "module_name": "inventory"},
     {"name": "Read Inventory Analytics", "code": "inventory.analytics.read", "description": "Permission to view inventory analytics and dashboard", "module_name": "inventory"},
     {"name": "Execute Import Export", "code": "inventory.import_export.execute", "description": "Permission to import and export inventory data", "module_name": "inventory"},
+
+    # Procurement Domain Completion Permissions
+    {"name": "Create Supplier", "code": "procurement.supplier.create", "description": "Permission to create suppliers", "module_name": "procurement"},
+    {"name": "Read Supplier", "code": "procurement.supplier.read", "description": "Permission to view suppliers", "module_name": "procurement"},
+    {"name": "Update Supplier", "code": "procurement.supplier.update", "description": "Permission to update suppliers", "module_name": "procurement"},
+    {"name": "Delete Supplier", "code": "procurement.supplier.delete", "description": "Permission to delete suppliers", "module_name": "procurement"},
+    {"name": "Blacklist Supplier", "code": "procurement.supplier.blacklist", "description": "Permission to blacklist suppliers", "module_name": "procurement"},
+
+    {"name": "Create Purchase Requisition", "code": "procurement.requisition.create", "description": "Permission to create purchase requisitions", "module_name": "procurement"},
+    {"name": "Read Purchase Requisition", "code": "procurement.requisition.read", "description": "Permission to view purchase requisitions", "module_name": "procurement"},
+    {"name": "Update Purchase Requisition", "code": "procurement.requisition.update", "description": "Permission to update purchase requisitions", "module_name": "procurement"},
+    {"name": "Approve Purchase Requisition", "code": "procurement.requisition.approve", "description": "Permission to approve purchase requisitions", "module_name": "procurement"},
+    {"name": "Cancel Purchase Requisition", "code": "procurement.requisition.cancel", "description": "Permission to cancel purchase requisitions", "module_name": "procurement"},
+
+    {"name": "Create RFQ", "code": "procurement.rfq.create", "description": "Permission to create requests for quotation", "module_name": "procurement"},
+    {"name": "Read RFQ", "code": "procurement.rfq.read", "description": "Permission to view requests for quotation", "module_name": "procurement"},
+    {"name": "Update RFQ", "code": "procurement.rfq.update", "description": "Permission to update requests for quotation", "module_name": "procurement"},
+    {"name": "Issue RFQ", "code": "procurement.rfq.issue", "description": "Permission to issue requests for quotation to suppliers", "module_name": "procurement"},
+
+    {"name": "Create Supplier Quotation", "code": "procurement.quotation.create", "description": "Permission to create supplier quotations", "module_name": "procurement"},
+    {"name": "Read Supplier Quotation", "code": "procurement.quotation.read", "description": "Permission to view supplier quotations", "module_name": "procurement"},
+    {"name": "Approve Supplier Quotation", "code": "procurement.quotation.approve", "description": "Permission to approve supplier quotations", "module_name": "procurement"},
+
+    {"name": "Create Purchase Order", "code": "procurement.purchase_order.create", "description": "Permission to create purchase orders", "module_name": "procurement"},
+    {"name": "Read Purchase Order", "code": "procurement.purchase_order.read", "description": "Permission to view purchase orders", "module_name": "procurement"},
+    {"name": "Update Purchase Order", "code": "procurement.purchase_order.update", "description": "Permission to update purchase orders", "module_name": "procurement"},
+    {"name": "Approve Purchase Order", "code": "procurement.purchase_order.approve", "description": "Permission to approve purchase orders", "module_name": "procurement"},
+    {"name": "Cancel Purchase Order", "code": "procurement.purchase_order.cancel", "description": "Permission to cancel purchase orders", "module_name": "procurement"},
+    {"name": "Close Purchase Order", "code": "procurement.purchase_order.close", "description": "Permission to close purchase orders", "module_name": "procurement"},
+
+    {"name": "Create Purchase Return", "code": "procurement.purchase_return.create", "description": "Permission to create purchase returns", "module_name": "procurement"},
+    {"name": "Read Purchase Return", "code": "procurement.purchase_return.read", "description": "Permission to view purchase returns", "module_name": "procurement"},
+    {"name": "Approve Purchase Return", "code": "procurement.purchase_return.approve", "description": "Permission to approve and process purchase returns", "module_name": "procurement"},
+
+    {"name": "Read Procurement Analytics", "code": "procurement.analytics.read", "description": "Permission to view procurement analytics and dashboard", "module_name": "procurement"},
+    {"name": "Read Procurement Reports", "code": "procurement.reports.read", "description": "Permission to view procurement reports", "module_name": "procurement"},
+    {"name": "Execute Procurement Import Export", "code": "procurement.import_export.execute", "description": "Permission to import and export procurement data", "module_name": "procurement"},
 
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
@@ -289,12 +325,12 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
 ]
 
 
-
 DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Super Admin", "description": "Unrestricted administrative authority across all modules"},
     {"name": "HR Manager", "description": "Human Resources management privileges"},
     {"name": "HR Executive", "description": "Human Resources operational privileges"},
     {"name": "Inventory Manager", "description": "Stock and warehouse management privileges"},
+    {"name": "Procurement Manager", "description": "Purchasing and supplier management privileges"},
     {"name": "Sales Manager", "description": "Sales orders and revenue management privileges"},
     {"name": "Employee", "description": "Basic employee access privileges"},
 ]

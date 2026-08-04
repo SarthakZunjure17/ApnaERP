@@ -58,6 +58,35 @@ from app.models.lot import Lot
 from app.models.stock_reservation import StockReservation
 from app.models.cycle_count import CycleCount, CycleCountItem
 from app.models.inventory_analytics_snapshot import InventoryAnalyticsSnapshot
+from app.models.supplier import (
+    SupplierCategory,
+    Supplier,
+    SupplierContact,
+    SupplierAddress,
+    SupplierDocument,
+    SupplierRating,
+)
+from app.models.purchase_requisition import (
+    PurchaseRequisition,
+    PurchaseRequisitionItem,
+)
+from app.models.rfq import (
+    RFQ,
+    RFQSupplier,
+)
+from app.models.supplier_quotation import (
+    SupplierQuotation,
+    SupplierQuotationItem,
+)
+from app.models.purchase_order import (
+    PurchaseOrder,
+    PurchaseOrderItem,
+)
+from app.models.purchase_return import (
+    PurchaseReturn,
+    PurchaseReturnItem,
+)
+from app.models.procurement_report_snapshot import ProcurementReportSnapshot
 
 __all__ = [
     "User",
@@ -129,6 +158,24 @@ __all__ = [
     "CycleCount",
     "CycleCountItem",
     "InventoryAnalyticsSnapshot",
+    "SupplierCategory",
+    "Supplier",
+    "SupplierContact",
+    "SupplierAddress",
+    "SupplierDocument",
+    "SupplierRating",
+    "PurchaseRequisition",
+    "PurchaseRequisitionItem",
+    "RFQ",
+    "RFQSupplier",
+    "SupplierQuotation",
+    "SupplierQuotationItem",
+    "PurchaseOrder",
+    "PurchaseOrderItem",
+    "PurchaseReturn",
+    "PurchaseReturnItem",
+    "ProcurementReportSnapshot",
 ]
+
 
 
