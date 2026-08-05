@@ -317,6 +317,36 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Procurement Reports", "code": "procurement.reports.read", "description": "Permission to view procurement reports", "module_name": "procurement"},
     {"name": "Execute Procurement Import Export", "code": "procurement.import_export.execute", "description": "Permission to import and export procurement data", "module_name": "procurement"},
 
+    # Sales Domain Completion Permissions
+    {"name": "Create Customer", "code": "sales.customer.create", "description": "Permission to create customer master records", "module_name": "sales"},
+    {"name": "Read Customer", "code": "sales.customer.read", "description": "Permission to view customer master records", "module_name": "sales"},
+    {"name": "Update Customer", "code": "sales.customer.update", "description": "Permission to update customer master records", "module_name": "sales"},
+    {"name": "Delete Customer", "code": "sales.customer.delete", "description": "Permission to delete customer master records", "module_name": "sales"},
+
+    {"name": "Create Sales Quotation", "code": "sales.quotation.create", "description": "Permission to create sales quotations", "module_name": "sales"},
+    {"name": "Read Sales Quotation", "code": "sales.quotation.read", "description": "Permission to view sales quotations", "module_name": "sales"},
+    {"name": "Update Sales Quotation", "code": "sales.quotation.update", "description": "Permission to update sales quotations", "module_name": "sales"},
+    {"name": "Approve Sales Quotation", "code": "sales.quotation.approve", "description": "Permission to approve or reject sales quotations", "module_name": "sales"},
+
+    {"name": "Create Sales Order", "code": "sales.order.create", "description": "Permission to create sales orders", "module_name": "sales"},
+    {"name": "Read Sales Order", "code": "sales.order.read", "description": "Permission to view sales orders", "module_name": "sales"},
+    {"name": "Update Sales Order", "code": "sales.order.update", "description": "Permission to update sales orders", "module_name": "sales"},
+    {"name": "Approve Sales Order", "code": "sales.order.approve", "description": "Permission to approve or reject sales orders", "module_name": "sales"},
+
+    {"name": "Create Delivery Order", "code": "sales.delivery.create", "description": "Permission to create delivery orders and dispatches", "module_name": "sales"},
+    {"name": "Read Delivery Order", "code": "sales.delivery.read", "description": "Permission to view delivery orders and tracking", "module_name": "sales"},
+    {"name": "Update Delivery Order", "code": "sales.delivery.update", "description": "Permission to update delivery orders", "module_name": "sales"},
+
+    {"name": "Create Sales Return", "code": "sales.return.create", "description": "Permission to create sales returns", "module_name": "sales"},
+    {"name": "Read Sales Return", "code": "sales.return.read", "description": "Permission to view sales returns", "module_name": "sales"},
+    {"name": "Approve Sales Return", "code": "sales.return.approve", "description": "Permission to approve and process sales returns", "module_name": "sales"},
+
+    {"name": "Create Pricing Rules", "code": "sales.pricing.create", "description": "Permission to create price lists and discount rules", "module_name": "sales"},
+    {"name": "Read Pricing Rules", "code": "sales.pricing.read", "description": "Permission to view price lists and discount rules", "module_name": "sales"},
+    {"name": "Update Pricing Rules", "code": "sales.pricing.update", "description": "Permission to update price lists and discount rules", "module_name": "sales"},
+
+    {"name": "Read Sales Analytics", "code": "sales.analytics.read", "description": "Permission to view sales analytics and reports", "module_name": "sales"},
+
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},

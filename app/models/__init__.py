@@ -87,6 +87,35 @@ from app.models.purchase_return import (
     PurchaseReturnItem,
 )
 from app.models.procurement_report_snapshot import ProcurementReportSnapshot
+from app.models.customer import (
+    CustomerCategory,
+    Customer,
+    CustomerContact,
+    CustomerAddress,
+    CustomerDocument,
+)
+from app.models.pricing import (
+    PriceList,
+    PricingRule,
+    DiscountRule,
+)
+from app.models.sales_quotation import (
+    SalesQuotation,
+    SalesQuotationItem,
+)
+from app.models.sales_order import (
+    SalesOrder,
+    SalesOrderItem,
+)
+from app.models.delivery_order import (
+    DeliveryOrder,
+    DeliveryOrderItem,
+)
+from app.models.sales_return import (
+    SalesReturn,
+    SalesReturnItem,
+)
+from app.models.sales_report_snapshot import SalesReportSnapshot
 
 __all__ = [
     "User",
@@ -175,6 +204,23 @@ __all__ = [
     "PurchaseReturn",
     "PurchaseReturnItem",
     "ProcurementReportSnapshot",
+    "CustomerCategory",
+    "Customer",
+    "CustomerContact",
+    "CustomerAddress",
+    "CustomerDocument",
+    "PriceList",
+    "PricingRule",
+    "DiscountRule",
+    "SalesQuotation",
+    "SalesQuotationItem",
+    "SalesOrder",
+    "SalesOrderItem",
+    "DeliveryOrder",
+    "DeliveryOrderItem",
+    "SalesReturn",
+    "SalesReturnItem",
+    "SalesReportSnapshot",
 ]
 
 

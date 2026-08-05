@@ -71,6 +71,17 @@ from app.api.v1.endpoints import (
     procurement_analytics,
     procurement_search,
     procurement_import_export,
+    customers,
+    quotations,
+    sales_orders,
+    delivery_orders,
+    sales_returns,
+    pricing,
+    discounts,
+    sales_reports,
+    sales_analytics,
+    sales_search,
+    sales_import_export,
 )
 
 
@@ -158,6 +169,20 @@ api_router.include_router(procurement_reports.router, prefix="/procurement/repor
 api_router.include_router(procurement_analytics.router, prefix="/procurement/analytics", tags=["Procurement Analytics"])
 api_router.include_router(procurement_search.router, prefix="/procurement/search", tags=["Global Procurement Search"])
 api_router.include_router(procurement_import_export.router, prefix="/procurement/import-export", tags=["Procurement Import Export"])
+
+# Sales Domain Completion Routers
+api_router.include_router(customers.router, prefix="/sales/customers", tags=["Customer Master"])
+api_router.include_router(quotations.router, prefix="/sales/quotations", tags=["Sales Quotations"])
+api_router.include_router(sales_orders.router, prefix="/sales/orders", tags=["Sales Orders"])
+api_router.include_router(delivery_orders.router, prefix="/sales/deliveries", tags=["Delivery Orders & Dispatches"])
+api_router.include_router(sales_returns.router, prefix="/sales/returns", tags=["Sales Returns & Stock Reversals"])
+api_router.include_router(pricing.router, prefix="/sales/pricing", tags=["Price Lists & Rules"])
+api_router.include_router(discounts.router, prefix="/sales/discounts", tags=["Discount Engine Rules"])
+api_router.include_router(sales_reports.router, prefix="/sales/reports", tags=["Sales Reports"])
+api_router.include_router(sales_analytics.router, prefix="/sales/analytics", tags=["Sales Analytics"])
+api_router.include_router(sales_search.router, prefix="/sales/search", tags=["Global Sales Search"])
+api_router.include_router(sales_import_export.router, prefix="/sales/import-export", tags=["Sales Import Export"])
+
 
 
 

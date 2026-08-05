@@ -8,6 +8,23 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Sales Domain — Enterprise Order-to-Cash Architecture (Release v0.8.0)
+
+### Overview
+The Sales Domain (`app/models/customer.py`, `app/models/pricing.py`, `app/models/sales_quotation.py`, `app/models/sales_order.py`, `app/models/delivery_order.py`, `app/models/sales_return.py`, `app/models/sales_report_snapshot.py`, `app/services/customer_services.py`, `app/services/sales_order_services.py`, `app/services/delivery_services.py`, `app/services/sales_return_services.py`, `app/services/tax_and_invoice_services.py`) implements the complete Enterprise Sales & Distribution platform for ApnaERP. It manages the full Order-to-Cash lifecycle: Customer Master Management, Price Lists & Discount Engine, Sales Quotations, Sales Orders, Delivery Orders (Shipments), Sales Returns, Sales Analytics, and Invoice Payload Generation for downstream Finance consumption.
+
+### Key Technical Capabilities
+- **Customer Master Management (`Customer`, `CustomerCategory`, `CustomerContact`, `CustomerAddress`, `CustomerDocument`)**: Enterprise Customer Master storing corporate tax IDs, credit limits, payment terms, currency, credit lock status, preferred status, and financial balances. Features credit limit verification and credit lock enforcement.
+- **Pricing & Discount Engine (`PriceList`, `PricingRule`, `DiscountRule`)**: Multi-tier pricing rules with min-quantity thresholds and validity windows. Evaluates item-level and document-level discounts automatically.
+- **Sales Quotations (`SalesQuotation`, `SalesQuotationItem`)**: Commercial quotes supporting revision history (`revision_number`), tax calculations, line item discounts, and approval workflow integration (`WF_SALES_QUOTATION`).
+- **Sales Orders (`SalesOrder`, `SalesOrderItem`)**: Sales Orders with credit limit verification, multi-warehouse delivery destinations, item status tracking (`Pending`, `Partial`, `Delivered`, `Cancelled`), and approval workflow integration (`WF_SALES_ORDER`).
+- **Delivery Orders & Goods Issue Integration (`DeliveryOrder`, `DeliveryOrderItem`)**: Shipments executing physical inventory deduction via `GoodsIssueService` (`create_issue`, `approve_issue`, `issue_issue`) and `WarehouseExecutionService`, generating immutable `StockLedger` OUT entries (`SALES_ISSUE`).
+- **Sales Returns & Stock Reversals (`SalesReturn`, `SalesReturnItem`)**: Customer returns executing physical inventory addition via `GoodsReceiptService` (`create_receipt`, `approve_receipt`, `receive_receipt`) and `WarehouseExecutionService`, generating immutable `StockLedger` IN entries (`SALES_RETURN`).
+- **Finance Decoupling & Invoice Payload Generation (`SalesInvoicePayload`)**: Sales exposes clean invoice payload contracts (`InvoicePayloadService.generate_invoice_payload`) for future Accounts Receivable / GL modules without introducing direct accounting entries.
+- **Sales Analytics, Reports & Global Search**: Real-time Sales Register, Customer Ledger, Redis-cached executive dashboard KPIs, periodic snapshotting (`SalesReportSnapshot`), and global search across Customers, Quotations, Orders, Deliveries, and Products.
+
+---
+
 ## Procurement Domain — Enterprise Purchasing Architecture (Release v0.7.0)
 
 ### Overview

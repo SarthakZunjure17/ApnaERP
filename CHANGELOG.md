@@ -5,6 +5,45 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.0] - 2026-08-05
+
+### Milestone Sales Domain Completion — Enterprise Order-to-Cash Architecture
+
+#### Added
+- **Sales Database ORM Models (`app/models/`)**:
+  - `CustomerCategory`: Industry and market segmentation for customer master data.
+  - `Customer`: Enterprise Customer Master containing tax IDs, credit limits, payment terms, currency, credit lock status, preferred status, and financial balances.
+  - `CustomerContact`: Multi-contact directory with primary flags and designation.
+  - `CustomerAddress`: Multi-address directory (Billing, Shipping, Head Office, Branch).
+  - `CustomerDocument`: File attachments (tax certificates, contracts, KYC compliance).
+  - `PriceList`: Customer and currency-specific price lists with multi-tier pricing.
+  - `PricingRule`: Tiered volume pricing rules with min-qty bounds and validity windows.
+  - `DiscountRule`: Document and line-level discount calculation rules with min-order thresholds.
+  - `SalesQuotation` & `SalesQuotationItem`: Customer commercial quotes with versioning (`revision_number`), tax computation, line item discounts, and approval engine integration.
+  - `SalesOrder` & `SalesOrderItem`: Sales Orders with customer credit limit verification, multi-warehouse delivery destinations, item status tracking (`Pending`, `Partial`, `Delivered`, `Cancelled`), and delivery status tracking.
+  - `DeliveryOrder` & `DeliveryOrderItem`: Shipments executing physical inventory deduction via `GoodsIssueService` and `StockLedgerService` (`SALES_ISSUE`).
+  - `SalesReturn` & `SalesReturnItem`: Customer sales returns executing physical inventory addition via `GoodsReceiptService` and `StockLedgerService` (`SALES_RETURN`).
+  - `SalesReportSnapshot`: Periodic executive telemetry snapshots for sales revenue, order volumes, customer metrics, and product performance.
+- **Pydantic DTO Schemas (`app/schemas/sales.py`)**: Complete validation suite for Customers, Categories, Contacts, Addresses, Price Lists, Pricing Rules, Discount Rules, Quotations, Orders, Deliveries, Returns, Reports, Analytics, Search, and Import/Export.
+- **Repository Layer (`app/repositories/sales_repos.py`)**: 14 async repositories implementing `BaseRepository` for all Sales entities with eager relational loading (`selectinload`).
+- **Domain Event Publisher (`app/core/domain_events.py`)**: Emits `CustomerCreated`, `SalesQuotationSubmitted`, `SalesQuotationApproved`, `SalesOrderSubmitted`, `SalesOrderApproved`, `SalesOrderCancelled`, `DeliveryOrderDispatched`, and `SalesReturnApproved`.
+- **Domain Services (`app/services/`)**:
+  - `CustomerService`: Customer master lifecycle, category management, contact directory, address book, credit limit verification, and credit lock toggling.
+  - `PricingService` & `DiscountService`: Price list lookups, volume pricing engine, line-item & document-level discount evaluation.
+  - `QuotationService`: Quotation creation, line item math, revisioning, approval engine integration, and order conversion.
+  - `SalesOrderService`: Order creation, credit checks, approval workflow integration, cancellation, and order closure.
+  - `DeliveryService`: Delivery Order management and seamless integration with Warehouse Operations (`GoodsIssueService`).
+  - `SalesReturnService`: Sales Return processing and inventory stock reversal execution via `GoodsReceiptService`.
+  - `InvoicePayloadService`: Finance-decoupled invoice payload generation (`SalesInvoicePayload`) for future Accounts Receivable / GL modules.
+  - `SalesAnalyticsService` & `SalesReportService`: Revenue metrics, Sales Register, Customer Ledger, executive performance dashboards with Redis caching, and snapshotting.
+  - `SalesSearchService`: Unified multi-entity search across Customers, Orders, Quotations, Deliveries, and Products.
+  - `SalesImportExportService`: Streaming CSV export and bulk CSV import engine.
+- **Background Celery Tasks (`app/tasks/sales_tasks.py`)**: Celery tasks `calculate_customer_analytics_task`, `refresh_sales_analytics_task`, and `check_expiring_quotations_task`.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded 20+ permissions across `sales.customer.*`, `sales.pricing.*`, `sales.quotation.*`, `sales.order.*`, `sales.delivery.*`, `sales.return.*`, `sales.analytics.*`, `sales.reports.*`, `sales.import_export.*`, and assigned them to `Sales Manager` role.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 11 API routers registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/f8a9b0c1d2e3_phase_v080_sales_domain_completion.py`)**: Alembic migration creating 18 sales tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0027-sales-domain.md`)**: ADR covering Sales Domain architecture, Warehouse Operations integration, credit limit checks, Finance decoupling, and invoice payload contract generation.
+
 ## [v0.7.0] - 2026-08-04
 
 ### Milestone Procurement Domain Completion — Production-Grade Purchasing Architecture

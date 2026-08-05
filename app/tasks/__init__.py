@@ -40,6 +40,13 @@ from app.tasks.procurement_tasks import (
     check_expiring_quotations_task,
     refresh_procurement_analytics_task,
 )
+from app.tasks.sales_tasks import (
+    refresh_sales_analytics_task,
+    generate_daily_revenue_summary_task,
+    check_expired_quotations_task,
+    send_delivery_reminders_task,
+    send_order_reminders_task,
+)
 
 __all__ = [
     "BaseTask",
@@ -80,6 +87,11 @@ __all__ = [
     "calculate_supplier_performance_task",
     "refresh_procurement_analytics_task",
     "check_expiring_quotations_task",
+    "refresh_sales_analytics_task",
+    "generate_daily_revenue_summary_task",
+    "check_expired_quotations_task",
+    "send_delivery_reminders_task",
+    "send_order_reminders_task",
 ]
 
 
