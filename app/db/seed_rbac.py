@@ -423,6 +423,50 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Update Fiscal", "code": "finance.fiscal.update", "description": "Permission to update fiscal years and periods", "module_name": "finance"},
     {"name": "Delete Fiscal", "code": "finance.fiscal.delete", "description": "Permission to delete fiscal years and periods", "module_name": "finance"},
     {"name": "Lock Fiscal Period", "code": "finance.fiscal.lock", "description": "Permission to lock and close fiscal periods", "module_name": "finance"},
+
+    # Finance Operations & Reporting Permissions
+    {"name": "Read Accounts Receivable", "code": "finance.receivable.read", "description": "Permission to view invoices and customer ledgers", "module_name": "finance"},
+    {"name": "Create Accounts Receivable", "code": "finance.receivable.create", "description": "Permission to create customer invoices", "module_name": "finance"},
+    {"name": "Update Accounts Receivable", "code": "finance.receivable.write", "description": "Permission to modify customer invoices", "module_name": "finance"},
+    {"name": "Delete Accounts Receivable", "code": "finance.receivable.delete", "description": "Permission to delete customer invoices", "module_name": "finance"},
+
+    {"name": "Read Accounts Payable", "code": "finance.payable.read", "description": "Permission to view bills and supplier ledgers", "module_name": "finance"},
+    {"name": "Create Accounts Payable", "code": "finance.payable.create", "description": "Permission to create supplier bills", "module_name": "finance"},
+    {"name": "Update Accounts Payable", "code": "finance.payable.write", "description": "Permission to modify supplier bills", "module_name": "finance"},
+    {"name": "Delete Accounts Payable", "code": "finance.payable.delete", "description": "Permission to delete supplier bills", "module_name": "finance"},
+
+    {"name": "Read Payment Vouchers", "code": "finance.payment.read", "description": "Permission to view payment/receipt vouchers", "module_name": "finance"},
+    {"name": "Create Payment Vouchers", "code": "finance.payment.create", "description": "Permission to create payment/receipt vouchers", "module_name": "finance"},
+    {"name": "Update Payment Vouchers", "code": "finance.payment.write", "description": "Permission to update payment/receipt vouchers", "module_name": "finance"},
+    {"name": "Post Payment Vouchers", "code": "finance.payment.post", "description": "Permission to post payment/receipt vouchers", "module_name": "finance"},
+
+    {"name": "Read Bank Management", "code": "finance.bank.read", "description": "Permission to view bank accounts and transactions", "module_name": "finance"},
+    {"name": "Create Bank Management", "code": "finance.bank.create", "description": "Permission to create bank accounts", "module_name": "finance"},
+    {"name": "Update Bank Management", "code": "finance.bank.write", "description": "Permission to modify bank accounts", "module_name": "finance"},
+    {"name": "Delete Bank Management", "code": "finance.bank.delete", "description": "Permission to delete bank accounts", "module_name": "finance"},
+
+    {"name": "Read Reconciliation", "code": "finance.reconciliation.read", "description": "Permission to view bank reconciliations", "module_name": "finance"},
+    {"name": "Update Reconciliation", "code": "finance.reconciliation.write", "description": "Permission to modify bank reconciliations", "module_name": "finance"},
+    {"name": "Reconcile Bank", "code": "finance.reconciliation.reconcile", "description": "Permission to execute bank reconciliation", "module_name": "finance"},
+
+    {"name": "Read Assets", "code": "finance.asset.read", "description": "Permission to view fixed asset register", "module_name": "finance"},
+    {"name": "Create Assets", "code": "finance.asset.create", "description": "Permission to create fixed asset categories/assets", "module_name": "finance"},
+    {"name": "Update Assets", "code": "finance.asset.write", "description": "Permission to update fixed assets", "module_name": "finance"},
+    {"name": "Dispose Assets", "code": "finance.asset.dispose", "description": "Permission to dispose fixed assets", "module_name": "finance"},
+
+    {"name": "Read Depreciation", "code": "finance.depreciation.read", "description": "Permission to view depreciation schedules", "module_name": "finance"},
+    {"name": "Post Depreciation", "code": "finance.depreciation.post", "description": "Permission to post depreciation entries", "module_name": "finance"},
+
+    {"name": "Read Statements", "code": "finance.statement.read", "description": "Permission to view financial statements", "module_name": "finance"},
+    {"name": "Generate Statements", "code": "finance.statement.generate", "description": "Permission to generate financial statements", "module_name": "finance"},
+    {"name": "Export Statements", "code": "finance.statement.export", "description": "Permission to export financial statements", "module_name": "finance"},
+
+    {"name": "Read Budgets", "code": "finance.budget.read", "description": "Permission to view budgets", "module_name": "finance"},
+    {"name": "Create Budgets", "code": "finance.budget.create", "description": "Permission to create budgets", "module_name": "finance"},
+    {"name": "Approve Budgets", "code": "finance.budget.approve", "description": "Permission to approve budgets", "module_name": "finance"},
+    {"name": "Revise Budgets", "code": "finance.budget.revise", "description": "Permission to revise budgets", "module_name": "finance"},
+
+    {"name": "Read Finance Analytics", "code": "finance.analytics.read", "description": "Permission to view executive finance analytics", "module_name": "finance"},
 ]
 
 

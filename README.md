@@ -8,6 +8,24 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Finance Operations & Financial Reporting (Release v1.1.0)
+
+### Overview
+The **Finance Operations & Financial Reporting** module (`app/models/finance_ops.py`, `app/services/finance_ops_services.py`, `app/repositories/finance_ops_repos.py`, `app/schemas/finance_ops.py`, `app/api/v1/endpoints/finance_*.py`) completes the entire Finance Domain for ApnaERP. It extends the central double-entry Journal Engine to power all operational financial workflows: Accounts Receivable, Accounts Payable, Payment & Receipt Vouchers, Bank Accounts & Bank Statement Reconciliation, Fixed Assets & Depreciation, Annual/Departmental Budgets, Financial Statements, Period Closings, Executive Analytics, and Domain Events.
+
+### Key Technical Capabilities
+- **Accounts Receivable (`CustomerInvoice`, `CustomerLedgerEntry`, `CustomerCreditNote`, `CustomerDebitNote`)**: Complete AR sales invoicing, posting to GL via Journal Engine, real-time customer sub-ledgers, aging analysis (Current, 30, 60, 90+ days), and customer statements.
+- **Accounts Payable (`SupplierBill`, `SupplierLedgerEntry`, `SupplierCreditNote`, `SupplierDebitNote`)**: Vendor bill processing, posting to GL via Journal Engine, real-time supplier sub-ledgers, aging analysis, and vendor statements.
+- **Payments & Vouchers (`ReceiptVoucher`, `PaymentVoucher`, `PaymentAllocation`)**: Outbound payments and inbound payment receipts with partial allocation against open invoices/bills and GL posting.
+- **Bank Management & Reconciliation (`BankAccount`, `BankTransaction`, `BankStatement`, `BankReconciliation`)**: Multi-bank account tracking, bank statement imports (CSV/OFX), automated rule-based transaction matching, manual match override, and unreconciled item auditing without altering posted journal entries.
+- **Fixed Assets & Depreciation (`AssetCategory`, `FixedAsset`, `DepreciationSchedule`)**: Fixed asset register, acquisition journal posting, straight-line and written-down value depreciation schedule calculation, and automated monthly depreciation journal posting.
+- **Budget Management (`Budget`, `BudgetLine`)**: Annual and departmental budget headers and lines, approval workflow routing, revisions, and real-time budgeted vs actual variance analysis.
+- **Financial Statements & Reports (`FinancialStatementSnapshot`)**: Real-time generation and snapshotting of Trial Balance, Balance Sheet, Profit & Loss, Cash Flow Statement, Day Book, Cash Book, Bank Book, and Tax Summaries.
+- **Financial Closing (`ClosingService`)**: Period closing, year-end closing, opening balance carry forward, and period locking against posted transactions.
+- **Finance Analytics (`AnalyticsService`)**: Financial metrics (Revenue, Expenses, Net Margin, Cash Position, AR/AP Outstanding, Asset Value, Financial Ratios: Current, Quick, Debt-to-Equity) with Redis caching.
+
+---
+
 ## Finance Core — Central Accounting Engine (Release v1.0.0)
 
 ### Overview

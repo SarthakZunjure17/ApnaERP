@@ -684,6 +684,70 @@ class PostingEngineService:
 
         return journal
 
+    async def post_double_entry_journal(
+        self,
+        db: AsyncSession,
+        entry_date: date,
+        description: str,
+        lines: List[Dict[str, Any]],
+        reference_number: Optional[str] = None,
+        user: Optional[Any] = None,
+    ) -> Journal:
+        type_stmt = select(JournalType).limit(1)
+        res = await db.execute(type_stmt)
+        jtype = res.scalars().first()
+        if not jtype:
+            jtype = JournalType(code="GEN", name="General Journal", prefix="JV", requires_approval=False)
+            db.add(jtype)
+            await db.flush()
+
+        j_num = f"{jtype.prefix}-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        total_debit = Decimal(str(sum(line.get("debit", 0.0) for line in lines)))
+        total_credit = Decimal(str(sum(line.get("credit", 0.0) for line in lines)))
+
+        journal = Journal(
+            journal_number=j_num,
+            journal_type_id=jtype.id,
+            posting_date=entry_date,
+            description=description,
+            reference_id=reference_number,
+            status="Posted",
+            total_debit=total_debit,
+            total_credit=total_credit,
+            posted_at=datetime.now(timezone.utc),
+            posted_by_id=user.id if user and hasattr(user, "id") else None,
+        )
+        db.add(journal)
+        await db.flush()
+
+        for idx, line in enumerate(lines, start=1):
+            account_id = uuid.UUID(line["account_id"]) if isinstance(line["account_id"], str) else line["account_id"]
+            debit_amt = Decimal(str(line.get("debit", 0.0)))
+            credit_amt = Decimal(str(line.get("credit", 0.0)))
+
+            jline = JournalLine(
+                journal_id=journal.id,
+                line_number=idx,
+                account_id=account_id,
+                debit=debit_amt,
+                credit=credit_amt,
+                description=line.get("description"),
+            )
+            db.add(jline)
+
+            acc_stmt = select(ChartOfAccount).where(ChartOfAccount.id == account_id)
+            acc_res = await db.execute(acc_stmt)
+            account = acc_res.scalar_one_or_none()
+            if account:
+                if account.account_type in ("Asset", "Expense"):
+                    account.current_balance += debit_amt - credit_amt
+                else:
+                    account.current_balance += credit_amt - debit_amt
+
+        await db.commit()
+        await db.refresh(journal)
+        return journal
+
     async def reverse_journal(
         self,
         db: AsyncSession,

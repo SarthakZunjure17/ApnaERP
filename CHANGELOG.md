@@ -5,6 +5,60 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.0] - 2026-08-06
+
+### Milestone Finance Operations & Financial Reporting — Operational Accounting Suite
+
+#### Added
+- **Finance Operations ORM Models (`app/models/finance_ops.py`)**:
+  - `CustomerInvoice` & `CustomerInvoiceLine`: Sales invoices with subtotal, tax, outstanding amounts, and double-entry GL journal posting.
+  - `CustomerCreditNote` & `CustomerDebitNote`: Credit and debit adjustments for accounts receivable.
+  - `CustomerLedgerEntry`: Immutable sub-ledger tracking debit/credit entries and running customer balances.
+  - `SupplierBill` & `SupplierBillLine`: Vendor bills with subtotal, tax, outstanding amounts, and double-entry GL journal posting.
+  - `SupplierCreditNote` & `SupplierDebitNote`: Credit and debit adjustments for accounts payable.
+  - `SupplierLedgerEntry`: Immutable sub-ledger tracking debit/credit entries and running supplier balances.
+  - `ReceiptVoucher` & `PaymentVoucher`: Inbound customer receipts and outbound supplier payments with Cash/Bank/Electronic payment modes.
+  - `PaymentAllocation`: Multi-invoice/bill payment allocations supporting partial payments.
+  - `BankAccount` & `BankTransaction`: Company bank account master and ledger transactions.
+  - `BankStatement`, `BankStatementLine`, `BankReconciliation`, & `BankReconciliationItem`: Statement import (CSV/OFX), automated rule-based transaction matching, manual match overrides, and unreconciled item auditing.
+  - `AssetCategory`, `FixedAsset`, & `DepreciationSchedule`: Asset register, acquisition journal posting, straight-line and written-down value depreciation schedule calculation, and automated monthly depreciation posting.
+  - `Budget` & `BudgetLine`: Annual and departmental budgets with approval workflows and real-time budgeted vs actual variance analysis.
+  - `FinancialStatementSnapshot`: Telemetry and audit snapshots of Trial Balance, Balance Sheet, Profit & Loss, and Cash Flow Statement.
+- **Domain Services Layer (`app/services/finance_ops_services.py`)**:
+  - `AccountsReceivableService`: AR invoicing, GL posting via `PostingEngineService`, aging analysis, and customer statements.
+  - `AccountsPayableService`: AP bill processing, GL posting, aging analysis, and vendor statements.
+  - `PaymentService`: Receipt and payment voucher management, GL posting, and invoice/bill allocations.
+  - `BankService`: Bank account management and transaction recording.
+  - `ReconciliationService`: Statement import, auto-matching, and reconciliation processing.
+  - `AssetService` & `DepreciationService`: Fixed asset management and depreciation schedule calculation & journal posting.
+  - `FinancialStatementService`: Real-time calculation of Trial Balance, Balance Sheet, and Profit & Loss.
+  - `BudgetService`: Budget creation, line items, approval workflow, and variance analysis.
+  - `ClosingService`: Period closing, year-end closing, and period locking.
+  - `AnalyticsService`: Executive dashboard metrics, financial ratios (Current, Quick, Debt-to-Equity), and Redis cache integration.
+- **Celery Background Tasks (`app/tasks/finance_ops_tasks.py`)**:
+  - `scheduled_depreciation_task`: Monthly batch depreciation schedule calculation & journal posting.
+  - `recurring_payments_task`: Auto-generating recurring payment vouchers.
+  - `budget_alerts_task`: Monitoring budget utilization thresholds (>90%).
+  - `statement_generation_task`: Async pre-generation of financial statement snapshots.
+  - `financial_closing_checks_task`: Validating period closing readiness.
+  - `analytics_refresh_task`: Refreshing Redis cache for finance analytics dashboard.
+- **RBAC Security Seed (`app/db/seed_rbac.py`)**:
+  - Seeded permissions: `finance.receivable.*`, `finance.payable.*`, `finance.payment.*`, `finance.bank.*`, `finance.reconciliation.*`, `finance.asset.*`, `finance.depreciation.*`, `finance.statement.*`, `finance.budget.*`, `finance.analytics.*`.
+- **REST API Routers (`app/api/v1/endpoints/finance_*.py`)**:
+  - `finance_receivables.py`: `/finance/receivables`
+  - `finance_payables.py`: `/finance/payables`
+  - `finance_payments.py`: `/finance/payments`
+  - `finance_banks.py`: `/finance/banks`
+  - `finance_reconciliation.py`: `/finance/reconciliation`
+  - `finance_assets.py`: `/finance/assets`
+  - `finance_budgets.py`: `/finance/budgets`
+  - `finance_statements.py`: `/finance/statements`
+  - `finance_analytics.py`: `/finance/analytics`
+- **Integration Test Suite (`tests/test_finance_ops.py`)**: 6 integration test cases covering 100% of Finance Operations requirements with 100% pass rate.
+- **Documentation (`docs/adr/ADR-0030-finance-operations.md`)**: Architecture Decision Record documenting Finance Operations architecture.
+
+---
+
 ## [v1.0.0] - 2026-08-06
 
 ### Milestone Finance Core — Central Accounting Engine

@@ -61,6 +61,14 @@ from app.tasks.finance_tasks import (
     process_recurring_journals_task,
     refresh_exchange_rates_task,
 )
+from app.tasks.finance_ops_tasks import (
+    analytics_refresh_task,
+    budget_alerts_task,
+    financial_closing_checks_task,
+    recurring_payments_task,
+    scheduled_depreciation_task,
+    statement_generation_task,
+)
 
 __all__ = [
     "BaseTask",
@@ -114,6 +122,12 @@ __all__ = [
     "refresh_exchange_rates_task",
     "fiscal_period_notifications_task",
     "process_financial_posting_queue_task",
+    "scheduled_depreciation_task",
+    "recurring_payments_task",
+    "budget_alerts_task",
+    "statement_generation_task",
+    "financial_closing_checks_task",
+    "analytics_refresh_task",
 ]
 
 

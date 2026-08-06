@@ -30,12 +30,21 @@ from app.api.v1.endpoints import (
     employees,
     files,
     finance_accounts,
+    finance_analytics,
+    finance_assets,
+    finance_banks,
+    finance_budgets,
     finance_cost_centers,
     finance_currencies,
     finance_fiscal,
     finance_journals,
+    finance_payables,
+    finance_payments,
     finance_posting_rules,
+    finance_receivables,
+    finance_reconciliation,
     finance_search,
+    finance_statements,
     finance_taxes,
     financial_integration,
     goods_issue,
@@ -220,3 +229,14 @@ api_router.include_router(finance_journals.router, prefix="/finance/journals", t
 api_router.include_router(finance_posting_rules.router, prefix="/finance/posting-rules", tags=["Posting Rules"])
 api_router.include_router(finance_taxes.router, prefix="/finance/taxes", tags=["Tax Categories & Rates"])
 api_router.include_router(finance_search.router, prefix="/finance/search", tags=["Global Finance Search"])
+
+# Finance Operations & Financial Reporting Routers
+api_router.include_router(finance_receivables.router, prefix="/finance/receivables", tags=["Accounts Receivable"])
+api_router.include_router(finance_payables.router, prefix="/finance/payables", tags=["Accounts Payable"])
+api_router.include_router(finance_payments.router, prefix="/finance/payments", tags=["Payments & Vouchers"])
+api_router.include_router(finance_banks.router, prefix="/finance/banks", tags=["Bank Management"])
+api_router.include_router(finance_reconciliation.router, prefix="/finance/reconciliation", tags=["Bank Reconciliation"])
+api_router.include_router(finance_assets.router, prefix="/finance/assets", tags=["Fixed Assets & Depreciation"])
+api_router.include_router(finance_budgets.router, prefix="/finance/budgets", tags=["Budget Management"])
+api_router.include_router(finance_statements.router, prefix="/finance/statements", tags=["Financial Statements"])
+api_router.include_router(finance_analytics.router, prefix="/finance/analytics", tags=["Finance Executive Analytics"])
