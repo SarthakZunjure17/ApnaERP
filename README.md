@@ -8,6 +8,22 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## Finance Core — Central Accounting Engine (Release v1.0.0)
+
+### Overview
+The Finance Core (`app/models/finance.py`, `app/services/finance_services.py`, `app/repositories/finance_repos.py`, `app/schemas/finance.py`, `app/api/v1/endpoints/finance_*.py`) implements the central accounting foundation for ApnaERP. It establishes double-entry ledger bookkeeping, hierarchical Chart of Accounts, Fiscal Calendar with Period Locks, Multi-Currency Exchange Engine, Cost Center & Dimension Allocations, Tax Rules, Immutability & Reversals, and Automated Financial Posting Queues for cross-domain integration (Payroll, Procurement, Sales, Inventory).
+
+### Key Technical Capabilities
+- **Hierarchical Chart of Accounts (`AccountGroup`, `ChartOfAccount`)**: Multi-level parent-child group structures and GL account master supporting Assets, Liabilities, Equity, Income, and Expense types.
+- **Fiscal Calendar & Period Locking (`FiscalYear`, `FiscalPeriod`)**: Multi-period fiscal calendar with automated 12-month period generation, status lifecycle (Draft, Open, Closed), and period locking against posted transactions.
+- **Multi-Currency & Exchange Engine (`Currency`, `ExchangeRate`)**: Base currency designation, daily exchange rate tracking, cross-currency conversion, and foreign exchange gain/loss support.
+- **Cost Center & Dimension Accounting (`CostCenter`, `AccountingDimension`)**: Departmental cost center hierarchies and multidimensional ledger allocations (Branch, Project, Region, Cost Center).
+- **Tax Configuration & Compliance Engine (`TaxCategory`, `TaxRate`)**: Input/Output VAT, GST, and Tax category configuration with effective date sensitivity and percentage rates.
+- **Double-Entry Engine & Immutability (`JournalType`, `Journal`, `JournalLine`)**: Mandatory double-entry ledger engine enforcing `Total Debit == Total Credit`. Posted journals are immutable; reversals create counter-balancing `REV-` journals linked to the original entry.
+- **Automated Financial Posting Queue (`PostingRule`, `AccountingEvent`, `FinancialPostingQueue`)**: Event-driven posting engine that consumes domain events from Payroll, Procurement, Sales, and Inventory, matching configurable `PostingRules` to generate and post General Ledger Journals automatically.
+
+---
+
 ## CRM Domain — Enterprise Customer Relationship Management (Release v0.9.0)
 
 ### Overview

@@ -69,3 +69,12 @@ CRM_TASK_COMPLETED = "TaskCompleted"
 CRM_MEETING_SCHEDULED = "MeetingScheduled"
 CRM_CAMPAIGN_COMPLETED = "CampaignCompleted"
 
+# Finance Domain Event Names
+FINANCE_JOURNAL_POSTED = "JournalPosted"
+FINANCE_JOURNAL_REVERSED = "JournalReversed"
+FINANCE_FISCAL_PERIOD_CLOSED = "FiscalPeriodClosed"
+FINANCE_ACCOUNT_CREATED = "AccountCreated"
+FINANCE_EXCHANGE_RATE_UPDATED = "ExchangeRateUpdated"
+FINANCE_POSTING_RULE_CHANGED = "PostingRuleChanged"
+
+

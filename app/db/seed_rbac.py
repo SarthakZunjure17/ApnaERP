@@ -383,6 +383,46 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},
     {"name": "Update Inventory Items", "code": "inventory.update", "description": "Permission to modify inventory stock", "module_name": "inventory"},
     {"name": "Delete Inventory Items", "code": "inventory.delete", "description": "Permission to delete inventory stock", "module_name": "inventory"},
+
+    # Finance Core Permissions
+    {"name": "Create Account", "code": "finance.accounts.create", "description": "Permission to create accounts and groups", "module_name": "finance"},
+    {"name": "Read Account", "code": "finance.accounts.read", "description": "Permission to view chart of accounts", "module_name": "finance"},
+    {"name": "Update Account", "code": "finance.accounts.update", "description": "Permission to update chart of accounts", "module_name": "finance"},
+    {"name": "Delete Account", "code": "finance.accounts.delete", "description": "Permission to delete accounts", "module_name": "finance"},
+
+    {"name": "Create Journal", "code": "finance.journal.create", "description": "Permission to create journal entries", "module_name": "finance"},
+    {"name": "Read Journal", "code": "finance.journal.read", "description": "Permission to view journal entries", "module_name": "finance"},
+    {"name": "Update Journal", "code": "finance.journal.update", "description": "Permission to update draft journal entries", "module_name": "finance"},
+    {"name": "Delete Journal", "code": "finance.journal.delete", "description": "Permission to delete draft journal entries", "module_name": "finance"},
+    {"name": "Post Journal", "code": "finance.journal.post", "description": "Permission to post journal entries to General Ledger", "module_name": "finance"},
+    {"name": "Reverse Journal", "code": "finance.journal.reverse", "description": "Permission to reverse posted journal entries", "module_name": "finance"},
+    {"name": "Cancel Journal", "code": "finance.journal.cancel", "description": "Permission to cancel draft journal entries", "module_name": "finance"},
+
+    {"name": "Create Posting Rule", "code": "finance.posting.create", "description": "Permission to create posting rules", "module_name": "finance"},
+    {"name": "Read Posting Rule", "code": "finance.posting.read", "description": "Permission to view posting rules", "module_name": "finance"},
+    {"name": "Update Posting Rule", "code": "finance.posting.update", "description": "Permission to update posting rules", "module_name": "finance"},
+    {"name": "Delete Posting Rule", "code": "finance.posting.delete", "description": "Permission to delete posting rules", "module_name": "finance"},
+
+    {"name": "Create Tax", "code": "finance.tax.create", "description": "Permission to create tax categories and rates", "module_name": "finance"},
+    {"name": "Read Tax", "code": "finance.tax.read", "description": "Permission to view tax categories and rates", "module_name": "finance"},
+    {"name": "Update Tax", "code": "finance.tax.update", "description": "Permission to update tax categories and rates", "module_name": "finance"},
+    {"name": "Delete Tax", "code": "finance.tax.delete", "description": "Permission to delete tax categories and rates", "module_name": "finance"},
+
+    {"name": "Create Currency", "code": "finance.currency.create", "description": "Permission to create currencies and exchange rates", "module_name": "finance"},
+    {"name": "Read Currency", "code": "finance.currency.read", "description": "Permission to view currencies and exchange rates", "module_name": "finance"},
+    {"name": "Update Currency", "code": "finance.currency.update", "description": "Permission to update currencies and exchange rates", "module_name": "finance"},
+    {"name": "Delete Currency", "code": "finance.currency.delete", "description": "Permission to delete currencies and exchange rates", "module_name": "finance"},
+
+    {"name": "Create Cost Center", "code": "finance.costcenter.create", "description": "Permission to create cost centers and dimensions", "module_name": "finance"},
+    {"name": "Read Cost Center", "code": "finance.costcenter.read", "description": "Permission to view cost centers and dimensions", "module_name": "finance"},
+    {"name": "Update Cost Center", "code": "finance.costcenter.update", "description": "Permission to update cost centers and dimensions", "module_name": "finance"},
+    {"name": "Delete Cost Center", "code": "finance.costcenter.delete", "description": "Permission to delete cost centers and dimensions", "module_name": "finance"},
+
+    {"name": "Create Fiscal", "code": "finance.fiscal.create", "description": "Permission to create fiscal years and periods", "module_name": "finance"},
+    {"name": "Read Fiscal", "code": "finance.fiscal.read", "description": "Permission to view fiscal years and periods", "module_name": "finance"},
+    {"name": "Update Fiscal", "code": "finance.fiscal.update", "description": "Permission to update fiscal years and periods", "module_name": "finance"},
+    {"name": "Delete Fiscal", "code": "finance.fiscal.delete", "description": "Permission to delete fiscal years and periods", "module_name": "finance"},
+    {"name": "Lock Fiscal Period", "code": "finance.fiscal.lock", "description": "Permission to lock and close fiscal periods", "module_name": "finance"},
 ]
 
 
@@ -394,6 +434,8 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Procurement Manager", "description": "Purchasing and supplier management privileges"},
     {"name": "Sales Manager", "description": "Sales orders and revenue management privileges"},
     {"name": "CRM Manager", "description": "Lead acquisition, sales pipeline, and campaign management privileges"},
+    {"name": "Finance Manager", "description": "General Ledger, posting rules, taxes, and fiscal management privileges"},
+    {"name": "Chief Accountant", "description": "Accounting journal entry, posting, and period locking privileges"},
     {"name": "Employee", "description": "Basic employee access privileges"},
 ]
 
@@ -451,6 +493,8 @@ async def seed_rbac_data(db: AsyncSession) -> None:
     super_admin_role = created_roles.get("Super Admin")
     hr_manager_role = created_roles.get("HR Manager")
     inventory_manager_role = created_roles.get("Inventory Manager")
+    finance_manager_role = created_roles.get("Finance Manager")
+    chief_accountant_role = created_roles.get("Chief Accountant")
 
     for perm_code, perm_obj in created_perms.items():
         if super_admin_role:
@@ -474,6 +518,16 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=inventory_manager_role.id, permission_id=perm_obj.id
             )
+        if (finance_manager_role or chief_accountant_role) and perm_code.startswith("finance."):
+            if finance_manager_role:
+                await role_permission_repository.assign_permission_to_role(
+                    db, role_id=finance_manager_role.id, permission_id=perm_obj.id
+                )
+            if chief_accountant_role:
+                await role_permission_repository.assign_permission_to_role(
+                    db, role_id=chief_accountant_role.id, permission_id=perm_obj.id
+                )
+
 
 
 async def run_seed() -> None:

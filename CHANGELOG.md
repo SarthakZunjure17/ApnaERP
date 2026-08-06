@@ -5,6 +5,60 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.0] - 2026-08-06
+
+### Milestone Finance Core — Central Accounting Engine
+
+#### Added
+- **Finance Core ORM Models (`app/models/finance.py`)**:
+  - `AccountGroup`: Hierarchical Chart of Accounts group classification structure (Asset, Liability, Equity, Income, Expense).
+  - `ChartOfAccount`: General Ledger Account Master entity with multi-level parent hierarchy, currency, opening balance, and live current balance tracking.
+  - `FiscalYear`: Accounting fiscal year master supporting 12-month automated periods and status lifecycle (Draft, Open, Closed).
+  - `FiscalPeriod`: Monthly/quarterly sub-periods with granular period locking mechanism against posted transactions.
+  - `Currency`: Multi-currency master with base currency designation and decimal precision.
+  - `ExchangeRate`: Historical and effective exchange rate engine for cross-currency conversion.
+  - `CostCenter`: Departmental and operational cost center hierarchy.
+  - `AccountingDimension`: Multidimensional ledger tags (Branch, Project, Region, Cost Center).
+  - `JournalType`: Journal voucher classifications with approval threshold routing.
+  - `Journal` & `JournalLine`: Double-entry accounting transaction headers and lines enforcing `Total Debit == Total Credit`. Immutable after posting; supports counter-balancing reversal entries.
+  - `TaxCategory` & `TaxRate`: Tax master rules supporting Input/Output VAT, GST, and effective date ranges.
+  - `PostingRule`: Rule configuration engine mapping domain events (Payroll, Procurement, Sales, Inventory) to debit/credit GL accounts.
+  - `AccountingEvent`: Immutable event store logging financial events across the enterprise.
+  - `FinancialPostingQueue`: Financial queue engine for asynchronous automated GL postings.
+- **Finance Core Repositories (`app/repositories/finance_repos.py`)**: 15 async repositories handling transactional database queries and hierarchy lookups.
+- **Finance Pydantic DTO Schemas (`app/schemas/finance.py`)**: Complete validation schemas enforcing strict double-entry balancing rules (`Total Debit == Total Credit`).
+- **Domain Services Layer (`app/services/finance_services.py`)**:
+  - `ChartOfAccountsService`: COA hierarchy and account balance management.
+  - `FiscalService`: Fiscal year generation and period lock enforcement.
+  - `CurrencyService`: Currency master and exchange rate conversion engine.
+  - `CostCenterService`: Cost center hierarchies and dimension management.
+  - `TaxService`: Tax categories and rate calculation.
+  - `PostingRuleService`: Domain event mapping and posting rule processing.
+  - `JournalService`: Double-entry journal creation, draft validation, and approval workflow routing.
+  - `PostingEngineService`: Immutable GL posting and journal reversal engine.
+  - `AccountingEventService`: Immutable event auditing.
+- **Celery Background Tasks (`app/tasks/finance_tasks.py`)**:
+  - `process_recurring_journals_task`: Automatic recurring journal voucher generation.
+  - `refresh_exchange_rates_task`: Currency exchange rate updates.
+  - `fiscal_period_notifications_task`: Fiscal period closing notifications.
+  - `process_financial_posting_queue_task`: Automatic processing of cross-domain posting queues from Payroll, Procurement, Sales, and Inventory.
+- **RBAC Security Seed (`app/db/seed_rbac.py`)**:
+  - Seeded permissions: `finance.accounts.*`, `finance.journal.*`, `finance.posting.*`, `finance.tax.*`, `finance.currency.*`, `finance.costcenter.*`, `finance.fiscal.*`.
+  - Created roles: `Finance Manager` and `Chief Accountant`.
+- **REST API Routers (`app/api/v1/endpoints/finance_*.py`)**:
+  - `finance_accounts.py`: `/finance/accounts`
+  - `finance_fiscal.py`: `/finance/fiscal`
+  - `finance_currencies.py`: `/finance/currencies`
+  - `finance_cost_centers.py`: `/finance/cost-centers`
+  - `finance_journals.py`: `/finance/journals`
+  - `finance_posting_rules.py`: `/finance/posting-rules`
+  - `finance_taxes.py`: `/finance/taxes`
+  - `finance_search.py`: `/finance/search`
+- **Integration Test Suite (`tests/test_finance_core.py`)**: 6 comprehensive integration test cases covering 100% of Finance Core requirements with 100% pass rate.
+- **Documentation (`docs/adr/ADR-0029-finance-core.md`)**: Architecture Decision Record documenting the Finance Core implementation.
+
+---
+
 ## [v0.9.0] - 2026-08-06
 
 ### Milestone CRM Domain Completion — Enterprise Customer Relationship Management

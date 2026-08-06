@@ -1,25 +1,60 @@
 from fastapi import APIRouter
+
 from app.api.v1.endpoints import (
     approval,
     attendance,
     audit,
     auth,
+    bank_export,
+    batches,
+    brand,
+    category,
     country,
+    crm_activities,
+    crm_analytics,
+    crm_campaigns,
+    crm_import_export,
+    crm_leads,
+    crm_meetings,
+    crm_opportunities,
+    crm_search,
+    crm_tasks,
+    customers,
+    cycle_counts,
+    delivery_orders,
     departments,
-    employee_documents,
-    employees,
+    discounts,
     employee_compensation,
+    employee_documents,
     employee_statutory_profile,
+    employees,
     files,
+    finance_accounts,
+    finance_cost_centers,
+    finance_currencies,
+    finance_fiscal,
+    finance_journals,
+    finance_posting_rules,
+    finance_search,
+    finance_taxes,
     financial_integration,
+    goods_issue,
+    goods_receipt,
     health,
     holidays,
     hr_configurations,
-    leave_type,
+    inventory_adjustment,
+    inventory_analytics,
+    inventory_import_export,
+    inventory_reports,
+    inventory_search,
+    inventory_transaction_type,
     leave_balance,
     leave_request,
+    leave_type,
+    lots,
     notifications,
-    bank_export,
+    opening_stock,
     payroll_adjustment,
     payroll_analytics,
     payroll_closing,
@@ -28,125 +63,98 @@ from app.api.v1.endpoints import (
     payroll_run,
     payslip,
     positions,
-    rbac,
-    root,
-    salary_component,
-    salary_structure,
-    shift_assignment,
-    shifts,
-    statutory_rule,
-    templates,
-    category,
-    unit_of_measure,
-    brand,
-    warehouse,
-    storage_location,
+    pricing,
+    procurement_analytics,
+    procurement_import_export,
+    procurement_reports,
+    procurement_search,
     product,
     product_attribute,
     product_document,
-    inventory_transaction_type,
-    stock_ledger,
-    opening_stock,
-    inventory_adjustment,
-    stock_balance,
-    goods_receipt,
-    goods_issue,
-    stock_transfer,
-    batches,
-    serial_numbers,
-    lots,
-    stock_reservations,
-    cycle_counts,
-    inventory_reports,
-    inventory_analytics,
-    inventory_search,
-    inventory_import_export,
-    suppliers,
-    purchase_requisitions,
-    rfqs,
-    supplier_quotations,
     purchase_orders,
+    purchase_requisitions,
     purchase_returns,
-    procurement_reports,
-    procurement_analytics,
-    procurement_search,
-    procurement_import_export,
-    customers,
     quotations,
-    sales_orders,
-    delivery_orders,
-    sales_returns,
-    pricing,
-    discounts,
-    sales_reports,
+    rbac,
+    rfqs,
+    root,
+    salary_component,
+    salary_structure,
     sales_analytics,
-    sales_search,
     sales_import_export,
-    crm_leads,
-    crm_opportunities,
-    crm_activities,
-    crm_meetings,
-    crm_tasks,
-    crm_campaigns,
-    crm_analytics,
-    crm_search,
-    crm_import_export,
+    sales_orders,
+    sales_reports,
+    sales_returns,
+    sales_search,
+    serial_numbers,
+    shift_assignment,
+    shifts,
+    statutory_rule,
+    stock_balance,
+    stock_ledger,
+    stock_reservations,
+    stock_transfer,
+    storage_location,
+    supplier_quotations,
+    suppliers,
+    templates,
+    unit_of_measure,
+    warehouse,
 )
-
 
 api_router = APIRouter()
 
-# Include endpoint routers
-api_router.include_router(root.router, prefix="", tags=["Root"])
-api_router.include_router(health.router, prefix="", tags=["Health Check"])
+api_router.include_router(root.router, tags=["Root"])
+api_router.include_router(health.router, tags=["Health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-api_router.include_router(rbac.router, prefix="", tags=["Role-Based Access Control"])
-api_router.include_router(audit.router, prefix="", tags=["Audit Logging"])
-api_router.include_router(files.router, prefix="", tags=["File & Document Management"])
-api_router.include_router(notifications.router, prefix="", tags=["Notification System"])
-api_router.include_router(templates.router, prefix="", tags=["Notification Templates"])
-api_router.include_router(departments.router, prefix="/departments", tags=["Department Management"])
-api_router.include_router(employees.router, prefix="/employees", tags=["Employee Management"])
-api_router.include_router(employee_documents.router, prefix="/employees", tags=["Digital Personnel Files"])
-api_router.include_router(positions.router, prefix="/positions", tags=["Position Management"])
-api_router.include_router(hr_configurations.router, prefix="/hr-configurations", tags=["HR Configuration & Policies"])
-api_router.include_router(shifts.router, prefix="/shifts", tags=["Shift Management"])
-api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
-api_router.include_router(attendance.router, prefix="/attendance", tags=["Attendance Engine"])
-api_router.include_router(shift_assignment.router, prefix="/shift-assignments", tags=["Shift Assignment"])
-api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Leave Types Configuration"])
-api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Leave Balance Management"])
-api_router.include_router(leave_request.router, prefix="/leave-requests", tags=["Leave Request Workflow"])
-api_router.include_router(approval.router, prefix="/approval", tags=["Enterprise Approval Engine"])
-api_router.include_router(salary_component.router, prefix="/salary-components", tags=["Salary Components Master"])
-api_router.include_router(salary_structure.router, prefix="/salary-structures", tags=["Salary Structure Templates"])
-api_router.include_router(employee_compensation.router, prefix="/employee-compensations", tags=["Employee Compensation Assignment"])
-api_router.include_router(payroll_engine.router, prefix="/payroll", tags=["Payroll Processing Engine"])
-api_router.include_router(payroll_run.router, prefix="/payroll-runs", tags=["Payroll Runs Management"])
-api_router.include_router(payslip.router, prefix="/payslips", tags=["Employee Payslips Suite"])
-api_router.include_router(country.router, prefix="/countries", tags=["Country & Tax Masters"])
-api_router.include_router(statutory_rule.router, prefix="/statutory-rules", tags=["Statutory Compliance Engine"])
-api_router.include_router(employee_statutory_profile.router, prefix="/employee-statutory-profiles", tags=["Employee Statutory Assignments"])
+api_router.include_router(departments.router, prefix="/departments", tags=["Departments"])
+api_router.include_router(employees.router, prefix="/employees", tags=["Employees"])
+api_router.include_router(employee_documents.router, prefix="/employee-documents", tags=["Employee Documents"])
+api_router.include_router(positions.router, prefix="/positions", tags=["Job Positions"])
+api_router.include_router(hr_configurations.router, prefix="/hr-configurations", tags=["HR Configurations"])
+api_router.include_router(shifts.router, prefix="/shifts", tags=["Shifts"])
+api_router.include_router(holidays.router, prefix="/holidays", tags=["Holidays"])
+api_router.include_router(attendance.router, prefix="/attendance", tags=["Attendance"])
+api_router.include_router(shift_assignment.router, prefix="/shift-assignments", tags=["Shift Assignments"])
+api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Leave Types"])
+api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Leave Balances"])
+api_router.include_router(leave_request.router, prefix="/leave-requests", tags=["Leave Requests"])
+api_router.include_router(approval.router, prefix="/approvals", tags=["Approval Workflows"])
+api_router.include_router(salary_component.router, prefix="/salary-components", tags=["Salary Components"])
+api_router.include_router(salary_structure.router, prefix="/salary-structures", tags=["Salary Structures"])
+api_router.include_router(employee_compensation.router, prefix="/employee-compensations", tags=["Employee Compensation"])
+api_router.include_router(payroll_engine.router, prefix="/payroll", tags=["Payroll Engine"])
+api_router.include_router(payroll_run.router, prefix="/payroll-runs", tags=["Payroll Runs"])
+api_router.include_router(payslip.router, prefix="/payslips", tags=["Payslips"])
+api_router.include_router(country.router, prefix="/countries", tags=["Countries"])
+api_router.include_router(statutory_rule.router, prefix="/statutory-rules", tags=["Statutory Rules"])
+api_router.include_router(employee_statutory_profile.router, prefix="/employee-statutory-profiles", tags=["Employee Statutory Profiles"])
 api_router.include_router(payroll_adjustment.router, prefix="/payroll-adjustments", tags=["Payroll Adjustments"])
 api_router.include_router(payroll_report.router, prefix="/payroll-reports", tags=["Payroll Reports"])
-api_router.include_router(payroll_analytics.router, prefix="/payroll-analytics", tags=["Payroll Analytics Dashboard"])
-api_router.include_router(payroll_closing.router, prefix="/payroll-closing", tags=["Payroll Month End Closing"])
-api_router.include_router(bank_export.router, prefix="/bank-export", tags=["Bank Payment Files Export"])
-api_router.include_router(financial_integration.router, prefix="/financial-integration", tags=["Financial Posting Queue"])
+api_router.include_router(payroll_analytics.router, prefix="/payroll-analytics", tags=["Payroll Analytics"])
+api_router.include_router(payroll_closing.router, prefix="/payroll-closings", tags=["Payroll Closings"])
+api_router.include_router(financial_integration.router, prefix="/financial-integration", tags=["Financial Integration"])
+api_router.include_router(bank_export.router, prefix="/bank-exports", tags=["Bank Export Integration"])
 
-# Inventory Foundation Routers
+# Platform Utilities
+api_router.include_router(rbac.router, prefix="/rbac", tags=["RBAC Management"])
+api_router.include_router(audit.router, prefix="/audit-logs", tags=["Audit Logs"])
+api_router.include_router(files.router, prefix="/files", tags=["File Storage Engine"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Notification Engine"])
+
+# Product Master Routers
 api_router.include_router(category.router, prefix="/inventory/categories", tags=["Product Categories"])
-api_router.include_router(unit_of_measure.router, prefix="/inventory/units", tags=["Units of Measure"])
-api_router.include_router(brand.router, prefix="/inventory/brands", tags=["Product Brands"])
-api_router.include_router(warehouse.router, prefix="/inventory/warehouses", tags=["Warehouse Facilities"])
+api_router.include_router(unit_of_measure.router, prefix="/inventory/uoms", tags=["Units of Measure"])
+api_router.include_router(brand.router, prefix="/inventory/brands", tags=["Brands"])
+api_router.include_router(warehouse.router, prefix="/inventory/warehouses", tags=["Warehouses"])
 api_router.include_router(storage_location.router, prefix="/inventory/locations", tags=["Storage Locations"])
-api_router.include_router(product.router, prefix="/inventory/products", tags=["Product Master"])
+api_router.include_router(product.router, prefix="/inventory/products", tags=["Products"])
 api_router.include_router(product_attribute.router, prefix="/inventory/attributes", tags=["Product Attributes"])
 api_router.include_router(product_document.router, prefix="/inventory/documents", tags=["Product Documents"])
 
-# Inventory Stock Engine Routers
-api_router.include_router(inventory_transaction_type.router, prefix="/inventory/transaction-types", tags=["Inventory Transaction Types"])
-api_router.include_router(opening_stock.router, prefix="/inventory/opening-stock", tags=["Opening Stock Entry"])
+# Stock Engine Routers
+api_router.include_router(inventory_transaction_type.router, prefix="/inventory/transaction-types", tags=["Transaction Types"])
+api_router.include_router(opening_stock.router, prefix="/inventory/opening-stocks", tags=["Opening Stocks"])
 api_router.include_router(stock_ledger.router, prefix="/inventory/ledger", tags=["Stock Ledger Engine"])
 api_router.include_router(inventory_adjustment.router, prefix="/inventory/adjustments", tags=["Stock Adjustments"])
 api_router.include_router(stock_balance.router, prefix="/inventory/balance", tags=["Stock Balance Snapshot"])
@@ -202,3 +210,13 @@ api_router.include_router(crm_campaigns.router, prefix="/crm/campaigns", tags=["
 api_router.include_router(crm_analytics.router, prefix="/crm/analytics", tags=["CRM Executive Analytics"])
 api_router.include_router(crm_search.router, prefix="/crm/search", tags=["Global CRM Search"])
 api_router.include_router(crm_import_export.router, prefix="/crm/import-export", tags=["CRM Import Export"])
+
+# Finance Core Routers
+api_router.include_router(finance_accounts.router, prefix="/finance/accounts", tags=["Chart of Accounts & Groups"])
+api_router.include_router(finance_fiscal.router, prefix="/finance/fiscal", tags=["Fiscal Years & Periods"])
+api_router.include_router(finance_currencies.router, prefix="/finance/currencies", tags=["Currencies & Exchange Rates"])
+api_router.include_router(finance_cost_centers.router, prefix="/finance/cost-centers", tags=["Cost Centers & Dimensions"])
+api_router.include_router(finance_journals.router, prefix="/finance/journals", tags=["Journal Types & Journal Entries"])
+api_router.include_router(finance_posting_rules.router, prefix="/finance/posting-rules", tags=["Posting Rules"])
+api_router.include_router(finance_taxes.router, prefix="/finance/taxes", tags=["Tax Categories & Rates"])
+api_router.include_router(finance_search.router, prefix="/finance/search", tags=["Global Finance Search"])

@@ -55,6 +55,13 @@ from app.tasks.crm_tasks import (
     task_reminders_task,
 )
 
+from app.tasks.finance_tasks import (
+    fiscal_period_notifications_task,
+    process_financial_posting_queue_task,
+    process_recurring_journals_task,
+    refresh_exchange_rates_task,
+)
+
 __all__ = [
     "BaseTask",
     "RetryTask",
@@ -103,7 +110,12 @@ __all__ = [
     "refresh_crm_analytics_task",
     "meeting_reminders_task",
     "task_reminders_task",
+    "process_recurring_journals_task",
+    "refresh_exchange_rates_task",
+    "fiscal_period_notifications_task",
+    "process_financial_posting_queue_task",
 ]
+
 
 
 
