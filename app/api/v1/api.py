@@ -82,6 +82,15 @@ from app.api.v1.endpoints import (
     sales_analytics,
     sales_search,
     sales_import_export,
+    crm_leads,
+    crm_opportunities,
+    crm_activities,
+    crm_meetings,
+    crm_tasks,
+    crm_campaigns,
+    crm_analytics,
+    crm_search,
+    crm_import_export,
 )
 
 
@@ -98,54 +107,54 @@ api_router.include_router(notifications.router, prefix="", tags=["Notification S
 api_router.include_router(templates.router, prefix="", tags=["Notification Templates"])
 api_router.include_router(departments.router, prefix="/departments", tags=["Department Management"])
 api_router.include_router(employees.router, prefix="/employees", tags=["Employee Management"])
-api_router.include_router(employee_documents.router, prefix="", tags=["Employee Document Management"])
-api_router.include_router(positions.router, prefix="", tags=["Position Management"])
-api_router.include_router(hr_configurations.router, prefix="", tags=["HR Configuration & Policies"])
+api_router.include_router(employee_documents.router, prefix="/employees", tags=["Digital Personnel Files"])
+api_router.include_router(positions.router, prefix="/positions", tags=["Position Management"])
+api_router.include_router(hr_configurations.router, prefix="/hr-configurations", tags=["HR Configuration & Policies"])
 api_router.include_router(shifts.router, prefix="/shifts", tags=["Shift Management"])
-api_router.include_router(shift_assignment.router, prefix="/shift-assignments", tags=["Shift Assignment & Scheduling"])
 api_router.include_router(holidays.router, prefix="/holidays", tags=["Holiday Calendar"])
-api_router.include_router(attendance.router, prefix="/attendance", tags=["Enterprise Attendance Engine"])
-api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Enterprise Leave Types & Policies"])
-api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Enterprise Leave Balance Management"])
-api_router.include_router(leave_request.router, prefix="/leave-requests", tags=["Enterprise Leave Request Workflow"])
-api_router.include_router(approval.router, prefix="", tags=["Enterprise Approval Engine"])
-api_router.include_router(salary_component.router, prefix="", tags=["Enterprise Salary Components"])
-api_router.include_router(salary_structure.router, prefix="", tags=["Enterprise Salary Structures"])
-api_router.include_router(employee_compensation.router, prefix="", tags=["Employee Compensation Management"])
-api_router.include_router(payroll_engine.router, prefix="", tags=["Enterprise Payroll Processing Engine"])
-api_router.include_router(payroll_run.router, prefix="/payroll-runs", tags=["Enterprise Payroll Runs"])
-api_router.include_router(payslip.router, prefix="", tags=["Enterprise Employee Payslips"])
-api_router.include_router(country.router, prefix="", tags=["Country Jurisdiction Management"])
-api_router.include_router(statutory_rule.router, prefix="", tags=["Statutory Compliance Rules & Slabs"])
-api_router.include_router(employee_statutory_profile.router, prefix="", tags=["Employee Statutory Profiles"])
-api_router.include_router(payroll_adjustment.router, prefix="", tags=["Payroll Adjustments"])
-api_router.include_router(payroll_report.router, prefix="", tags=["Payroll Reports"])
-api_router.include_router(payroll_analytics.router, prefix="", tags=["Payroll Analytics"])
-api_router.include_router(bank_export.router, prefix="", tags=["Bank Export"])
-api_router.include_router(payroll_closing.router, prefix="", tags=["Payroll Closing"])
-api_router.include_router(financial_integration.router, prefix="", tags=["Financial Integration"])
+api_router.include_router(attendance.router, prefix="/attendance", tags=["Attendance Engine"])
+api_router.include_router(shift_assignment.router, prefix="/shift-assignments", tags=["Shift Assignment"])
+api_router.include_router(leave_type.router, prefix="/leave-types", tags=["Leave Types Configuration"])
+api_router.include_router(leave_balance.router, prefix="/leave-balances", tags=["Leave Balance Management"])
+api_router.include_router(leave_request.router, prefix="/leave-requests", tags=["Leave Request Workflow"])
+api_router.include_router(approval.router, prefix="/approval", tags=["Enterprise Approval Engine"])
+api_router.include_router(salary_component.router, prefix="/salary-components", tags=["Salary Components Master"])
+api_router.include_router(salary_structure.router, prefix="/salary-structures", tags=["Salary Structure Templates"])
+api_router.include_router(employee_compensation.router, prefix="/employee-compensations", tags=["Employee Compensation Assignment"])
+api_router.include_router(payroll_engine.router, prefix="/payroll", tags=["Payroll Processing Engine"])
+api_router.include_router(payroll_run.router, prefix="/payroll-runs", tags=["Payroll Runs Management"])
+api_router.include_router(payslip.router, prefix="/payslips", tags=["Employee Payslips Suite"])
+api_router.include_router(country.router, prefix="/countries", tags=["Country & Tax Masters"])
+api_router.include_router(statutory_rule.router, prefix="/statutory-rules", tags=["Statutory Compliance Engine"])
+api_router.include_router(employee_statutory_profile.router, prefix="/employee-statutory-profiles", tags=["Employee Statutory Assignments"])
+api_router.include_router(payroll_adjustment.router, prefix="/payroll-adjustments", tags=["Payroll Adjustments"])
+api_router.include_router(payroll_report.router, prefix="/payroll-reports", tags=["Payroll Reports"])
+api_router.include_router(payroll_analytics.router, prefix="/payroll-analytics", tags=["Payroll Analytics Dashboard"])
+api_router.include_router(payroll_closing.router, prefix="/payroll-closing", tags=["Payroll Month End Closing"])
+api_router.include_router(bank_export.router, prefix="/bank-export", tags=["Bank Payment Files Export"])
+api_router.include_router(financial_integration.router, prefix="/financial-integration", tags=["Financial Posting Queue"])
 
 # Inventory Foundation Routers
-api_router.include_router(category.router, prefix="/categories", tags=["Product Categories"])
-api_router.include_router(unit_of_measure.router, prefix="/units-of-measure", tags=["Units of Measure"])
-api_router.include_router(brand.router, prefix="/brands", tags=["Brands"])
-api_router.include_router(warehouse.router, prefix="/warehouses", tags=["Warehouses"])
-api_router.include_router(storage_location.router, prefix="/storage-locations", tags=["Storage Locations"])
-api_router.include_router(product.router, prefix="/products", tags=["Product Master"])
-api_router.include_router(product_attribute.router, prefix="/product-attributes", tags=["Product Attributes"])
-api_router.include_router(product_document.router, prefix="", tags=["Product Documents"])
+api_router.include_router(category.router, prefix="/inventory/categories", tags=["Product Categories"])
+api_router.include_router(unit_of_measure.router, prefix="/inventory/units", tags=["Units of Measure"])
+api_router.include_router(brand.router, prefix="/inventory/brands", tags=["Product Brands"])
+api_router.include_router(warehouse.router, prefix="/inventory/warehouses", tags=["Warehouse Facilities"])
+api_router.include_router(storage_location.router, prefix="/inventory/locations", tags=["Storage Locations"])
+api_router.include_router(product.router, prefix="/inventory/products", tags=["Product Master"])
+api_router.include_router(product_attribute.router, prefix="/inventory/attributes", tags=["Product Attributes"])
+api_router.include_router(product_document.router, prefix="/inventory/documents", tags=["Product Documents"])
 
 # Inventory Stock Engine Routers
 api_router.include_router(inventory_transaction_type.router, prefix="/inventory/transaction-types", tags=["Inventory Transaction Types"])
-api_router.include_router(stock_ledger.router, prefix="/inventory/ledger", tags=["Stock Ledger"])
-api_router.include_router(opening_stock.router, prefix="/inventory/opening-stock", tags=["Opening Stock"])
-api_router.include_router(inventory_adjustment.router, prefix="/inventory/adjustments", tags=["Inventory Adjustments"])
-api_router.include_router(stock_balance.router, prefix="/inventory/balances", tags=["Stock Balances & Projections"])
+api_router.include_router(opening_stock.router, prefix="/inventory/opening-stock", tags=["Opening Stock Entry"])
+api_router.include_router(stock_ledger.router, prefix="/inventory/ledger", tags=["Stock Ledger Engine"])
+api_router.include_router(inventory_adjustment.router, prefix="/inventory/adjustments", tags=["Stock Adjustments"])
+api_router.include_router(stock_balance.router, prefix="/inventory/balance", tags=["Stock Balance Snapshot"])
 
 # Warehouse Operations Engine Routers
-api_router.include_router(goods_receipt.router, prefix="/inventory/goods-receipts", tags=["Goods Receipts"])
-api_router.include_router(goods_issue.router, prefix="/inventory/goods-issues", tags=["Goods Issues"])
-api_router.include_router(stock_transfer.router, prefix="/inventory/stock-transfers", tags=["Stock Transfers"])
+api_router.include_router(goods_receipt.router, prefix="/inventory/goods-receipts", tags=["Goods Receipt Note (GRN)"])
+api_router.include_router(goods_issue.router, prefix="/inventory/goods-issues", tags=["Goods Issue Note (GIN)"])
+api_router.include_router(stock_transfer.router, prefix="/inventory/stock-transfers", tags=["Inter-Warehouse Stock Transfers"])
 
 # Inventory Advanced Domain Completion Routers
 api_router.include_router(batches.router, prefix="/inventory/batches", tags=["Batch Management"])
@@ -183,6 +192,13 @@ api_router.include_router(sales_analytics.router, prefix="/sales/analytics", tag
 api_router.include_router(sales_search.router, prefix="/sales/search", tags=["Global Sales Search"])
 api_router.include_router(sales_import_export.router, prefix="/sales/import-export", tags=["Sales Import Export"])
 
-
-
-
+# CRM Domain Completion Routers
+api_router.include_router(crm_leads.router, prefix="/crm/leads", tags=["Lead Management & Conversion"])
+api_router.include_router(crm_opportunities.router, prefix="/crm/opportunities", tags=["Opportunity Pipeline"])
+api_router.include_router(crm_activities.router, prefix="/crm/activities", tags=["Activity Management"])
+api_router.include_router(crm_meetings.router, prefix="/crm/meetings", tags=["Calendar & Meetings"])
+api_router.include_router(crm_tasks.router, prefix="/crm/tasks", tags=["Task Management & Dependencies"])
+api_router.include_router(crm_campaigns.router, prefix="/crm/campaigns", tags=["Marketing Campaign Management"])
+api_router.include_router(crm_analytics.router, prefix="/crm/analytics", tags=["CRM Executive Analytics"])
+api_router.include_router(crm_search.router, prefix="/crm/search", tags=["Global CRM Search"])
+api_router.include_router(crm_import_export.router, prefix="/crm/import-export", tags=["CRM Import Export"])

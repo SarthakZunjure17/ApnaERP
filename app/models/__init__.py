@@ -66,26 +66,11 @@ from app.models.supplier import (
     SupplierDocument,
     SupplierRating,
 )
-from app.models.purchase_requisition import (
-    PurchaseRequisition,
-    PurchaseRequisitionItem,
-)
-from app.models.rfq import (
-    RFQ,
-    RFQSupplier,
-)
-from app.models.supplier_quotation import (
-    SupplierQuotation,
-    SupplierQuotationItem,
-)
-from app.models.purchase_order import (
-    PurchaseOrder,
-    PurchaseOrderItem,
-)
-from app.models.purchase_return import (
-    PurchaseReturn,
-    PurchaseReturnItem,
-)
+from app.models.purchase_requisition import PurchaseRequisition, PurchaseRequisitionItem
+from app.models.rfq import RFQ, RFQSupplier
+from app.models.supplier_quotation import SupplierQuotation, SupplierQuotationItem
+from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
+from app.models.purchase_return import PurchaseReturn, PurchaseReturnItem
 from app.models.procurement_report_snapshot import ProcurementReportSnapshot
 from app.models.customer import (
     CustomerCategory,
@@ -94,34 +79,34 @@ from app.models.customer import (
     CustomerAddress,
     CustomerDocument,
 )
-from app.models.pricing import (
-    PriceList,
-    PricingRule,
-    DiscountRule,
-)
-from app.models.sales_quotation import (
-    SalesQuotation,
-    SalesQuotationItem,
-)
-from app.models.sales_order import (
-    SalesOrder,
-    SalesOrderItem,
-)
-from app.models.delivery_order import (
-    DeliveryOrder,
-    DeliveryOrderItem,
-)
-from app.models.sales_return import (
-    SalesReturn,
-    SalesReturnItem,
-)
+from app.models.pricing import PriceList, PricingRule, DiscountRule
+from app.models.sales_quotation import SalesQuotation, SalesQuotationItem
+from app.models.sales_order import SalesOrder, SalesOrderItem
+from app.models.delivery_order import DeliveryOrder, DeliveryOrderItem
+from app.models.sales_return import SalesReturn, SalesReturnItem
 from app.models.sales_report_snapshot import SalesReportSnapshot
+from app.models.crm import (
+    lead_tags_association,
+    LeadSource,
+    LeadTag,
+    Lead,
+    LeadNote,
+    OpportunityStage,
+    Opportunity,
+    Activity,
+    Meeting,
+    Task,
+    Campaign,
+    CampaignMember,
+    CRMReportSnapshot,
+    TimelineEvent,
+)
 
 __all__ = [
     "User",
     "Role",
-    "Permission",
     "RolePermission",
+    "Permission",
     "UserRole",
     "AuditLog",
     "File",
@@ -221,7 +206,18 @@ __all__ = [
     "SalesReturn",
     "SalesReturnItem",
     "SalesReportSnapshot",
+    "lead_tags_association",
+    "LeadSource",
+    "LeadTag",
+    "Lead",
+    "LeadNote",
+    "OpportunityStage",
+    "Opportunity",
+    "Activity",
+    "Meeting",
+    "Task",
+    "Campaign",
+    "CampaignMember",
+    "CRMReportSnapshot",
+    "TimelineEvent",
 ]
-
-
-

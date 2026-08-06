@@ -8,6 +8,22 @@
 
 ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
 
+## CRM Domain — Enterprise Customer Relationship Management (Release v0.9.0)
+
+### Overview
+The CRM Domain (`app/models/crm.py`, `app/services/crm_services.py`, `app/repositories/crm_repos.py`, `app/schemas/crm.py`) implements the complete Customer Relationship Management platform for ApnaERP. It manages the full customer acquisition lifecycle: Lead Management, Opportunity Pipeline, Activity Tracking, Calendar & Meetings, Task Dependencies, Marketing Campaigns, Unified Customer Timeline, Lead Conversion Engine with Customer Reuse, Executive CRM Analytics, Global CRM Search, and CSV Import/Export.
+
+### Key Technical Capabilities
+- **Lead Management (`Lead`, `LeadSource`, `LeadTag`, `LeadNote`)**: Automated lead scoring engine, duplicate detection, lead assignment, tags, rich notes, and lead merging.
+- **Opportunity Pipeline (`Opportunity`, `OpportunityStage`)**: Stage pipeline management with default win probabilities, expected revenue forecasting, closing date tracking, and win/loss reason logging.
+- **Activity & Calendar Management (`Activity`, `Meeting`, `Task`)**: Calls, meetings, appointments, tasks, follow-ups, and reminders. Tasks feature parent-child dependency trees.
+- **Campaign Management (`Campaign`, `CampaignMember`)**: Marketing campaigns across Email, Event, Referral, and Social channels. Tracks budgets, actual costs, revenues, and automated ROI calculation.
+- **Lead Conversion Engine & Customer Reuse**: Converts Leads into Opportunities while searching for existing Sales `Customer` records (by email, phone, or company). Reuses existing `Customer` entries without creating duplicates, or generates a new `Customer` via `CustomerService` when no match exists.
+- **Unified Interaction Timeline (`TimelineEvent`)**: Aggregates interaction events across Leads, Opportunities, Customers, Meetings, Activities, Tasks, Sales Orders, Quotations, and Deliveries.
+- **CRM Analytics & Search**: Lead funnel reports, forecast revenue calculation, Redis executive summary caching, and multi-entity global search across Leads, Opportunities, and Tasks.
+
+---
+
 ## Sales Domain — Enterprise Order-to-Cash Architecture (Release v0.8.0)
 
 ### Overview

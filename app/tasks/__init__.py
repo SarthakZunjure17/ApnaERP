@@ -48,6 +48,13 @@ from app.tasks.sales_tasks import (
     send_order_reminders_task,
 )
 
+from app.tasks.crm_tasks import (
+    calculate_lead_scoring_task,
+    meeting_reminders_task,
+    refresh_crm_analytics_task,
+    task_reminders_task,
+)
+
 __all__ = [
     "BaseTask",
     "RetryTask",
@@ -92,6 +99,10 @@ __all__ = [
     "check_expired_quotations_task",
     "send_delivery_reminders_task",
     "send_order_reminders_task",
+    "calculate_lead_scoring_task",
+    "refresh_crm_analytics_task",
+    "meeting_reminders_task",
+    "task_reminders_task",
 ]
 
 

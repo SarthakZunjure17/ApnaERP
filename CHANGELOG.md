@@ -5,6 +5,41 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.9.0] - 2026-08-06
+
+### Milestone CRM Domain Completion — Enterprise Customer Relationship Management
+
+#### Added
+- **CRM Database ORM Models (`app/models/crm.py`)**:
+  - `LeadSource`: Lead source master classification.
+  - `LeadTag` & `lead_tags_association`: Tagging system for leads.
+  - `Lead`: Lead master entity with automated scoring, duplicate detection, assignment, and status lifecycle tracking. Reuses Sales `Customer` upon conversion without creating duplicate customer records.
+  - `LeadNote`: Rich text notes with pinning and privacy support.
+  - `OpportunityStage`: Configurable sales pipeline stages with default win probabilities and ordering.
+  - `Opportunity`: Sales opportunity pipeline tracking expected revenue, closing dates, owner, win/loss reasons, competitors, and products of interest.
+  - `Activity`: Activity tracking for Calls, Meetings, Emails, Tasks, Follow-ups, and Reminders across Leads, Opportunities, Customers, and Campaigns.
+  - `Meeting`: Calendar appointments, customer visits, and sales calls with start/end time and location.
+  - `Task`: Personal and team tasks with parent-child task dependency hierarchy.
+  - `Campaign` & `CampaignMember`: Marketing campaigns (Email, Event, Referral, Social) with budget tracking, actual cost, revenue, and ROI computation.
+  - `CRMReportSnapshot`: Telemetry snapshots for funnel analytics and pipeline values.
+  - `TimelineEvent`: Unified interaction timeline event logging across all CRM entities and Sales activities.
+- **Pydantic DTO Schemas (`app/schemas/crm.py`)**: Validation schemas for Leads, Sources, Tags, Notes, Stages, Opportunities, Activities, Meetings, Tasks, Campaigns, Lead Conversion, Analytics, Search, and Import/Export.
+- **Repository Layer (`app/repositories/crm_repos.py`)**: 13 async repositories deriving from `BaseRepository` with eager relational loading (`selectinload`).
+- **Domain Event Publisher (`app/core/domain_events.py`)**: CRM event constants `LeadCreated`, `LeadAssigned`, `LeadConverted`, `OpportunityCreated`, `OpportunityWon`, `OpportunityLost`, `TaskCompleted`, `MeetingScheduled`, and `CampaignCompleted`.
+- **Domain Services (`app/services/crm_services.py`)**:
+  - `LeadService`: Lead lifecycle, scoring engine, deduplication, assignment, tagging, notes, and merging.
+  - `OpportunityService`: Opportunity creation, pipeline stage progression, win/loss recording.
+  - `ActivityService`, `MeetingService`, `TaskService`: Activity logging, calendar meetings, and task dependency resolution.
+  - `CampaignService`: Campaign budget, member enrollment, and ROI calculation.
+  - `LeadConversionService`: Converts Leads to Opportunities while searching and reusing existing Sales `Customer` records (or creating a new `Customer` via `CustomerService`).
+  - `CRMAnalyticsService` & `CRMSearchService`: Funnel metrics, revenue forecasts, Redis dashboard caching, and global search.
+  - `CRMImportExportService`: Streaming CSV lead export and bulk CSV lead import.
+- **Background Celery Tasks (`app/tasks/crm_tasks.py`)**: Celery tasks `calculate_lead_scoring_task`, `refresh_crm_analytics_task`, `meeting_reminders_task`, and `task_reminders_task`.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**: Seeded permissions `crm.lead.*`, `crm.opportunity.*`, `crm.activity.*`, `crm.meeting.*`, `crm.task.*`, `crm.campaign.*`, `crm.analytics.*`, `crm.search.read` and assigned to the `CRM Manager` role.
+- **REST API Routers (`app/api/v1/endpoints/`)**: 9 API routers registered in `app/api/v1/api.py`.
+- **Database Migration (`alembic/versions/a9b0c1d2e3f4_phase_v090_crm_domain_completion.py`)**: Alembic migration creating 13 CRM tables and indexes.
+- **Architecture Decision Record (`docs/adr/ADR-0028-crm-domain.md`)**: ADR documenting CRM architecture, Sales Customer reuse, Lead Conversion Engine, and Unified Timeline.
+
 ## [v0.8.0] - 2026-08-05
 
 ### Milestone Sales Domain Completion — Enterprise Order-to-Cash Architecture

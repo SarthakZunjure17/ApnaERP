@@ -57,3 +57,15 @@ class DomainEventPublisher:
 
 # Global singleton event publisher
 domain_event_publisher = DomainEventPublisher()
+
+# CRM Domain Event Names
+CRM_LEAD_CREATED = "LeadCreated"
+CRM_LEAD_ASSIGNED = "LeadAssigned"
+CRM_LEAD_CONVERTED = "LeadConverted"
+CRM_OPPORTUNITY_CREATED = "OpportunityCreated"
+CRM_OPPORTUNITY_WON = "OpportunityWon"
+CRM_OPPORTUNITY_LOST = "OpportunityLost"
+CRM_TASK_COMPLETED = "TaskCompleted"
+CRM_MEETING_SCHEDULED = "MeetingScheduled"
+CRM_CAMPAIGN_COMPLETED = "CampaignCompleted"
+

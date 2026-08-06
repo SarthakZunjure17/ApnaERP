@@ -347,6 +347,37 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
 
     {"name": "Read Sales Analytics", "code": "sales.analytics.read", "description": "Permission to view sales analytics and reports", "module_name": "sales"},
 
+    # CRM Domain Completion Permissions
+    {"name": "Create Lead", "code": "crm.lead.create", "description": "Permission to create leads", "module_name": "crm"},
+    {"name": "Read Lead", "code": "crm.lead.read", "description": "Permission to view leads", "module_name": "crm"},
+    {"name": "Update Lead", "code": "crm.lead.update", "description": "Permission to update leads", "module_name": "crm"},
+    {"name": "Delete Lead", "code": "crm.lead.delete", "description": "Permission to delete leads", "module_name": "crm"},
+    {"name": "Convert Lead", "code": "crm.lead.convert", "description": "Permission to convert leads to opportunities and customers", "module_name": "crm"},
+
+    {"name": "Create Opportunity", "code": "crm.opportunity.create", "description": "Permission to create opportunities", "module_name": "crm"},
+    {"name": "Read Opportunity", "code": "crm.opportunity.read", "description": "Permission to view opportunities", "module_name": "crm"},
+    {"name": "Update Opportunity", "code": "crm.opportunity.update", "description": "Permission to update opportunities", "module_name": "crm"},
+    {"name": "Delete Opportunity", "code": "crm.opportunity.delete", "description": "Permission to delete opportunities", "module_name": "crm"},
+
+    {"name": "Create Activity", "code": "crm.activity.create", "description": "Permission to log activities", "module_name": "crm"},
+    {"name": "Read Activity", "code": "crm.activity.read", "description": "Permission to view activities", "module_name": "crm"},
+    {"name": "Update Activity", "code": "crm.activity.update", "description": "Permission to update activities", "module_name": "crm"},
+
+    {"name": "Create Meeting", "code": "crm.meeting.create", "description": "Permission to schedule meetings", "module_name": "crm"},
+    {"name": "Read Meeting", "code": "crm.meeting.read", "description": "Permission to view meetings", "module_name": "crm"},
+    {"name": "Update Meeting", "code": "crm.meeting.update", "description": "Permission to update meetings", "module_name": "crm"},
+
+    {"name": "Create Task", "code": "crm.task.create", "description": "Permission to create CRM tasks", "module_name": "crm"},
+    {"name": "Read Task", "code": "crm.task.read", "description": "Permission to view CRM tasks", "module_name": "crm"},
+    {"name": "Update Task", "code": "crm.task.update", "description": "Permission to update CRM tasks", "module_name": "crm"},
+
+    {"name": "Create Campaign", "code": "crm.campaign.create", "description": "Permission to create marketing campaigns", "module_name": "crm"},
+    {"name": "Read Campaign", "code": "crm.campaign.read", "description": "Permission to view marketing campaigns", "module_name": "crm"},
+    {"name": "Update Campaign", "code": "crm.campaign.update", "description": "Permission to update marketing campaigns", "module_name": "crm"},
+
+    {"name": "Read CRM Analytics", "code": "crm.analytics.read", "description": "Permission to view CRM analytics and reports", "module_name": "crm"},
+    {"name": "Search CRM", "code": "crm.search.read", "description": "Permission to execute global CRM searches", "module_name": "crm"},
+
     # Inventory
     {"name": "Create Inventory Items", "code": "inventory.create", "description": "Permission to add inventory stock", "module_name": "inventory"},
     {"name": "Read Inventory Items", "code": "inventory.read", "description": "Permission to view inventory stock", "module_name": "inventory"},
@@ -362,6 +393,7 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Inventory Manager", "description": "Stock and warehouse management privileges"},
     {"name": "Procurement Manager", "description": "Purchasing and supplier management privileges"},
     {"name": "Sales Manager", "description": "Sales orders and revenue management privileges"},
+    {"name": "CRM Manager", "description": "Lead acquisition, sales pipeline, and campaign management privileges"},
     {"name": "Employee", "description": "Basic employee access privileges"},
 ]
 
