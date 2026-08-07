@@ -87,4 +87,12 @@ FINANCE_YEAR_CLOSED = "YearClosed"
 FINANCE_BUDGET_APPROVED = "BudgetApproved"
 FINANCE_STATEMENT_GENERATED = "FinancialStatementGenerated"
 
+# Reporting & Business Intelligence Domain Event Names
+REPORTING_REPORT_GENERATED = "ReportGenerated"
+REPORTING_DASHBOARD_VIEWED = "DashboardViewed"
+REPORTING_SCHEDULED_REPORT_COMPLETED = "ScheduledReportCompleted"
+REPORTING_KPI_UPDATED = "KPIUpdated"
+REPORTING_ANALYTICS_CALCULATED = "AnalyticsCalculated"
+
+
 

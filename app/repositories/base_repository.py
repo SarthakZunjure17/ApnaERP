@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
@@ -109,7 +110,16 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         if isinstance(obj_in, self.model):
             db_obj = obj_in
-            create_data = {c.name: str(getattr(db_obj, c.name)) for c in db_obj.__table__.columns if hasattr(db_obj, c.name)}
+            create_data = {}
+            for c in db_obj.__table__.columns:
+                if hasattr(db_obj, c.name):
+                    val = getattr(db_obj, c.name)
+                    if isinstance(val, (dict, list, int, float, bool, type(None))):
+                        create_data[c.name] = val
+                    elif isinstance(val, Decimal):
+                        create_data[c.name] = float(val)
+                    else:
+                        create_data[c.name] = str(val)
         elif isinstance(obj_in, dict):
             create_data = obj_in
             db_obj = self.model(**create_data)

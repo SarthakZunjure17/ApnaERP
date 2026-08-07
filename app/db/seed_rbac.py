@@ -467,6 +467,17 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Revise Budgets", "code": "finance.budget.revise", "description": "Permission to revise budgets", "module_name": "finance"},
 
     {"name": "Read Finance Analytics", "code": "finance.analytics.read", "description": "Permission to view executive finance analytics", "module_name": "finance"},
+
+    # Enterprise Reporting & BI Domain Permissions
+    {"name": "View Dashboard", "code": "report.dashboard.view", "description": "Permission to view executive and module dashboards", "module_name": "reporting"},
+    {"name": "Manage Dashboard", "code": "report.dashboard.manage", "description": "Permission to create and modify dashboards", "module_name": "reporting"},
+    {"name": "View Analytics", "code": "report.analytics.view", "description": "Permission to view cross-module analytics and trends", "module_name": "reporting"},
+    {"name": "Create Custom Report", "code": "report.builder.create", "description": "Permission to build custom reports", "module_name": "reporting"},
+    {"name": "Share Report", "code": "report.builder.share", "description": "Permission to share custom reports", "module_name": "reporting"},
+    {"name": "View KPI", "code": "report.kpi.view", "description": "Permission to view system KPIs and metrics", "module_name": "reporting"},
+    {"name": "Manage KPI", "code": "report.kpi.manage", "description": "Permission to create and configure KPIs", "module_name": "reporting"},
+    {"name": "Export Report", "code": "report.export.execute", "description": "Permission to export reports in PDF/Excel/CSV/JSON", "module_name": "reporting"},
+    {"name": "Manage Schedules", "code": "report.schedule.manage", "description": "Permission to manage scheduled report tasks", "module_name": "reporting"},
 ]
 
 

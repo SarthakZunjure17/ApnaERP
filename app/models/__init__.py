@@ -282,6 +282,16 @@ __all__ = [
     "Budget",
     "BudgetLine",
     "FinancialStatementSnapshot",
+    "Dashboard",
+    "DashboardWidget",
+    "KPI",
+    "KPIMetric",
+    "ReportTemplate",
+    "SavedReport",
+    "ScheduledReport",
+    "ReportExecution",
+    "AnalyticsSnapshot",
+    "ChartConfiguration",
 ]
 
 from app.models.finance_ops import (
@@ -310,4 +320,17 @@ from app.models.finance_ops import (
     SupplierCreditNote,
     SupplierDebitNote,
     SupplierLedgerEntry,
+)
+
+from app.models.reporting import (
+    AnalyticsSnapshot,
+    ChartConfiguration,
+    Dashboard,
+    DashboardWidget,
+    KPI,
+    KPIMetric,
+    ReportExecution,
+    ReportTemplate,
+    SavedReport,
+    ScheduledReport,
 )

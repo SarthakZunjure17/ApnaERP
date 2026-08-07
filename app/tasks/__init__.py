@@ -128,7 +128,17 @@ __all__ = [
     "statement_generation_task",
     "financial_closing_checks_task",
     "analytics_refresh_task",
+    "process_scheduled_reports_task",
+    "refresh_analytics_snapshots_task",
+    "refresh_kpis_task",
 ]
+
+from app.tasks.reporting_tasks import (
+    process_scheduled_reports_task,
+    refresh_analytics_snapshots_task,
+    refresh_kpis_task,
+)
+
 
 
 

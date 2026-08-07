@@ -5,6 +5,44 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.2.0] - 2026-08-07
+
+### Milestone Enterprise Reporting & Business Intelligence — BI Engine & Reporting Suite
+
+#### Added
+- **Enterprise Reporting ORM Models (`app/models/reporting.py`)**:
+  - `Dashboard` & `DashboardWidget`: Executive and module-specific dashboards with customizable layout configurations.
+  - `KPI` & `KPIMetric`: Key Performance Indicators across 8 modules with target values, warning/critical threshold tracking, and historical metrics.
+  - `ReportTemplate` & `SavedReport`: Pre-defined domain templates and custom user-saved reports with column selection, filtering, sorting, grouping, and calculated fields.
+  - `ScheduledReport` & `ReportExecution`: Background automated report schedules with multi-format exports and recipient email notifications.
+  - `AnalyticsSnapshot`: Aggregated domain metrics for historical trend analysis and period comparisons.
+  - `ChartConfiguration`: Visual chart configs for Line, Bar, Area, Pie, Donut, Stacked Bar, Heatmap, and Trend charts.
+- **Alembic Migration (`alembic/versions/d1e2f3a4b5c6_phase_v120_enterprise_reporting_bi.py`)**:
+  - Schema migration creating all 10 reporting tables, foreign key constraints, unique indices, and soft delete mixins.
+- **Pydantic DTO Schemas (`app/schemas/reporting.py`)**:
+  - Type-safe Pydantic V2 schemas for Dashboards, Widgets, KPIs, Metrics, Report Templates, Saved Reports, Scheduled Reports, Report Executions, Analytics Snapshots, Chart Configurations, Export Requests, and Global Search.
+- **Async Repositories (`app/repositories/reporting_repos.py`)**:
+  - Async repository pattern implementation inheriting from `BaseRepository`.
+- **Domain Events (`app/core/domain_events.py`)**:
+  - Added constants: `ReportGenerated`, `DashboardViewed`, `ScheduledReportCompleted`, `KPIUpdated`, `AnalyticsCalculated`.
+- **Domain Services Layer (`app/services/reporting_services.py`)**:
+  - `DashboardService`: System dashboards (Global, HR, Payroll, Inventory, Procurement, Sales, CRM, Finance) + Custom Dashboards, Widget Management, Redis caching.
+  - `KPIService`: Dynamic calculation for all KPIs across 8 modules, recording metrics over time, threshold alert detection, Redis caching.
+  - `AnalyticsService`: Period comparisons, growth rate calculations (% YoY/MoM), trend aggregations across modules, forecast-ready metrics.
+  - `ReportBuilderService`: Dynamic query builder reading existing domain models, custom columns, filtering, sorting, grouping, calculated fields, saved reports.
+  - `ScheduledReportService`: Schedule processing, cron evaluation, trigger execution, email notification dispatch.
+  - `ExportService`: Multi-format PDF, Excel, CSV, JSON report exporter integrated with core `File` repository.
+  - `ChartService`: Formats data payloads into chart configs.
+  - `GlobalSearchService`: Global search over reports, dashboards, KPIs, saved reports.
+- **Celery Tasks (`app/tasks/reporting_tasks.py`)**:
+  - `process_scheduled_reports_task`, `refresh_analytics_snapshots_task`, `refresh_kpis_task`.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**:
+  - Seeded permissions (`report.dashboard.*`, `report.analytics.*`, `report.builder.*`, `report.kpi.*`, `report.export.*`, `report.schedule.*`).
+- **REST API Endpoints (`app/api/v1/endpoints/reporting_*.py`)**:
+  - Routers mounted at `/reporting/dashboards`, `/reporting/kpis`, `/reporting/analytics`, `/reporting/reports`, `/reporting/schedules`, `/reporting/exports`, `/reporting/charts`, `/reporting/search`.
+- **Integration Test Suite (`tests/test_reporting_bi.py`)**:
+  - 100% test coverage across 6 integration test suites.
+
 ## [v1.1.0] - 2026-08-06
 
 ### Milestone Finance Operations & Financial Reporting — Operational Accounting Suite

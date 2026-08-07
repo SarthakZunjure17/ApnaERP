@@ -6,7 +6,24 @@
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, and Docker.
+ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, Enterprise Reporting & Business Intelligence Suite, and Docker.
+
+## Enterprise Reporting & Business Intelligence (Release v1.2.0)
+
+### Overview
+The **Enterprise Reporting & Business Intelligence** module (`app/models/reporting.py`, `app/services/reporting_services.py`, `app/repositories/reporting_repos.py`, `app/schemas/reporting.py`, `app/api/v1/endpoints/reporting_*.py`) completes the Reporting & BI domain for ApnaERP. It connects all 8 operational modules (Platform, HR, Payroll, Inventory, Procurement, Sales, CRM, Finance) through high-performance executive dashboards, a dynamic report query builder, automated scheduled delivery, multi-format export engines (PDF, Excel, CSV, JSON), real-time KPI engines, cross-module trend analytics, and global search.
+
+### Key Technical Capabilities
+- **Executive & Module Dashboards (`Dashboard`, `DashboardWidget`)**: Pre-built system dashboards for Global, HR, Payroll, Inventory, Procurement, Sales, CRM, Finance, plus user-customizable drag-and-drop widget layouts backed by Redis caching.
+- **KPI Engine & Metric Tracking (`KPI`, `KPIMetric`)**: Dynamic metric calculation across 8 modules, recording historical trend metrics over time, detecting warning and critical threshold breaches, and emitting domain alerts.
+- **Cross-Module Analytics (`AnalyticsSnapshot`)**: Period comparison (YoY/MoM growth rate %), trend aggregations, and pre-computed periodic domain snapshots for fast business intelligence analysis.
+- **Dynamic Report Builder (`ReportTemplate`, `SavedReport`)**: Custom report builder querying live domain data (Employees, Stock Balances, Purchase Orders, Sales Orders, Leads, Invoices, Bills, Journals) with column selection, filtering, sorting, grouping, and calculated fields.
+- **Scheduled Report Delivery (`ScheduledReport`, `ReportExecution`)**: Background automated report execution on configurable cron/frequency schedules, triggering export generation and sending email notifications.
+- **Multi-Format Export Engine (`ExportService`)**: PDF, Excel, CSV, and JSON report export generation integrated directly with the core `File` management repository.
+- **Chart Visualization Engine (`ChartConfiguration`, `ChartService`)**: Formats data payloads into chart configs (Line, Bar, Area, Pie, Donut, Stacked Bar, Heatmap, Trend).
+- **Global Reporting Search (`GlobalSearchService`)**: Instant cross-module search over dashboards, reports, KPIs, and templates.
+
+---
 
 ## Finance Operations & Financial Reporting (Release v1.1.0)
 

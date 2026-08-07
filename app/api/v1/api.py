@@ -85,6 +85,14 @@ from app.api.v1.endpoints import (
     purchase_returns,
     quotations,
     rbac,
+    reporting_analytics,
+    reporting_builder,
+    reporting_charts,
+    reporting_dashboards,
+    reporting_exports,
+    reporting_kpis,
+    reporting_schedules,
+    reporting_search,
     rfqs,
     root,
     salary_component,
@@ -240,3 +248,14 @@ api_router.include_router(finance_assets.router, prefix="/finance/assets", tags=
 api_router.include_router(finance_budgets.router, prefix="/finance/budgets", tags=["Budget Management"])
 api_router.include_router(finance_statements.router, prefix="/finance/statements", tags=["Financial Statements"])
 api_router.include_router(finance_analytics.router, prefix="/finance/analytics", tags=["Finance Executive Analytics"])
+
+# Enterprise Reporting & Business Intelligence Routers
+api_router.include_router(reporting_dashboards.router, prefix="/reporting/dashboards", tags=["Enterprise Dashboards"])
+api_router.include_router(reporting_kpis.router, prefix="/reporting/kpis", tags=["KPI Engine"])
+api_router.include_router(reporting_analytics.router, prefix="/reporting/analytics", tags=["Enterprise Analytics"])
+api_router.include_router(reporting_builder.router, prefix="/reporting/reports", tags=["Dynamic Report Builder"])
+api_router.include_router(reporting_schedules.router, prefix="/reporting/schedules", tags=["Scheduled Reports"])
+api_router.include_router(reporting_exports.router, prefix="/reporting/exports", tags=["Export Engine"])
+api_router.include_router(reporting_charts.router, prefix="/reporting/charts", tags=["Chart Visualization Engine"])
+api_router.include_router(reporting_search.router, prefix="/reporting/search", tags=["Global Reporting Search"])
+
