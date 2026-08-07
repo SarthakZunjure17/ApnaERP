@@ -131,12 +131,23 @@ __all__ = [
     "process_scheduled_reports_task",
     "refresh_analytics_snapshots_task",
     "refresh_kpis_task",
+    "deliver_webhook_task",
+    "execute_database_backup_task",
+    "cleanup_expired_backups_task",
+    "refresh_system_health_task",
 ]
 
 from app.tasks.reporting_tasks import (
     process_scheduled_reports_task,
     refresh_analytics_snapshots_task,
     refresh_kpis_task,
+)
+
+from app.tasks.integration_tasks import (
+    cleanup_expired_backups_task,
+    deliver_webhook_task,
+    execute_database_backup_task,
+    refresh_system_health_task,
 )
 
 

@@ -93,6 +93,14 @@ from app.api.v1.endpoints import (
     reporting_kpis,
     reporting_schedules,
     reporting_search,
+    api_keys,
+    webhooks,
+    providers,
+    storage,
+    import_export,
+    monitoring,
+    backups,
+    system_config,
     rfqs,
     root,
     salary_component,
@@ -258,4 +266,15 @@ api_router.include_router(reporting_schedules.router, prefix="/reporting/schedul
 api_router.include_router(reporting_exports.router, prefix="/reporting/exports", tags=["Export Engine"])
 api_router.include_router(reporting_charts.router, prefix="/reporting/charts", tags=["Chart Visualization Engine"])
 api_router.include_router(reporting_search.router, prefix="/reporting/search", tags=["Global Reporting Search"])
+
+# Infrastructure & Production Readiness Routers
+api_router.include_router(api_keys.router, prefix="/api-keys", tags=["API Key Management"])
+api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks Engine"])
+api_router.include_router(providers.router, prefix="/providers", tags=["Provider Configurations"])
+api_router.include_router(storage.router, prefix="/storage", tags=["Pluggable Storage Engine"])
+api_router.include_router(import_export.router, prefix="/import-export", tags=["Bulk Import Export Platform"])
+api_router.include_router(monitoring.router, prefix="/monitoring", tags=["Observability & Prometheus Metrics"])
+api_router.include_router(backups.router, prefix="/backups", tags=["Backup & Restore Management"])
+api_router.include_router(system_config.router, prefix="/system/config", tags=["System Configuration"])
+
 

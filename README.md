@@ -1,12 +1,32 @@
-# ApnaERP - Enterprise Resource Planning Backend API
+# ApnaERP v1.3.0 — Production Ready
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00.svg?style=flat&logo=sqlalchemy&logoColor=white)](https://www.sqlalchemy.org/)
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
+[![Docker](https://img.shields.io/badge/Docker-Production_Ready-2496ED.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 
-ApnaERP is a production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend built using Python, FastAPI, PostgreSQL, Redis, Celery, Alembic, JWT, Role-Based Access Control (RBAC), Generic CRUD Framework, Enterprise Audit Logging, Enterprise File Management, Enterprise Notification System, Enterprise Celery Task Processing Platform, Department Management Module, Core Employee Domain, Digital Personnel Files (Employee Documents), Job Positions & Employment Structure, HR Configuration & Organization Policies, Enterprise Shift Management, Enterprise Holiday Calendar, Enterprise Attendance Engine, Enterprise Salary Components, Enterprise Salary Structures, Employee Compensation Management, Enterprise Payroll Processing Engine, Enterprise Payroll Runs & Payslips, Enterprise Statutory Compliance Engine, Enterprise Payroll Finalization Suite, Enterprise Reporting & Business Intelligence Suite, and Docker.
+ApnaERP is a complete, production-grade, modular, high-performance Enterprise Resource Planning (ERP) backend platform spanning 10 integrated business and infrastructure domains: **Platform, HR, Payroll, Inventory, Procurement, Sales, CRM, Finance, Reporting & BI, and Enterprise Integrations**.
+
+## Enterprise Integrations & Production Readiness (Release v1.3.0 — Production Ready)
+
+### Overview
+The **Enterprise Integrations & Production Readiness** release completes the entire ApnaERP platform (`app/models/integrations.py`, `app/services/integration_services.py`, `app/repositories/integration_repos.py`, `app/schemas/integrations.py`, `app/providers/`, `app/middleware/`). It introduces enterprise API Key management, outbound Webhook event subscriptions, pluggable provider abstraction frameworks (Storage, Communication, Auth), Prometheus & OpenTelemetry observability, rate limiting, security headers, database backup & recovery, health monitoring, production Docker Compose, Kubernetes manifests, and automated CI/CD pipelines.
+
+### Key Technical Capabilities
+- **API Key Management (`ApiKey`)**: Granular API key authentication, prefix tracking (`ak_live_...`), SHA-256 key hashing, custom permission scopes (`system.read`, `finance.write`), rotation, revocation, and usage tracking metrics.
+- **Webhook Event Framework (`WebhookSubscription`, `WebhookDelivery`)**: Real-time outbound webhook dispatching with HMAC-SHA256 payload signing (`X-ApnaERP-Signature`), Celery retry queue with exponential backoff, delivery audit history, event filtering, and manual replay.
+- **Pluggable Provider Abstractions (`app/providers/`)**:
+  - **Storage Providers**: `LocalStorage`, `MinIOStorage`, `S3Storage`, `AzureBlobStorage`, `GCSStorage`.
+  - **Communication Providers**: SMTP Email, SMS (Twilio/AWS SNS), WhatsApp (Meta Cloud API), Push Notifications (Firebase FCM), plus Jinja2 template rendering engine.
+  - **Auth Providers**: OAuth2 / OpenID Connect SSO, LDAP / Active Directory, and Multi-Factor Auth (TOTP / SMS).
+- **Observability & Metrics (`MonitoringService`)**: Prometheus metrics endpoint (`/api/v1/monitoring/metrics`), OpenTelemetry tracing hooks, Correlation ID (`X-Correlation-ID`) & Request ID propagation, latency histograms, and error metrics.
+- **Security Hardening (`SecurityHeadersMiddleware`, `RateLimitMiddleware`)**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options headers, Redis-backed sliding-window rate limiting (`X-RateLimit-*`), input sanitization, and structured JSON log masking.
+- **Health Diagnostics (`/health`, `/health/liveness`, `/health/readiness`)**: Health check diagnostics inspecting PostgreSQL, Redis, Celery workers, and storage backend status.
+- **Backup & Recovery (`BackupService`, `BackupMetadata`)**: Automated database `pg_dump` and storage snapshot creation, SHA-256 checksum verification, restore interface, and automated retention cleanup.
+- **DevOps & Production Tooling**: Production Docker Compose (`docker-compose.prod.yml`), Nginx reverse proxy config (`nginx/nginx.conf`), Kubernetes manifests (`k8s/`), Makefile automation, and administrative CLI (`cli.py`).
+- **CI/CD Automation (`.github/workflows/ci.yml`)**: GitHub Actions pipeline covering linting, test suite execution, Bandit security scanning, and Docker build/release.
 
 ## Enterprise Reporting & Business Intelligence (Release v1.2.0)
 

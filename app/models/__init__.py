@@ -291,6 +291,13 @@ __all__ = [
     "ScheduledReport",
     "ReportExecution",
     "AnalyticsSnapshot",
+    "ScheduledReport",
+    "ApiKey",
+    "WebhookSubscription",
+    "WebhookDelivery",
+    "ProviderConfiguration",
+    "BackupMetadata",
+    "SystemConfiguration",
     "ChartConfiguration",
 ]
 
@@ -333,4 +340,13 @@ from app.models.reporting import (
     ReportTemplate,
     SavedReport,
     ScheduledReport,
+)
+
+from app.models.integrations import (
+    ApiKey,
+    BackupMetadata,
+    ProviderConfiguration,
+    SystemConfiguration,
+    WebhookDelivery,
+    WebhookSubscription,
 )

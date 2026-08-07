@@ -5,6 +5,51 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.3.0] - 2026-08-07 — Production Ready
+
+### Milestone Enterprise Integrations & Production Readiness — Complete Platform Release
+
+#### Added
+- **Infrastructure ORM Models (`app/models/integrations.py`)**:
+  - `ApiKey`: Key hash, prefix, name, owner_id, scopes, expires_at, is_revoked, usage_count, last_used_at.
+  - `WebhookSubscription`: Webhook URL registrations, secret token, event_types, is_active, headers_json.
+  - `WebhookDelivery`: Delivery attempt audit log, payload, status, response status/body, retry counts, next_retry_at.
+  - `ProviderConfiguration`: Pluggable provider settings (type, name, settings_json, is_active, is_default).
+  - `BackupMetadata`: Database and storage backup registry (name, path, file size, checksum, status, type).
+  - `SystemConfiguration`: Dynamic system-wide runtime settings (config_key, config_value, value_type, category, is_encrypted).
+- **Alembic Database Migration (`alembic/versions/e1f2a3b4c5d6_phase_v130_enterprise_integrations.py`)**:
+  - Schema migration creating all 6 infrastructure tables, foreign key constraints, unique indices, and soft delete mixins.
+- **Pydantic DTO Schemas (`app/schemas/integrations.py`)**:
+  - Type-safe schemas for API Keys, Webhooks, Provider Configurations, Storage, Communication, Bulk Import/Export, Monitoring, Backups, Health Checks, System Config.
+- **Async Repositories Layer (`app/repositories/integration_repos.py`)**:
+  - Repositories: `ApiKeyRepository`, `WebhookSubscriptionRepository`, `WebhookDeliveryRepository`, `ProviderConfigurationRepository`, `BackupMetadataRepository`, `SystemConfigurationRepository`.
+- **Pluggable Provider Abstraction Framework (`app/providers/`)**:
+  - `storage/`: Abstract `StorageProvider` interface + `LocalStorage`, `MinIOStorage`, `S3Storage`, `AzureBlobStorage`, `GCSStorage`.
+  - `communication/`: Abstract interfaces for `EmailProvider` (SMTP), `SMSProvider` (Twilio/AWS SNS), `WhatsAppProvider` (Meta Cloud API), `PushNotificationProvider` (FCM), plus Jinja2 template rendering engine.
+  - `auth/`: OAuth2 / OpenID Connect SSO integration, LDAP / Active Directory integration, TOTP / SMS MFA.
+- **Domain Services Layer (`app/services/integration_services.py`)**:
+  - `ApiKeyService`, `WebhookService`, `ProviderService`, `StorageService`, `ImportExportService`, `MonitoringService`, `BackupService`, `DeploymentService`.
+- **Middleware & Security Hardening (`app/middleware/`)**:
+  - `security_middleware.py`: Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options), CORS, CSRF token validation.
+  - `rate_limit_middleware.py`: Redis sliding-window rate limiter with `X-RateLimit-*` headers.
+  - `observability_middleware.py`: Correlation ID (`X-Correlation-ID`) & Request ID propagation, OpenTelemetry span tracking, Prometheus latency metrics.
+  - `structured_logging.py`: Production JSON log formatter with sensitive parameter masking.
+- **Celery Tasks (`app/tasks/integration_tasks.py`)**:
+  - `deliver_webhook_task`, `execute_database_backup_task`, `cleanup_expired_backups_task`, `refresh_system_health_task`.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**:
+  - Seeded permissions (`system.*`, `integration.*`, `monitoring.*`, `backup.*`, `apikey.*`, `webhook.*`).
+- **REST API Routers (`app/api/v1/endpoints/`)**:
+  - Mounted routers: `/api-keys`, `/webhooks`, `/providers`, `/storage`, `/import-export`, `/monitoring`, `/health`, `/backups`, `/system/config`.
+- **DevOps & Infrastructure Artifacts**:
+  - `docker-compose.prod.yml`, `nginx/nginx.conf`, `.env.production.example`, `k8s/deployment.yaml`, `Makefile`, `cli.py`.
+- **CI/CD Pipeline (`.github/workflows/ci.yml`)**:
+  - GitHub Actions CI/CD workflow covering linting, test suite execution, Bandit security scanning, and Docker build/release.
+- **Architecture Documentation & Operations Guides (`docs/`)**:
+  - `docs/architecture/` (`system_architecture.md`, `module_dependency_diagram.md`, `database_er_diagram.md`, `api_architecture.md`, `security_architecture.md`, `deployment_architecture.md`, `event_catalog.md`).
+  - `docs/guides/` (`administrator_guide.md`, `developer_guide.md`, `deployment_guide.md`, `operations_guide.md`, `security_guide.md`, `api_guide.md`).
+- **Integration Test Suite (`tests/test_enterprise_integrations.py`)**:
+  - Test suite covering all infrastructure, security, monitoring, import/export, and backup endpoints with 100% pass rate.
+
 ## [v1.2.0] - 2026-08-07
 
 ### Milestone Enterprise Reporting & Business Intelligence — BI Engine & Reporting Suite

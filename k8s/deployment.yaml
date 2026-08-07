@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apnaerp-app
+  labels:
+    app: apnaerp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: apnaerp
+  template:
+    metadata:
+      labels:
+        app: apnaerp
+    spec:
+      containers:
+      - name: apnaerp
+        image: apnaerp:v1.3.0
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: apnaerp-config
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health/liveness
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health/readiness
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5

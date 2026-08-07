@@ -478,6 +478,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Manage KPI", "code": "report.kpi.manage", "description": "Permission to create and configure KPIs", "module_name": "reporting"},
     {"name": "Export Report", "code": "report.export.execute", "description": "Permission to export reports in PDF/Excel/CSV/JSON", "module_name": "reporting"},
     {"name": "Manage Schedules", "code": "report.schedule.manage", "description": "Permission to manage scheduled report tasks", "module_name": "reporting"},
+
+    # Infrastructure & Production Readiness Permissions
+    {"name": "Manage System Platform", "code": "system.manage", "description": "Permission to manage system configurations and health", "module_name": "integrations"},
+    {"name": "Read System Metrics", "code": "monitoring.read", "description": "Permission to view observability metrics and health checks", "module_name": "integrations"},
+    {"name": "Manage API Keys", "code": "apikey.manage", "description": "Permission to create, rotate, and revoke API keys", "module_name": "integrations"},
+    {"name": "Manage Webhooks", "code": "webhook.manage", "description": "Permission to register, view, and replay webhooks", "module_name": "integrations"},
+    {"name": "Manage Integrations", "code": "integration.manage", "description": "Permission to configure external storage and communication providers", "module_name": "integrations"},
+    {"name": "Manage Backups", "code": "backup.manage", "description": "Permission to trigger and restore database backups", "module_name": "integrations"},
 ]
 
 
