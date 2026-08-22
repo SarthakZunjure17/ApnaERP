@@ -14,22 +14,33 @@ logger = logging.getLogger("app.db")
 # Detect if running within pytest test runner
 IS_TESTING = settings.ENV == "test" or "pytest" in os.environ.get("_", "") or (hasattr(sys, "argv") and any("pytest" in arg for arg in sys.argv))
 
+db_async_url = settings.async_database_url
+db_sync_url = settings.sync_database_url
+
+if IS_TESTING or os.environ.get("USE_SQLITE", "").lower() in ("true", "1"):
+    if not db_async_url.startswith("sqlite"):
+        db_async_url = "sqlite+aiosqlite:///./apnaerp_test.db"
+        db_sync_url = "sqlite:///./apnaerp_test.db"
+
+is_sqlite = db_async_url.startswith("sqlite")
+
 # Configure engine arguments based on environment
 engine_kwargs: Dict[str, Any] = {
-    "echo": settings.DEBUG,
+    "echo": settings.DEBUG if not IS_TESTING else False,
     "future": True,
-    "pool_pre_ping": True,
 }
 
-if IS_TESTING:
-    engine_kwargs["poolclass"] = NullPool
-else:
-    engine_kwargs["pool_size"] = 10
-    engine_kwargs["max_overflow"] = 20
+if not is_sqlite:
+    engine_kwargs["pool_pre_ping"] = True
+    if IS_TESTING:
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        engine_kwargs["pool_size"] = 10
+        engine_kwargs["max_overflow"] = 20
 
 # Create Async Engine for FastAPI async operations
 engine = create_async_engine(
-    settings.async_database_url,
+    db_async_url,
     **engine_kwargs
 )
 
@@ -42,11 +53,16 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
+sync_engine_kwargs: Dict[str, Any] = {
+    "echo": settings.DEBUG if not IS_TESTING else False,
+}
+if not is_sqlite:
+    sync_engine_kwargs["pool_pre_ping"] = True
+
 # Create Sync Engine for Alembic migrations & synchronous tasks
 sync_engine = create_engine(
-    settings.sync_database_url,
-    echo=settings.DEBUG,
-    pool_pre_ping=True,
+    db_sync_url,
+    **sync_engine_kwargs
 )
 
 # Sync session factory

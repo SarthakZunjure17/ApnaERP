@@ -879,8 +879,7 @@ class AssetService:
         cash_stmt = select(ChartOfAccount).where(ChartOfAccount.account_code == "1010")
         cash_res = await self.db.execute(cash_stmt)
         cash_acc = cash_res.scalar_one_or_none()
-        if not cash_acc:
-            cash_acc = category.asset_account
+        cash_acc_id = cash_acc.id if cash_acc else category.asset_account_id
 
         lines = [
             {
@@ -890,7 +889,7 @@ class AssetService:
                 "description": f"Asset Acquisition {data.asset_code}",
             },
             {
-                "account_id": str(cash_acc.id if cash_acc else category.asset_account_id),
+                "account_id": str(cash_acc_id),
                 "debit": 0.0,
                 "credit": float(data.purchase_cost),
                 "description": f"Acquisition Outflow {data.asset_code}",

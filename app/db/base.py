@@ -1,6 +1,17 @@
 from typing import Any
 from sqlalchemy import MetaData
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(type_, compiler, **kw):
+    return "JSON"
+
+@compiles(UUID, "sqlite")
+def _compile_uuid_sqlite(type_, compiler, **kw):
+    return "VARCHAR(36)"
+
 
 # PostgreSQL Naming Convention for clean Alembic constraint names
 POSTGRES_NAMING_CONVENTION = {

@@ -5,10 +5,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.mixins import UUIDMixin
+from app.db.mixins import TimestampMixin, UUIDMixin
 
 
-class SerialNumber(Base, UUIDMixin):
+class SerialNumber(Base, UUIDMixin, TimestampMixin):
     """
     SerialNumber ORM Model.
     Individual serial number tracking for high-value or serialized inventory items.

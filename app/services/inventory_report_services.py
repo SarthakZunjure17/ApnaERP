@@ -91,7 +91,11 @@ class InventoryReportService:
 
         items: List[InventoryAgingItem] = []
         for r in rows:
-            days = (now - r.last_calculated).days if r.last_calculated else 0
+            if r.last_calculated:
+                r_dt = r.last_calculated if r.last_calculated.tzinfo else r.last_calculated.replace(tzinfo=timezone.utc)
+                days = (now - r_dt).days
+            else:
+                days = 0
 
             if days <= 30:
                 bucket = "0-30 days"

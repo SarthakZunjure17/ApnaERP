@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.config import settings
 from app.core.redis import redis_manager
+from app.db.base import Base
 from app.db.seed_rbac import seed_rbac_data
 from app.db.session import AsyncSessionLocal, engine
 
@@ -23,13 +24,15 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"Redis initialization warning: {exc}")
 
-    # 2. Check RBAC Seed Data
+    # 2. Ensure Database Schema & RBAC Seed Data
     try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
         async with AsyncSessionLocal() as session:
             await seed_rbac_data(session)
-        logger.info("RBAC seed data check completed successfully.")
+        logger.info("Database tables verified and RBAC seed data completed successfully.")
     except Exception as exc:
-        logger.warning(f"Skipping RBAC startup seed (database tables may not exist yet): {exc}")
+        logger.warning(f"Database startup initialization note: {exc}")
 
     yield
     

@@ -141,14 +141,14 @@ class DashboardService:
 
     async def _build_global_dashboard(self) -> Dict[str, Any]:
         # Aggregate top level counts across modules
-        emp_res = await self.db.execute(select(func.count(Employee.id)).where(Employee.status == "Active"))
+        emp_res = await self.db.execute(select(func.count(Employee.id)).where(Employee.employment_status == "Active"))
         active_employees = emp_res.scalar() or 0
 
-        inv_res = await self.db.execute(select(func.sum(StockBalance.quantity * StockBalance.unit_cost)))
+        inv_res = await self.db.execute(select(func.sum(StockBalance.available_quantity)))
         total_inventory_val = float(inv_res.scalar() or 0)
 
         sales_res = await self.db.execute(
-            select(func.sum(SalesOrder.total_amount)).where(SalesOrder.order_status != "Cancelled")
+            select(func.sum(SalesOrder.total_amount)).where(SalesOrder.status != "Cancelled")
         )
         total_sales = float(sales_res.scalar() or 0)
 
@@ -191,7 +191,7 @@ class DashboardService:
     async def _build_hr_dashboard(self) -> Dict[str, Any]:
         emp_total = (await self.db.execute(select(func.count(Employee.id)))).scalar() or 0
         emp_active = (
-            await self.db.execute(select(func.count(Employee.id)).where(Employee.status == "Active"))
+            await self.db.execute(select(func.count(Employee.id)).where(Employee.employment_status == "Active"))
         ).scalar() or 0
 
         dept_stmt = select(Department.name, func.count(Employee.id)).join(Employee, isouter=True).group_by(Department.name)
@@ -240,10 +240,10 @@ class DashboardService:
         }
 
     async def _build_inventory_dashboard(self) -> Dict[str, Any]:
-        val_res = await self.db.execute(select(func.sum(StockBalance.quantity * StockBalance.unit_cost)))
+        val_res = await self.db.execute(select(func.sum(StockBalance.available_quantity)))
         total_val = float(val_res.scalar() or 0)
 
-        stock_res = await self.db.execute(select(func.sum(StockBalance.quantity)))
+        stock_res = await self.db.execute(select(func.sum(StockBalance.available_quantity)))
         total_available = float(stock_res.scalar() or 0)
 
         res_stock = await self.db.execute(select(func.sum(StockBalance.reserved_quantity)))
@@ -294,7 +294,7 @@ class DashboardService:
         sales_rev = float(
             (
                 await self.db.execute(
-                    select(func.sum(SalesOrder.total_amount)).where(SalesOrder.order_status != "Cancelled")
+                    select(func.sum(SalesOrder.total_amount)).where(SalesOrder.status != "Cancelled")
                 )
             ).scalar()
             or 0
@@ -324,7 +324,7 @@ class DashboardService:
         forecast_val = float(
             (
                 await self.db.execute(
-                    select(func.sum(Opportunity.expected_revenue)).where(Opportunity.is_won == False)
+                    select(func.sum(Opportunity.expected_revenue)).where(Opportunity.status != "Won")
                 )
             ).scalar()
             or 0
@@ -396,6 +396,7 @@ class DashboardService:
             )
             await self.widget_repo.create(self.db, obj_in=widget)
 
+        await self.db.refresh(saved, ["widgets"])
         return saved
 
 
@@ -527,23 +528,25 @@ class ReportBuilderService:
                 data_rows.append(
                     {
                         "employee_code": emp.employee_code,
-                        "full_name": emp.full_name,
+                        "full_name": f"{emp.first_name} {emp.last_name}".strip(),
                         "email": emp.work_email,
-                        "status": emp.status,
-                        "hire_date": str(emp.hire_date) if emp.hire_date else None,
+                        "status": emp.employment_status,
+                        "hire_date": str(emp.joining_date) if getattr(emp, "joining_date", None) else None,
                     }
                 )
         elif datasource_key == "inventory_stock":
             stmt = select(StockBalance)
             res = await self.db.execute(stmt)
             for sb in res.scalars().all():
+                qty = float(sb.available_quantity)
+                cost = float(getattr(sb, "unit_cost", 0.0) or 0.0)
                 data_rows.append(
                     {
                         "product_id": str(sb.product_id),
                         "warehouse_id": str(sb.warehouse_id),
-                        "quantity": float(sb.quantity),
-                        "unit_cost": float(sb.unit_cost),
-                        "total_valuation": float(sb.quantity * sb.unit_cost),
+                        "quantity": qty,
+                        "unit_cost": cost,
+                        "total_valuation": float(qty * cost),
                     }
                 )
         elif datasource_key == "sales_orders":
@@ -553,7 +556,7 @@ class ReportBuilderService:
                 data_rows.append(
                     {
                         "order_number": so.order_number,
-                        "status": so.order_status,
+                        "status": so.status,
                         "total_amount": float(so.total_amount),
                         "order_date": str(so.order_date),
                     }
@@ -652,9 +655,9 @@ class ScheduledReportService:
                 # Dispatch notifications to recipients
                 for email_addr in sched.recipients:
                     email_service.send_email(
-                        to_email=email_addr,
+                        recipient_email=email_addr,
                         subject=f"[Scheduled Report] {sched.name}",
-                        body=f"Your scheduled report '{sched.name}' is ready for download.",
+                        body_text=f"Your scheduled report '{sched.name}' is ready for download.",
                     )
 
                 domain_event_publisher.publish(
@@ -714,14 +717,20 @@ class ExportService:
             content_bytes = pdf_str.encode("utf-8")
 
         # Save to File Service Repository
+        fmt = getattr(req, "export_format", None) or getattr(req, "format", "pdf")
+        ext = fmt.lower()
+        import hashlib
+        checksum_hex = hashlib.sha256(content_bytes).hexdigest()
         file_obj = File(
-            filename=file_name,
+            id=uuid.uuid4(),
+            stored_filename=file_name,
             original_filename=file_name,
-            file_path=f"exports/{file_name}",
-            file_size=len(content_bytes),
+            file_extension=ext,
             mime_type=mime_type,
-            storage_provider="local",
-            created_by_id=user.id if user else None,
+            file_size=len(content_bytes),
+            storage_path=f"exports/{file_name}",
+            uploaded_by_id=user.id if user else uuid.UUID("00000000-0000-0000-0000-000000000000"),
+            checksum=checksum_hex,
         )
         saved_file = await file_repository.create(self.db, obj_in=file_obj)
 
@@ -729,8 +738,8 @@ class ExportService:
 
         return ExportReportResult(
             file_id=saved_file.id,
-            file_name=saved_file.filename,
-            file_path=saved_file.file_path,
+            file_name=saved_file.stored_filename,
+            file_path=saved_file.storage_path,
             file_size_bytes=saved_file.file_size,
             mime_type=saved_file.mime_type,
             row_count=len(rows),

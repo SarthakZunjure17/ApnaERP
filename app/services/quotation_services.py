@@ -1,18 +1,21 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions.base import NotFoundException, ValidationException
 from app.models.sales_quotation import SalesQuotation, SalesQuotationItem
+from app.models.supplier_quotation import SupplierQuotation, SupplierQuotationItem
 from app.repositories.sales_repos import (
     customer_repository,
     sales_quotation_repository,
 )
+from app.repositories.procurement_repos import supplier_quotation_repository
 from app.repositories.inventory_repos import product_repository
 from app.schemas.sales import SalesQuotationCreate, SalesQuotationUpdate
+from app.schemas.procurement import SupplierQuotationCreate
 from app.services.audit_log import audit_log_service
 from app.services.pricing_services import discount_service
 
@@ -24,9 +27,75 @@ class QuotationService:
         uid = uuid.uuid4().hex[:6].upper()
         return f"SQ-{datetime.now(timezone.utc).strftime('%Y%m')}-{uid}"
 
+    async def create_supplier_quotation(
+        self, db: AsyncSession, obj_in: SupplierQuotationCreate, current_user_id: Optional[uuid.UUID] = None
+    ) -> SupplierQuotation:
+        uid = uuid.uuid4().hex[:6].upper()
+        q_num = f"SQ-{datetime.now(timezone.utc).strftime('%Y%m')}-{uid}"
+
+        subtotal = Decimal("0.0")
+        total_tax = Decimal("0.0")
+        total_discount = Decimal("0.0")
+
+        quotation = SupplierQuotation(
+            quotation_number=q_num,
+            rfq_id=obj_in.rfq_id,
+            supplier_id=obj_in.supplier_id,
+            quotation_date=datetime.now(timezone.utc),
+            validity_date=obj_in.validity_date,
+            lead_time_days=obj_in.lead_time_days or 7,
+            payment_terms=obj_in.payment_terms,
+            currency=obj_in.currency or "USD",
+            status="Submitted",
+            subtotal=Decimal("0.0"),
+            tax_amount=Decimal("0.0"),
+            discount_amount=Decimal("0.0"),
+            total_amount=Decimal("0.0"),
+        )
+        db.add(quotation)
+        await db.flush()
+
+        for item_in in obj_in.items:
+            qty = Decimal(str(item_in.quantity))
+            price = Decimal(str(item_in.unit_price))
+            disc_pct = Decimal(str(getattr(item_in, 'discount_pct', 0) or 0))
+            tax_pct = Decimal(str(getattr(item_in, 'tax_pct', 0) or 0))
+
+            line_sub = qty * price
+            disc_amt = line_sub * (disc_pct / Decimal("100"))
+            taxable = line_sub - disc_amt
+            tax_amt = taxable * (tax_pct / Decimal("100"))
+            line_tot = taxable + tax_amt
+
+            subtotal += line_sub
+            total_discount += disc_amt
+            total_tax += tax_amt
+
+            item_obj = SupplierQuotationItem(
+                quotation_id=quotation.id,
+                product_id=item_in.product_id,
+                quantity=qty,
+                unit_price=price,
+                discount_pct=disc_pct,
+                tax_pct=tax_pct,
+                total_price=line_tot,
+            )
+            db.add(item_obj)
+
+        quotation.subtotal = subtotal
+        quotation.discount_amount = total_discount
+        quotation.tax_amount = total_tax
+        quotation.total_amount = subtotal - total_discount + total_tax
+
+        await db.commit()
+        await db.refresh(quotation)
+        return quotation
+
     async def create_quotation(
-        self, db: AsyncSession, obj_in: SalesQuotationCreate, current_user_id: Optional[uuid.UUID] = None
-    ) -> SalesQuotation:
+        self, db: AsyncSession, obj_in: Any, current_user_id: Optional[uuid.UUID] = None
+    ) -> Any:
+        if isinstance(obj_in, SupplierQuotationCreate):
+            return await self.create_supplier_quotation(db, obj_in, current_user_id)
         cust = await customer_repository.get_by_id(db, obj_in.customer_id)
         if not cust or cust.is_deleted:
             raise NotFoundException(f"Customer ID '{obj_in.customer_id}' not found.")

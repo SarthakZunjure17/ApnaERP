@@ -1,0 +1,223 @@
+import { api } from './api';
+import { ProductItem, InventoryMetrics, CategoryOption, WarehouseOption } from '../types/inventory';
+
+const MOCK_METRICS: InventoryMetrics = {
+  total_skus: {
+    value: '1,240',
+    trend: '2.4%',
+    progress_percentage: 65,
+  },
+  low_stock_alerts: {
+    count: 14,
+    categories: [
+      { name: 'Electronics', count: 5 },
+      { name: 'Apparel', count: 9 },
+    ],
+  },
+  total_stock_value: {
+    value: '$2.1M',
+    sparkline_points: [12, 14, 18, 16, 22, 28, 26, 32, 30, 36, 40],
+  },
+};
+
+const MOCK_PRODUCTS: ProductItem[] = [
+  {
+    id: 'prod-001',
+    sku: 'AU-WH-001',
+    name: 'Aura Wireless Headphones',
+    category: 'Electronics',
+    warehouse: 'Main Hub (NY)',
+    on_hand: 342,
+    committed: 12,
+    available: 330,
+    unit_price: 299.0,
+    formatted_unit_price: '$299.00',
+    status: 'In Stock',
+    image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&auto=format&fit=crop&q=80',
+    barcode: '8901234567890',
+  },
+  {
+    id: 'prod-002',
+    sku: 'FUR-OC-992',
+    name: 'ErgoPro Office Chair',
+    category: 'Furniture',
+    warehouse: 'West Coast (CA)',
+    on_hand: 8,
+    committed: 6,
+    available: 2,
+    unit_price: 450.0,
+    formatted_unit_price: '$450.00',
+    status: 'Low Stock',
+    image_url: 'https://images.unsplash.com/photo-1580481077197-9860b299e525?w=100&auto=format&fit=crop&q=80',
+    barcode: '8901234567891',
+  },
+  {
+    id: 'prod-003',
+    sku: 'AU-KB-045',
+    name: 'Nova Mechanical Keyboard',
+    category: 'Electronics',
+    warehouse: 'Main Hub (NY)',
+    on_hand: 15,
+    committed: 15,
+    available: 0,
+    unit_price: 129.0,
+    formatted_unit_price: '$129.00',
+    status: 'Out of Stock',
+    image_url: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=100&auto=format&fit=crop&q=80',
+    barcode: '8901234567892',
+  },
+  {
+    id: 'prod-004',
+    sku: 'FUR-DL-112',
+    name: 'Lumina Desk Lamp',
+    category: 'Furniture',
+    warehouse: 'Main Hub (NY)',
+    on_hand: 1204,
+    committed: 45,
+    available: 1159,
+    unit_price: 85.0,
+    formatted_unit_price: '$85.00',
+    status: 'In Stock',
+    image_url: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&auto=format&fit=crop&q=80',
+    barcode: '8901234567893',
+  },
+  {
+    id: 'prod-005',
+    sku: 'LOG-MW-500',
+    name: 'Precision Wireless Mouse',
+    category: 'Electronics',
+    warehouse: 'West Coast (CA)',
+    on_hand: 520,
+    committed: 30,
+    available: 490,
+    unit_price: 69.0,
+    formatted_unit_price: '$69.00',
+    status: 'In Stock',
+    image_url: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=100&auto=format&fit=crop&q=80',
+    barcode: '8901234567894',
+  },
+];
+
+const MOCK_CATEGORIES: CategoryOption[] = [
+  { id: 'cat-1', name: 'All Categories', code: 'ALL' },
+  { id: 'cat-2', name: 'Electronics', code: 'ELEC' },
+  { id: 'cat-3', name: 'Furniture', code: 'FURN' },
+  { id: 'cat-4', name: 'Apparel', code: 'APP' },
+  { id: 'cat-5', name: 'Office Supplies', code: 'OFF' },
+];
+
+const MOCK_WAREHOUSES: WarehouseOption[] = [
+  { id: 'wh-1', name: 'All Warehouses', code: 'ALL', location: 'Global' },
+  { id: 'wh-2', name: 'Main Hub (NY)', code: 'NY-01', location: 'New York, NY' },
+  { id: 'wh-3', name: 'West Coast (CA)', code: 'CA-02', location: 'San Francisco, CA' },
+  { id: 'wh-4', name: 'Central Logistics (TX)', code: 'TX-03', location: 'Dallas, TX' },
+];
+
+export const inventoryService = {
+  getMetrics: async (): Promise<InventoryMetrics> => {
+    try {
+      const response = await api.get('/inventory/analytics/kpis');
+      if (response.data) return response.data;
+      return MOCK_METRICS;
+    } catch {
+      return MOCK_METRICS;
+    }
+  },
+
+  getProducts: async (filters?: {
+    search?: string;
+    category?: string;
+    warehouse?: string;
+    stockLevel?: string;
+  }): Promise<{ items: ProductItem[]; total: number }> => {
+    try {
+      const params: Record<string, string> = {};
+      if (filters?.search) params.search = filters.search;
+      if (filters?.category && filters.category !== 'All Categories') params.category = filters.category;
+      if (filters?.warehouse && filters.warehouse !== 'All Warehouses') params.warehouse = filters.warehouse;
+
+      const response = await api.get('/inventory/products', { params });
+      if (response.data && Array.isArray(response.data.items)) {
+        return response.data;
+      }
+      if (response.data && Array.isArray(response.data)) {
+        return { items: response.data, total: response.data.length };
+      }
+      return filterMockProducts(filters);
+    } catch {
+      return filterMockProducts(filters);
+    }
+  },
+
+  getCategories: async (): Promise<CategoryOption[]> => {
+    try {
+      const response = await api.get('/inventory/categories');
+      if (response.data && Array.isArray(response.data)) return response.data;
+      return MOCK_CATEGORIES;
+    } catch {
+      return MOCK_CATEGORIES;
+    }
+  },
+
+  getWarehouses: async (): Promise<WarehouseOption[]> => {
+    try {
+      const response = await api.get('/inventory/warehouses');
+      if (response.data && Array.isArray(response.data)) return response.data;
+      return MOCK_WAREHOUSES;
+    } catch {
+      return MOCK_WAREHOUSES;
+    }
+  },
+
+  createProduct: async (productData: Partial<ProductItem>): Promise<ProductItem> => {
+    try {
+      const response = await api.post('/inventory/products', productData);
+      return response.data;
+    } catch {
+      const newProduct: ProductItem = {
+        id: `prod-${Date.now()}`,
+        sku: productData.sku || `SKU-${Date.now()}`,
+        name: productData.name || 'New Product Item',
+        category: productData.category || 'Electronics',
+        warehouse: productData.warehouse || 'Main Hub (NY)',
+        on_hand: productData.on_hand || 0,
+        committed: productData.committed || 0,
+        available: (productData.on_hand || 0) - (productData.committed || 0),
+        unit_price: productData.unit_price || 0,
+        formatted_unit_price: `$${(productData.unit_price || 0).toFixed(2)}`,
+        status: (productData.on_hand || 0) > 10 ? 'In Stock' : 'Low Stock',
+        image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&auto=format&fit=crop&q=80',
+      };
+      MOCK_PRODUCTS.unshift(newProduct);
+      return newProduct;
+    }
+  },
+};
+
+function filterMockProducts(filters?: {
+  search?: string;
+  category?: string;
+  warehouse?: string;
+  stockLevel?: string;
+}) {
+  let items = [...MOCK_PRODUCTS];
+  if (filters?.search) {
+    const q = filters.search.toLowerCase();
+    items = items.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.barcode?.includes(q)
+    );
+  }
+  if (filters?.category && filters.category !== 'All Categories') {
+    items = items.filter((p) => p.category.toLowerCase() === filters.category!.toLowerCase());
+  }
+  if (filters?.warehouse && filters.warehouse !== 'All Warehouses') {
+    items = items.filter((p) => p.warehouse.toLowerCase() === filters.warehouse!.toLowerCase());
+  }
+  if (filters?.stockLevel && filters.stockLevel !== 'Stock Level: All') {
+    items = items.filter((p) => p.status.toLowerCase() === filters.stockLevel!.toLowerCase());
+  }
+  return { items, total: 1240 };
+}

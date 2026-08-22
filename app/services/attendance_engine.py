@@ -114,12 +114,13 @@ class AttendanceEngine:
         calc_check_in = check_in_time
         calc_check_out = check_out_time
 
-        if calc_check_in and shift_start_dt and (calc_check_in.tzinfo != shift_start_dt.tzinfo):
+        if calc_check_in and calc_check_in.tzinfo:
             calc_check_in = calc_check_in.replace(tzinfo=None)
-            shift_start_dt = shift_start_dt.replace(tzinfo=None)
-
-        if calc_check_out and shift_end_dt and (calc_check_out.tzinfo != shift_end_dt.tzinfo):
+        if calc_check_out and calc_check_out.tzinfo:
             calc_check_out = calc_check_out.replace(tzinfo=None)
+        if shift_start_dt and shift_start_dt.tzinfo:
+            shift_start_dt = shift_start_dt.replace(tzinfo=None)
+        if shift_end_dt and shift_end_dt.tzinfo:
             shift_end_dt = shift_end_dt.replace(tzinfo=None)
 
         # 5. Worked Minutes Calculation

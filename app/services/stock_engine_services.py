@@ -237,6 +237,26 @@ class StockBalanceService:
         await redis_manager.delete_pattern("stock_balance:*")
         return bal
 
+    async def get_or_create_balance(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        storage_location_id: Optional[uuid.UUID] = None,
+    ) -> StockBalance:
+        bal = await stock_balance_repository.get_by_keys(
+            db, product_id=product_id, warehouse_id=warehouse_id, storage_location_id=storage_location_id
+        )
+        if not bal:
+            bal = await stock_balance_repository.upsert_balance(
+                db,
+                product_id=product_id,
+                warehouse_id=warehouse_id,
+                storage_location_id=storage_location_id,
+                available_quantity=Decimal("0.0"),
+            )
+        return bal
+
     async def get_balances(
         self,
         db: AsyncSession,

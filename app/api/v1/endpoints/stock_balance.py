@@ -16,6 +16,8 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
+@router.get("s", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
+@router.get("/balances", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
 async def get_stock_balances(
     product_id: Optional[uuid.UUID] = Query(None),
     warehouse_id: Optional[uuid.UUID] = Query(None),

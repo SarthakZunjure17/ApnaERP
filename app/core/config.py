@@ -39,7 +39,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8000",
     ]
 
-    # PostgreSQL Database Configuration
+    # Database Configuration
+    USE_SQLITE: bool = False
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "apnaerp_user"
@@ -103,10 +104,14 @@ class Settings(BaseSettings):
 
     @property
     def sync_database_url(self) -> str:
+        if self.USE_SQLITE or self.POSTGRES_SERVER == "sqlite":
+            return "sqlite:///./apnaerp_test.db"
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     @property
     def async_database_url(self) -> str:
+        if self.USE_SQLITE or self.POSTGRES_SERVER == "sqlite":
+            return "sqlite+aiosqlite:///./apnaerp_test.db"
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     @property

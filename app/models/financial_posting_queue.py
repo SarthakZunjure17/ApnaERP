@@ -17,10 +17,10 @@ class FinancialPostingQueue(Base, UUIDMixin, TimestampMixin):
     """
     __tablename__ = "financial_posting_queues"
 
-    payroll_period_id: Mapped[uuid.UUID] = mapped_column(
+    payroll_period_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("payroll_periods.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 

@@ -103,16 +103,34 @@ class BatchService:
         now = datetime.now(timezone.utc)
 
         # Filter non-expired active batches
-        valid_batches = [
-            b for b in batches
-            if b.current_quantity > 0 and (b.expiry_date is None or b.expiry_date > now)
-        ]
+        valid_batches = []
+        for b in batches:
+            if b.current_quantity > 0:
+                if b.expiry_date is None:
+                    valid_batches.append(b)
+                else:
+                    exp_dt = b.expiry_date if b.expiry_date.tzinfo else b.expiry_date.replace(tzinfo=timezone.utc)
+                    if exp_dt > now:
+                        valid_batches.append(b)
+
+        def _get_exp(b: Batch):
+            if b.expiry_date is None:
+                return (True, datetime.max.replace(tzinfo=timezone.utc))
+            dt = b.expiry_date if b.expiry_date.tzinfo else b.expiry_date.replace(tzinfo=timezone.utc)
+            return (False, dt)
+
+        def _get_mfg(b: Batch):
+            mfg = b.manufacturing_date
+            if mfg is None:
+                return (True, datetime.max.replace(tzinfo=timezone.utc))
+            dt = mfg if mfg.tzinfo else mfg.replace(tzinfo=timezone.utc)
+            return (False, dt)
 
         if strategy.upper() == "FEFO":
             # Earliest expiry date first (None at the end)
-            valid_batches.sort(key=lambda b: (b.expiry_date is None, b.expiry_date))
+            valid_batches.sort(key=_get_exp)
         else:  # FIFO
-            valid_batches.sort(key=lambda b: (b.manufacturing_date is None, b.manufacturing_date, b.created_at))
+            valid_batches.sort(key=_get_mfg)
 
         allocations: List[Tuple[Batch, Decimal]] = []
         remaining = Decimal(str(required_qty))

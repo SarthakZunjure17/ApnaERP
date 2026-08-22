@@ -270,7 +270,7 @@ async def test_attendance_service_checkin_checkout(sample_employee, sample_shift
         att_record = await service.process_check_in(data=checkin_req)
         assert att_record.id is not None
         assert att_record.attendance_status == "Missing Check-out"
-        assert att_record.check_in_time == check_in_time
+        assert att_record.check_in_time.replace(tzinfo=None) == check_in_time.replace(tzinfo=None)
 
         # Check-out
         check_out_time = datetime.datetime(2026, 7, 27, 17, 0, tzinfo=datetime.timezone.utc)

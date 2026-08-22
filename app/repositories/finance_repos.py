@@ -115,6 +115,11 @@ class FiscalPeriodRepository(BaseRepository[FiscalPeriod, Any, Any]):
         res = await db.execute(stmt)
         return res.scalars().first()
 
+    async def get_periods_for_year(self, db: AsyncSession, fiscal_year_id: uuid.UUID) -> List[FiscalPeriod]:
+        stmt = select(FiscalPeriod).where(FiscalPeriod.fiscal_year_id == fiscal_year_id).order_by(FiscalPeriod.period_number.asc())
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
 
 class CurrencyRepository(BaseRepository[Currency, Any, Any]):
     def __init__(self):
@@ -277,6 +282,12 @@ class TaxRateRepository(BaseRepository[TaxRate, Any, Any]):
         ).order_by(TaxRate.effective_from.desc())
         res = await db.execute(stmt)
         return res.scalars().first()
+
+    async def get_by_code(self, db: AsyncSession, code: str) -> Optional[TaxRate]:
+        stmt = select(TaxRate).where(TaxRate.code == code)
+        res = await db.execute(stmt)
+        return res.scalars().first()
+
 
 
 class PostingRuleRepository(BaseRepository[PostingRule, Any, Any]):

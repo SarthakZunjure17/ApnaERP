@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -596,7 +597,8 @@ class JournalService:
 
 
 class PostingEngineService:
-    def __init__(self):
+    def __init__(self, db: Optional[AsyncSession] = None):
+        self.db = db
         self.journal_repo = JournalRepository()
         self.account_repo = ChartOfAccountRepository()
         self.period_repo = FiscalPeriodRepository()

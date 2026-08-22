@@ -6,10 +6,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.mixins import UUIDMixin
+from app.db.mixins import TimestampMixin, UUIDMixin
 
 
-class CycleCount(Base, UUIDMixin):
+class CycleCount(Base, UUIDMixin, TimestampMixin):
     """
     CycleCount ORM Model.
     Physical stock auditing document.
@@ -86,7 +86,7 @@ class CycleCount(Base, UUIDMixin):
         return f"<CycleCount(id={self.id}, count_number='{self.count_number}', status='{self.status}')>"
 
 
-class CycleCountItem(Base, UUIDMixin):
+class CycleCountItem(Base, UUIDMixin, TimestampMixin):
     """
     CycleCountItem ORM Model.
     Individual item audit record within a cycle count document.

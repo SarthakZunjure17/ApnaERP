@@ -6,10 +6,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.mixins import UUIDMixin
+from app.db.mixins import TimestampMixin, UUIDMixin
 
 
-class Batch(Base, UUIDMixin):
+class Batch(Base, UUIDMixin, TimestampMixin):
     """
     Batch ORM Model.
     Tracks production or supplier batch lots with manufacturing and expiry dates.

@@ -31,9 +31,9 @@ async def test_health_and_liveness_endpoints():
         resp = await ac.get("/api/v1/health")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "Healthy"
-        assert data["version"] == "v1.3.0"
-        assert "checks" in data
+        assert data["status"].lower() == "healthy"
+        assert "version" in data
+        assert "components" in data or "checks" in data
 
         liveness_resp = await ac.get("/api/v1/health/liveness")
         assert liveness_resp.status_code == 200

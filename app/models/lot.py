@@ -5,10 +5,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.mixins import UUIDMixin
+from app.db.mixins import TimestampMixin, UUIDMixin
 
 
-class Lot(Base, UUIDMixin):
+class Lot(Base, UUIDMixin, TimestampMixin):
     """
     Lot ORM Model.
     Production or supplier lot entity for inventory grouping and full movement traceability.

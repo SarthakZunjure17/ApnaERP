@@ -194,14 +194,19 @@ class StorageService:
         dest_path = f"{uuid.uuid4()}_{file_name}"
         storage_path = await self.provider.upload_file(content, dest_path, content_type)
         
+        ext = file_name.rsplit(".", 1)[-1] if "." in file_name else ""
+        import hashlib
+        checksum_hex = hashlib.sha256(content).hexdigest()
         file_record = File(
             id=uuid.uuid4(),
-            filename=file_name,
+            stored_filename=dest_path,
             original_filename=file_name,
-            file_path=storage_path,
-            file_size=len(content),
+            file_extension=ext,
             mime_type=content_type,
-            uploaded_by=uploaded_by,
+            file_size=len(content),
+            storage_path=storage_path,
+            uploaded_by_id=uploaded_by if uploaded_by else uuid.UUID("00000000-0000-0000-0000-000000000000"),
+            checksum=checksum_hex,
         )
         self.session.add(file_record)
         await self.session.commit()
@@ -322,14 +327,20 @@ class BackupService:
 
 class DeploymentService:
     async def get_health_status(self) -> Dict[str, Any]:
-        return {
-            "status": "Healthy",
-            "version": "v1.3.0",
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "checks": {
-                "database": {"status": "UP", "response_time_ms": 1.2},
-                "redis": {"status": "UP", "response_time_ms": 0.8},
-                "celery": {"status": "UP", "active_workers": 2},
-                "storage": {"status": "UP", "provider": "Local"},
-            },
+        from app.core.config import settings
+        checks = {
+            "database": {"status": "UP", "response_time_ms": 1.2},
+            "redis": {"status": "UP", "response_time_ms": 0.8},
+            "celery": {"status": "UP", "active_workers": 2},
+            "storage": {"status": "UP", "provider": "Local"},
         }
+        return {
+            "status": "healthy",
+            "app_name": settings.PROJECT_NAME,
+            "version": settings.VERSION,
+            "environment": settings.ENV,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "components": checks,
+            "checks": checks,
+        }
+

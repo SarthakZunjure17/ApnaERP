@@ -142,15 +142,12 @@ async def helper_setup_test_accounts(session: AsyncSession):
     customer = Customer(
         customer_code=f"CUST-OPS-{uuid.uuid4().hex[:4]}",
         name="Acme Corp Ops",
-        contact_person="John Doe",
         email=f"acme-{uuid.uuid4().hex[:4]}@example.com",
         phone="555-0199",
     )
     supplier = Supplier(
         code=f"SUPP-OPS-{uuid.uuid4().hex[:4]}",
         name="Global Vendor Ops",
-        contact_person="Jane Smith",
-        email=f"vendor-{uuid.uuid4().hex[:4]}@example.com",
     )
     session.add_all([customer, supplier])
     await session.flush()
