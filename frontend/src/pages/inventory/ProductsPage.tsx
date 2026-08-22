@@ -12,7 +12,6 @@ import {
   Filter,
   MapPin,
   TrendingUp,
-  ChevronRight,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -62,23 +61,28 @@ export const ProductsPage: React.FC = () => {
 
   const loadData = async () => {
     setIsLoading(true);
-    const [metricData, prodData, catData, whData] = await Promise.all([
-      inventoryService.getMetrics(),
-      inventoryService.getProducts({
-        search: searchQuery,
-        category: selectedCategory,
-        warehouse: selectedWarehouse,
-        stockLevel: selectedStockLevel,
-      }),
-      inventoryService.getCategories(),
-      inventoryService.getWarehouses(),
-    ]);
+    try {
+      const [metricData, prodData, catData, whData] = await Promise.all([
+        inventoryService.getMetrics(),
+        inventoryService.getProducts({
+          search: searchQuery,
+          category: selectedCategory,
+          warehouse: selectedWarehouse,
+          stockLevel: selectedStockLevel,
+        }),
+        inventoryService.getCategories(),
+        inventoryService.getWarehouses(),
+      ]);
 
-    setMetrics(metricData);
-    setProducts(prodData.items);
-    setCategories(catData);
-    setWarehouses(whData);
-    setIsLoading(false);
+      setMetrics(metricData);
+      setProducts(prodData.items);
+      setCategories(catData);
+      setWarehouses(whData);
+    } catch (err) {
+      console.error('Failed to load inventory data', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -500,7 +504,7 @@ export const ProductsPage: React.FC = () => {
                 placeholder="e.g. AU-WH-005"
                 value={newProductForm.sku}
                 onChange={(e) => setNewProductForm({ ...newProductForm, sku: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               />
             </div>
 
@@ -511,7 +515,7 @@ export const ProductsPage: React.FC = () => {
               <select
                 value={newProductForm.category}
                 onChange={(e) => setNewProductForm({ ...newProductForm, category: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               >
                 <option value="Electronics">Electronics</option>
                 <option value="Furniture">Furniture</option>
@@ -531,7 +535,7 @@ export const ProductsPage: React.FC = () => {
               placeholder="e.g. Studio Pro Studio Monitor"
               value={newProductForm.name}
               onChange={(e) => setNewProductForm({ ...newProductForm, name: e.target.value })}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
             />
           </div>
 
@@ -547,7 +551,7 @@ export const ProductsPage: React.FC = () => {
                 onChange={(e) =>
                   setNewProductForm({ ...newProductForm, on_hand: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               />
             </div>
 
@@ -563,7 +567,7 @@ export const ProductsPage: React.FC = () => {
                 onChange={(e) =>
                   setNewProductForm({ ...newProductForm, unit_price: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               />
             </div>
           </div>
@@ -575,7 +579,7 @@ export const ProductsPage: React.FC = () => {
             <select
               value={newProductForm.warehouse}
               onChange={(e) => setNewProductForm({ ...newProductForm, warehouse: e.target.value })}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
             >
               <option value="Main Hub (NY)">Main Hub (NY)</option>
               <option value="West Coast (CA)">West Coast (CA)</option>
