@@ -113,14 +113,51 @@ const MOCK_WAREHOUSES: WarehouseOption[] = [
   { id: 'wh-4', name: 'Central Logistics (TX)', code: 'TX-03', location: 'Dallas, TX' },
 ];
 
+function calculateDynamicMetrics(): InventoryMetrics {
+  const total = MOCK_PRODUCTS.length;
+  const lowStock = MOCK_PRODUCTS.filter((p) => p.status === 'Low Stock' || p.status === 'Out of Stock');
+  const catCountMap: Record<string, number> = {};
+  lowStock.forEach((p) => {
+    catCountMap[p.category] = (catCountMap[p.category] || 0) + 1;
+  });
+
+  const lowStockCategories = Object.entries(catCountMap).map(([name, count]) => ({
+    name,
+    count,
+  }));
+
+  const totalValueNum = MOCK_PRODUCTS.reduce((sum, p) => sum + p.on_hand * p.unit_price, 0);
+  const formattedVal = totalValueNum >= 1000000 
+    ? `$${(totalValueNum / 1000000).toFixed(1)}M`
+    : `$${(totalValueNum / 1000).toFixed(1)}K`;
+
+  return {
+    total_skus: {
+      value: String(total),
+      trend: '+2.4%',
+      progress_percentage: Math.min(100, Math.round((total / 20) * 100)),
+    },
+    low_stock_alerts: {
+      count: lowStock.length,
+      categories: lowStockCategories.length > 0 ? lowStockCategories : [{ name: 'Electronics', count: 1 }],
+    },
+    total_stock_value: {
+      value: formattedVal,
+      sparkline_points: [12, 14, 18, 16, 22, 28, 26, 32, 30, 36, 40],
+    },
+  };
+}
+
 export const inventoryService = {
   getMetrics: async (): Promise<InventoryMetrics> => {
     try {
-      const response = await api.get('/inventory/analytics/kpis');
-      if (response.data) return response.data;
-      return MOCK_METRICS;
+      const response = await api.get('/api/v1/inventory/analytics/kpis');
+      if (response.data && typeof response.data === 'object' && response.data.total_skus) {
+        return response.data;
+      }
+      return calculateDynamicMetrics();
     } catch {
-      return MOCK_METRICS;
+      return calculateDynamicMetrics();
     }
   },
 
@@ -136,8 +173,8 @@ export const inventoryService = {
       if (filters?.category && filters.category !== 'All Categories') params.category = filters.category;
       if (filters?.warehouse && filters.warehouse !== 'All Warehouses') params.warehouse = filters.warehouse;
 
-      const response = await api.get('/inventory/products', { params });
-      if (response.data && Array.isArray(response.data.items)) {
+      const response = await api.get('/api/v1/inventory/products', { params });
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items)) {
         return response.data;
       }
       if (response.data && Array.isArray(response.data)) {
@@ -150,13 +187,17 @@ export const inventoryService = {
   },
 
   getProductById: async (id: string): Promise<ProductItem | null> => {
-    const found = MOCK_PRODUCTS.find((p) => p.id === id || p.sku === id);
+    if (!id) return null;
+    const cleanId = id.trim().toLowerCase();
+    const found = MOCK_PRODUCTS.find(
+      (p) => p.id.toLowerCase() === cleanId || p.sku.toLowerCase() === cleanId
+    );
     return found || null;
   },
 
   getCategories: async (): Promise<CategoryOption[]> => {
     try {
-      const response = await api.get('/inventory/categories');
+      const response = await api.get('/api/v1/inventory/categories');
       if (response.data && Array.isArray(response.data)) return response.data;
       return MOCK_CATEGORIES;
     } catch {
@@ -166,7 +207,7 @@ export const inventoryService = {
 
   getWarehouses: async (): Promise<WarehouseOption[]> => {
     try {
-      const response = await api.get('/inventory/warehouses');
+      const response = await api.get('/api/v1/inventory/warehouses');
       if (response.data && Array.isArray(response.data)) return response.data;
       return MOCK_WAREHOUSES;
     } catch {
@@ -175,17 +216,10 @@ export const inventoryService = {
   },
 
   createProduct: async (productData: Partial<ProductItem>): Promise<ProductItem> => {
-    try {
-      const response = await api.post('/inventory/products', productData);
-      if (response.data && response.data.id) return response.data;
-    } catch {
-      // Fallback
-    }
-
-    const onHand = productData.on_hand || 0;
-    const committed = productData.committed || 0;
+    const onHand = Number(productData.on_hand) || 0;
+    const committed = Number(productData.committed) || 0;
     const available = Math.max(0, onHand - committed);
-    const unitPrice = productData.unit_price || 0;
+    const unitPrice = Number(productData.unit_price) || 0;
 
     let status: ProductItem['status'] = 'In Stock';
     if (available === 0) {
@@ -212,12 +246,23 @@ export const inventoryService = {
       barcode: productData.barcode || `89012345${Math.floor(10000 + Math.random() * 90000)}`,
     };
 
+    try {
+      const response = await api.post('/api/v1/inventory/products', newProduct);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        MOCK_PRODUCTS.unshift(response.data);
+        return response.data;
+      }
+    } catch {
+      // Fallback
+    }
+
     MOCK_PRODUCTS.unshift(newProduct);
     return newProduct;
   },
 
   deleteProduct: async (id: string): Promise<boolean> => {
-    const idx = MOCK_PRODUCTS.findIndex((p) => p.id === id);
+    const cleanId = id.trim().toLowerCase();
+    const idx = MOCK_PRODUCTS.findIndex((p) => p.id.toLowerCase() === cleanId || p.sku.toLowerCase() === cleanId);
     if (idx !== -1) {
       MOCK_PRODUCTS.splice(idx, 1);
       return true;
@@ -242,13 +287,13 @@ function filterMockProducts(filters?: {
         p.barcode?.includes(q)
     );
   }
-  if (filters?.category && filters.category !== 'All Categories') {
+  if (filters?.category && filters.category !== 'All Categories' && filters.category !== 'All') {
     items = items.filter((p) => p.category.toLowerCase() === filters.category!.toLowerCase());
   }
-  if (filters?.warehouse && filters.warehouse !== 'All Warehouses') {
+  if (filters?.warehouse && filters.warehouse !== 'All Warehouses' && filters.warehouse !== 'All') {
     items = items.filter((p) => p.warehouse.toLowerCase() === filters.warehouse!.toLowerCase());
   }
-  if (filters?.stockLevel && filters.stockLevel !== 'Stock Level: All') {
+  if (filters?.stockLevel && filters.stockLevel !== 'Stock Level: All' && filters.stockLevel !== 'All') {
     items = items.filter((p) => p.status.toLowerCase() === filters.stockLevel!.toLowerCase());
   }
   return { items, total: items.length };

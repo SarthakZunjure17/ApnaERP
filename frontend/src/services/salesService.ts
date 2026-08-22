@@ -303,8 +303,8 @@ export const salesService = {
     filters?: SalesOrderFilters
   ): Promise<{ items: SalesOrderListItem[]; total: number; metrics: SalesMetrics }> => {
     try {
-      const response = await api.get('/sales/orders', { params: filters });
-      if (response.data && Array.isArray(response.data.items)) {
+      const response = await api.get('/api/v1/sales/orders', { params: filters });
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items)) {
         return response.data;
       }
       return filterMockSalesOrders(filters);
@@ -313,10 +313,12 @@ export const salesService = {
     }
   },
 
-  getSalesOrderById: async (id: string): Promise<SalesOrderDetail> => {
+  getSalesOrderById: async (id: string): Promise<SalesOrderDetail | null> => {
     try {
-      const response = await api.get(`/sales/orders/${id}`);
-      if (response.data) return response.data;
+      const response = await api.get(`/api/v1/sales/orders/${id}`);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return response.data;
+      }
       return getMockSalesDetailById(id);
     } catch {
       return getMockSalesDetailById(id);
@@ -441,24 +443,38 @@ export const salesService = {
     id: string,
     status: SalesOrderStatus,
     fulfillmentStatus?: SalesOrderDetail['fulfillment_status']
-  ): Promise<SalesOrderDetail> => {
+  ): Promise<SalesOrderDetail | null> => {
+    try {
+      const response = await api.put(`/api/v1/sales/orders/${id}/status`, { status, fulfillmentStatus });
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return response.data;
+      }
+    } catch {
+      // Continue local update
+    }
+
     const detail = getMockSalesDetailById(id);
+    if (!detail) return null;
     detail.status = status;
     if (fulfillmentStatus) detail.fulfillment_status = fulfillmentStatus;
 
     // Also update in list
-    const foundListItem = MOCK_SALES_ORDERS_LIST.find((o) => o.id === id || o.order_number === id);
+    const cleanId = id.trim().toLowerCase();
+    const foundListItem = MOCK_SALES_ORDERS_LIST.find(
+      (o) => o.id.toLowerCase() === cleanId || o.order_number.toLowerCase() === cleanId
+    );
     if (foundListItem) {
       foundListItem.status = status;
       if (fulfillmentStatus) foundListItem.fulfillment_status = fulfillmentStatus;
     }
 
-    MOCK_SALES_DETAILS_MAP[id] = detail;
+    MOCK_SALES_DETAILS_MAP[detail.id] = detail;
     return detail;
   },
 
-  addComment: async (id: string, content: string): Promise<SalesOrderDetail> => {
+  addComment: async (id: string, content: string): Promise<SalesOrderDetail | null> => {
     const detail = getMockSalesDetailById(id);
+    if (!detail) return null;
     const newComment = {
       id: `c-${Date.now()}`,
       author_name: 'ERP Admin',
@@ -467,7 +483,7 @@ export const salesService = {
       is_system: false,
     };
     detail.comments.unshift(newComment);
-    MOCK_SALES_DETAILS_MAP[id] = detail;
+    MOCK_SALES_DETAILS_MAP[detail.id] = detail;
     return detail;
   },
 };
@@ -485,19 +501,19 @@ function filterMockSalesOrders(filters?: SalesOrderFilters) {
     );
   }
 
-  if (filters?.customer && filters.customer !== 'All Customers') {
+  if (filters?.customer && filters.customer !== 'All Customers' && filters.customer !== 'All') {
     items = items.filter((o) => o.customer_name.toLowerCase() === filters.customer!.toLowerCase());
   }
 
-  if (filters?.region && filters.region !== 'All Regions') {
+  if (filters?.region && filters.region !== 'All Regions' && filters.region !== 'All') {
     items = items.filter((o) => o.region.toLowerCase() === filters.region!.toLowerCase());
   }
 
-  if (filters?.fulfillment && filters.fulfillment !== 'All Fulfillment') {
+  if (filters?.fulfillment && filters.fulfillment !== 'All Fulfillment' && filters.fulfillment !== 'All') {
     items = items.filter((o) => o.fulfillment_status.toLowerCase() === filters.fulfillment!.toLowerCase());
   }
 
-  if (filters?.paymentStatus && filters.paymentStatus !== 'All Payment') {
+  if (filters?.paymentStatus && filters.paymentStatus !== 'All Payment' && filters.paymentStatus !== 'All') {
     items = items.filter((o) => o.payment_status.toLowerCase() === filters.paymentStatus!.toLowerCase());
   }
 
@@ -523,12 +539,20 @@ function filterMockSalesOrders(filters?: SalesOrderFilters) {
   };
 }
 
-function getMockSalesDetailById(id: string): SalesOrderDetail {
-  if (MOCK_SALES_DETAILS_MAP[id]) {
-    return MOCK_SALES_DETAILS_MAP[id];
+function getMockSalesDetailById(id: string): SalesOrderDetail | null {
+  if (!id) return null;
+  const cleanId = id.trim().toLowerCase();
+
+  // Direct match in map
+  for (const [key, detail] of Object.entries(MOCK_SALES_DETAILS_MAP)) {
+    if (key.toLowerCase() === cleanId || detail.order_number.toLowerCase() === cleanId) {
+      return detail;
+    }
   }
 
-  const foundInList = MOCK_SALES_ORDERS_LIST.find((o) => o.id === id || o.order_number === id);
+  const foundInList = MOCK_SALES_ORDERS_LIST.find(
+    (o) => o.id.toLowerCase() === cleanId || o.order_number.toLowerCase() === cleanId
+  );
   if (foundInList) {
     const detail: SalesOrderDetail = {
       id: foundInList.id,
@@ -603,10 +627,10 @@ function getMockSalesDetailById(id: string): SalesOrderDetail {
         },
       ],
     };
-    MOCK_SALES_DETAILS_MAP[id] = detail;
+    MOCK_SALES_DETAILS_MAP[foundInList.id] = detail;
     return detail;
   }
 
-  // Fallback to first order
-  return MOCK_SALES_DETAILS_MAP['so-1001'];
+  // Return null if not found
+  return null;
 }

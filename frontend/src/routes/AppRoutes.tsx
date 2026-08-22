@@ -66,8 +66,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="orders" element={<Navigate to="/sales/orders" replace />} />
 
         {/* FINANCE */}
+        <Route path="finance" element={<Navigate to="/finance/accounts" replace />} />
         <Route path="finance/accounts" element={<ModulePlaceholderPage />} />
         <Route path="finance/reports" element={<ModulePlaceholderPage />} />
+        <Route path="reports" element={<Navigate to="/finance/reports" replace />} />
 
         {/* 404 inside layout */}
         <Route path="*" element={<NotFoundPage />} />

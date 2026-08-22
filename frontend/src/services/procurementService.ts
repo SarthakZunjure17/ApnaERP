@@ -233,8 +233,8 @@ export const procurementService = {
     dateRange?: string;
   }): Promise<{ items: PurchaseOrderListItem[]; total: number; totalPendingAmount: string }> => {
     try {
-      const response = await api.get('/procurement/orders', { params: filters });
-      if (response.data && Array.isArray(response.data.items)) {
+      const response = await api.get('/api/v1/procurement/orders', { params: filters });
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items)) {
         return response.data;
       }
       return filterMockOrders(filters);
@@ -243,10 +243,12 @@ export const procurementService = {
     }
   },
 
-  getPurchaseOrderById: async (id: string): Promise<PurchaseOrderDetail> => {
+  getPurchaseOrderById: async (id: string): Promise<PurchaseOrderDetail | null> => {
     try {
-      const response = await api.get(`/procurement/orders/${id}`);
-      if (response.data) return response.data;
+      const response = await api.get(`/api/v1/procurement/orders/${id}`);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return response.data;
+      }
       return getMockPoDetailById(id);
     } catch {
       return getMockPoDetailById(id);
@@ -345,36 +347,45 @@ export const procurementService = {
     return newListItem;
   },
 
-  approvePurchaseOrder: async (id: string): Promise<PurchaseOrderDetail> => {
+  approvePurchaseOrder: async (id: string): Promise<PurchaseOrderDetail | null> => {
     try {
-      const response = await api.post(`/procurement/orders/${id}/approve`);
-      if (response.data) return response.data;
+      const response = await api.post(`/api/v1/procurement/orders/${id}/approve`);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return response.data;
+      }
     } catch {
       // Continue to local update
     }
 
     const po = getMockPoDetailById(id);
+    if (!po) return null;
     po.status = 'Approved';
     
     // Also update in list
-    const foundListItem = MOCK_PO_LIST.find((p) => p.id === id || p.po_number === id);
+    const cleanId = id.trim().toLowerCase();
+    const foundListItem = MOCK_PO_LIST.find(
+      (p) => p.id.toLowerCase() === cleanId || p.po_number.toLowerCase() === cleanId
+    );
     if (foundListItem) {
       foundListItem.status = 'Approved';
     }
 
-    MOCK_PO_DETAILS_MAP[id] = po;
+    MOCK_PO_DETAILS_MAP[po.id] = po;
     return po;
   },
 
-  rejectPurchaseOrder: async (id: string, reason?: string): Promise<PurchaseOrderDetail> => {
+  rejectPurchaseOrder: async (id: string, reason?: string): Promise<PurchaseOrderDetail | null> => {
     try {
-      const response = await api.post(`/procurement/orders/${id}/reject`, { reason });
-      if (response.data) return response.data;
+      const response = await api.post(`/api/v1/procurement/orders/${id}/reject`, { reason });
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return response.data;
+      }
     } catch {
       // Continue to local update
     }
 
     const po = getMockPoDetailById(id);
+    if (!po) return null;
     po.status = 'Rejected';
     if (reason) {
       po.comments.unshift({
@@ -385,17 +396,21 @@ export const procurementService = {
       });
     }
 
-    const foundListItem = MOCK_PO_LIST.find((p) => p.id === id || p.po_number === id);
+    const cleanId = id.trim().toLowerCase();
+    const foundListItem = MOCK_PO_LIST.find(
+      (p) => p.id.toLowerCase() === cleanId || p.po_number.toLowerCase() === cleanId
+    );
     if (foundListItem) {
       foundListItem.status = 'Rejected';
     }
 
-    MOCK_PO_DETAILS_MAP[id] = po;
+    MOCK_PO_DETAILS_MAP[po.id] = po;
     return po;
   },
 
-  addComment: async (id: string, content: string): Promise<PurchaseOrderDetail> => {
+  addComment: async (id: string, content: string): Promise<PurchaseOrderDetail | null> => {
     const po = getMockPoDetailById(id);
+    if (!po) return null;
     const newComment = {
       id: `c-${Date.now()}`,
       author_name: 'ERP Admin',
@@ -404,14 +419,14 @@ export const procurementService = {
       is_system: false,
     };
     po.comments.unshift(newComment);
-    MOCK_PO_DETAILS_MAP[id] = po;
+    MOCK_PO_DETAILS_MAP[po.id] = po;
     return po;
   },
 };
 
 function filterMockOrders(filters?: { supplier?: string; status?: string }) {
   let items = [...MOCK_PO_LIST];
-  if (filters?.supplier && filters.supplier !== 'All Suppliers') {
+  if (filters?.supplier && filters.supplier !== 'All Suppliers' && filters.supplier !== 'All') {
     items = items.filter((po) => po.supplier_name.toLowerCase() === filters.supplier!.toLowerCase());
   }
   if (filters?.status && filters.status !== 'All' && filters.status !== 'All Statuses') {
@@ -429,12 +444,20 @@ function filterMockOrders(filters?: { supplier?: string; status?: string }) {
   };
 }
 
-function getMockPoDetailById(id: string): PurchaseOrderDetail {
-  if (MOCK_PO_DETAILS_MAP[id]) {
-    return MOCK_PO_DETAILS_MAP[id];
+function getMockPoDetailById(id: string): PurchaseOrderDetail | null {
+  if (!id) return null;
+  const cleanId = id.trim().toLowerCase();
+
+  // Direct match in map (case-insensitive keys or po_number)
+  for (const [key, detail] of Object.entries(MOCK_PO_DETAILS_MAP)) {
+    if (key.toLowerCase() === cleanId || detail.po_number.toLowerCase() === cleanId) {
+      return detail;
+    }
   }
 
-  const foundInList = MOCK_PO_LIST.find((p) => p.id === id || p.po_number === id);
+  const foundInList = MOCK_PO_LIST.find(
+    (p) => p.id.toLowerCase() === cleanId || p.po_number.toLowerCase() === cleanId
+  );
   if (foundInList) {
     const po: PurchaseOrderDetail = {
       id: foundInList.id,
@@ -495,10 +518,10 @@ function getMockPoDetailById(id: string): PurchaseOrderDetail {
         },
       ],
     };
-    MOCK_PO_DETAILS_MAP[id] = po;
+    MOCK_PO_DETAILS_MAP[foundInList.id] = po;
     return po;
   }
 
-  // Fallback to first PO
-  return MOCK_PO_DETAILS_MAP['po-1042'];
+  // Return null if not found
+  return null;
 }

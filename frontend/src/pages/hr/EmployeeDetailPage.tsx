@@ -59,13 +59,20 @@ export const EmployeeDetailPage: React.FC = () => {
 
   const loadEmployee = async () => {
     setIsLoading(true);
-    const data = await hrService.getEmployeeById(id || 'emp-001');
+    if (!id) {
+      setProfile(null);
+      setIsLoading(false);
+      return;
+    }
+    const data = await hrService.getEmployeeById(id);
     setProfile(data);
-    setEditForm({
-      phone: data.phone,
-      home_address: data.home_address,
-      blood_group: data.blood_group,
-    });
+    if (data) {
+      setEditForm({
+        phone: data.phone || '',
+        home_address: data.home_address || '',
+        blood_group: data.blood_group || '',
+      });
+    }
     setIsLoading(false);
   };
 
@@ -80,19 +87,23 @@ export const EmployeeDetailPage: React.FC = () => {
     e.preventDefault();
     if (!profile) return;
     const updated = await hrService.updateEmployeeProfile(profile.id, editForm);
-    setProfile(updated);
-    setIsEditModalOpen(false);
-    success('Profile Updated', 'Employee details saved successfully.');
+    if (updated) {
+      setProfile(updated);
+      setIsEditModalOpen(false);
+      success('Profile Updated', 'Employee details saved successfully.');
+    }
   };
 
   const handleAddSkill = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || !newSkillName.trim()) return;
     const updated = await hrService.addSkill(profile.id, newSkillName.trim());
-    setProfile(updated);
-    setNewSkillName('');
-    setIsAddSkillModalOpen(false);
-    success('Skill Added', `${newSkillName} added to certifications.`);
+    if (updated) {
+      setProfile(updated);
+      setNewSkillName('');
+      setIsAddSkillModalOpen(false);
+      success('Skill Added', `${newSkillName} added to certifications.`);
+    }
   };
 
   const handleResetAuth = () => {
@@ -100,8 +111,44 @@ export const EmployeeDetailPage: React.FC = () => {
     success('Auth Reset', 'Password reset instructions sent to employee email.');
   };
 
-  if (isLoading || !profile) {
+  if (isLoading) {
     return <LoadingState message="Loading employee profile..." />;
+  }
+
+  if (!profile) {
+    return (
+      <div className="space-y-4 sm:space-y-5 animate-fade-in pb-10">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Link to="/workforce/employees" className="hover:text-brand-600 transition-colors">
+            Workforce
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <Link to="/workforce/employees" className="hover:text-brand-600 transition-colors">
+            Employees
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <span className="font-semibold text-slate-700 dark:text-slate-200">Not Found</span>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-4 border border-rose-100 dark:border-rose-900/40">
+            <User className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Employee Not Found</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs mx-auto">
+            No workforce profile was found matching ID <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">"{id}"</span>.
+          </p>
+          <div className="mt-6">
+            <Link
+              to="/workforce/employees"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+            >
+              Back to Employee Directory
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -416,16 +463,16 @@ export const EmployeeDetailPage: React.FC = () => {
                   </span>
                   <div className="flex items-center gap-2.5 mt-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                     <img
-                      src={profile.reporting_manager.avatar_url}
-                      alt={profile.reporting_manager.name}
+                      src={profile.reporting_manager?.avatar_url || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'}
+                      alt={profile.reporting_manager?.name || 'Manager'}
                       className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-white"
                     />
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-white leading-tight">
-                        {profile.reporting_manager.name}
+                        {profile.reporting_manager?.name || 'Priya Sharma'}
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                        {profile.reporting_manager.designation}
+                        {profile.reporting_manager?.designation || 'Director of Engineering'}
                       </p>
                     </div>
                   </div>
@@ -448,7 +495,7 @@ export const EmployeeDetailPage: React.FC = () => {
                 {/* Circular Gauge */}
                 <div className="flex justify-center py-1">
                   <CircularProgress
-                    percentage={profile.attendance_ytd.percentage}
+                    percentage={profile.attendance_ytd?.percentage ?? 92}
                     label="PRESENT"
                     size={105}
                     strokeWidth={8}
@@ -460,7 +507,7 @@ export const EmployeeDetailPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-2.5 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
                   <span className="text-lg font-bold text-slate-900 dark:text-white block leading-tight">
-                    {profile.attendance_ytd.leave_balance}
+                    {profile.attendance_ytd?.leave_balance ?? 14}
                   </span>
                   <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5 block">
                     Leave Balance
@@ -469,7 +516,7 @@ export const EmployeeDetailPage: React.FC = () => {
 
                 <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-center">
                   <span className="text-lg font-bold text-slate-900 dark:text-white block leading-tight">
-                    {profile.attendance_ytd.sick_taken}
+                    {profile.attendance_ytd?.sick_taken ?? 3}
                   </span>
                   <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5 block">
                     Sick Taken
@@ -493,7 +540,7 @@ export const EmployeeDetailPage: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {profile.skills.map((skill) => {
+                {(profile.skills || []).map((skill) => {
                   if (skill.isCertified) {
                     return (
                       <span
@@ -538,7 +585,7 @@ export const EmployeeDetailPage: React.FC = () => {
                 </div>
 
                 <p className="text-xs text-blue-100 leading-relaxed">
-                  {profile.upcoming_review.description}
+                  {profile.upcoming_review?.description || 'Annual performance review scheduled.'}
                 </p>
               </div>
 
@@ -547,7 +594,7 @@ export const EmployeeDetailPage: React.FC = () => {
                   Scheduled Date
                 </span>
                 <span className="text-xs font-bold text-white mt-0.5 block">
-                  {profile.upcoming_review.scheduled_date}
+                  {profile.upcoming_review?.scheduled_date || '15 Dec 2024'}
                 </span>
               </div>
             </div>

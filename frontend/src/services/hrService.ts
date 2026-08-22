@@ -264,9 +264,12 @@ export const hrService = {
       if (search) params.search = search;
       if (department && department !== 'All') params.department = department;
 
-      const response = await api.get('/employees', { params });
+      const response = await api.get('/api/v1/employees', { params });
       if (response.data && Array.isArray(response.data)) {
         return response.data;
+      }
+      if (response.data && Array.isArray(response.data.items)) {
+        return response.data.items;
       }
       return filterMockList(search, department);
     } catch {
@@ -274,10 +277,10 @@ export const hrService = {
     }
   },
 
-  getEmployeeById: async (id: string): Promise<EmployeeProfile> => {
+  getEmployeeById: async (id: string): Promise<EmployeeProfile | null> => {
     try {
-      const response = await api.get(`/employees/${id}`);
-      if (response.data) {
+      const response = await api.get(`/api/v1/employees/${id}`);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
         return response.data;
       }
       return getMockProfileById(id);
@@ -289,20 +292,29 @@ export const hrService = {
   updateEmployeeProfile: async (
     id: string,
     payload: Partial<EmployeeProfile>
-  ): Promise<EmployeeProfile> => {
+  ): Promise<EmployeeProfile | null> => {
     try {
-      const response = await api.put(`/employees/${id}`, payload);
-      return response.data;
+      const response = await api.put(`/api/v1/employees/${id}`, payload);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return response.data;
+      }
+      const existing = getMockProfileById(id);
+      if (!existing) return null;
+      const updated = { ...existing, ...payload };
+      MOCK_PROFILES_MAP[id] = updated;
+      return updated;
     } catch {
       const existing = getMockProfileById(id);
+      if (!existing) return null;
       const updated = { ...existing, ...payload };
       MOCK_PROFILES_MAP[id] = updated;
       return updated;
     }
   },
 
-  addSkill: async (employeeId: string, skillName: string): Promise<EmployeeProfile> => {
+  addSkill: async (employeeId: string, skillName: string): Promise<EmployeeProfile | null> => {
     const existing = getMockProfileById(employeeId);
+    if (!existing) return null;
     const newSkill = {
       id: String(Date.now()),
       name: skillName,
@@ -394,13 +406,21 @@ function filterMockList(search?: string, department?: string): EmployeeListItem[
   return filtered;
 }
 
-function getMockProfileById(id: string): EmployeeProfile {
-  if (MOCK_PROFILES_MAP[id]) {
-    return MOCK_PROFILES_MAP[id];
+function getMockProfileById(id: string): EmployeeProfile | null {
+  if (!id) return null;
+  const cleanId = id.trim().toLowerCase();
+
+  // Direct match in profiles map
+  for (const [key, profile] of Object.entries(MOCK_PROFILES_MAP)) {
+    if (key.toLowerCase() === cleanId || profile.employee_code.toLowerCase() === cleanId) {
+      return profile;
+    }
   }
 
   // If ID matches an item from employee list, generate matching profile
-  const foundInList = MOCK_EMPLOYEES_LIST.find((e) => e.id === id || e.employee_code === id);
+  const foundInList = MOCK_EMPLOYEES_LIST.find(
+    (e) => e.id.toLowerCase() === cleanId || e.employee_code.toLowerCase() === cleanId
+  );
   if (foundInList) {
     const names = foundInList.full_name.split(' ');
     const profile: EmployeeProfile = {
@@ -440,10 +460,10 @@ function getMockProfileById(id: string): EmployeeProfile {
         scheduled_date: '15 Dec 2023',
       },
     };
-    MOCK_PROFILES_MAP[id] = profile;
+    MOCK_PROFILES_MAP[foundInList.id] = profile;
     return profile;
   }
 
-  // Default to Amit Patel if not found
-  return MOCK_PROFILES_MAP['emp-001'];
+  // Return null if employee ID does not exist
+  return null;
 }

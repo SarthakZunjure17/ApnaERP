@@ -43,7 +43,18 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 };
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If response data is an HTML document (SPA fallback on invalid/missing route), reject
+    if (
+      typeof response.data === 'string' &&
+      (response.data.includes('<!doctype html>') ||
+        response.data.includes('<!DOCTYPE html>') ||
+        response.data.includes('<html'))
+    ) {
+      return Promise.reject(new Error('Invalid response format: Received HTML instead of JSON'));
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 

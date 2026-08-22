@@ -16,6 +16,7 @@ import {
   User,
   AlertCircle,
   FileCheck,
+  FileText,
 } from 'lucide-react';
 import { procurementService } from '../../services/procurementService';
 import { PurchaseOrderDetail } from '../../types/procurement';
@@ -41,7 +42,12 @@ export const PurchaseOrderDetailPage: React.FC = () => {
 
   const loadPoDetail = async () => {
     setIsLoading(true);
-    const data = await procurementService.getPurchaseOrderById(id || 'po-1042');
+    if (!id) {
+      setPo(null);
+      setIsLoading(false);
+      return;
+    }
+    const data = await procurementService.getPurchaseOrderById(id);
     setPo(data);
     setIsLoading(false);
   };
@@ -49,16 +55,20 @@ export const PurchaseOrderDetailPage: React.FC = () => {
   const handleApprove = async () => {
     if (!po) return;
     const updated = await procurementService.approvePurchaseOrder(po.id);
-    setPo(updated);
-    success('Purchase Order Approved', `${po.po_number} has been approved successfully.`);
+    if (updated) {
+      setPo(updated);
+      success('Purchase Order Approved', `${po.po_number} has been approved successfully.`);
+    }
   };
 
   const handleReject = async () => {
     if (!po) return;
     const updated = await procurementService.rejectPurchaseOrder(po.id, rejectReason);
-    setPo(updated);
-    setIsRejectModalOpen(false);
-    success('Purchase Order Rejected', `${po.po_number} has been rejected.`);
+    if (updated) {
+      setPo(updated);
+      setIsRejectModalOpen(false);
+      success('Purchase Order Rejected', `${po.po_number} has been rejected.`);
+    }
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -66,13 +76,51 @@ export const PurchaseOrderDetailPage: React.FC = () => {
     if (!po || !newComment.trim()) return;
 
     const updated = await procurementService.addComment(po.id, newComment.trim());
-    setPo(updated);
-    setNewComment('');
-    success('Note Added', 'Internal comment recorded.');
+    if (updated) {
+      setPo(updated);
+      setNewComment('');
+      success('Note Added', 'Internal comment recorded.');
+    }
   };
 
-  if (isLoading || !po) {
+  if (isLoading) {
     return <LoadingState message="Loading purchase order..." />;
+  }
+
+  if (!po) {
+    return (
+      <div className="space-y-4 sm:space-y-5 animate-fade-in pb-10">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Link to="/procurement/orders" className="hover:text-brand-600 transition-colors">
+            Procurement
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <Link to="/procurement/orders" className="hover:text-brand-600 transition-colors">
+            Orders
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <span className="font-semibold text-slate-700 dark:text-slate-200">Not Found</span>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-4 border border-rose-100 dark:border-rose-900/40">
+            <FileText className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Purchase Order Not Found</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs mx-auto">
+            No purchase order was found matching ID <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">"{id}"</span>.
+          </p>
+          <div className="mt-6">
+            <Link
+              to="/procurement/orders"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+            >
+              Back to Purchase Orders
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

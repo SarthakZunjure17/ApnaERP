@@ -122,6 +122,8 @@ export const ProductsPage: React.FC = () => {
     });
 
     setProducts((prev) => [created, ...prev]);
+    const updatedMetrics = await inventoryService.getMetrics();
+    setMetrics(updatedMetrics);
     setIsNewProductModalOpen(false);
     setNewProductForm({
       sku: '',
@@ -137,6 +139,8 @@ export const ProductsPage: React.FC = () => {
   const handleDeleteProduct = async (id: string) => {
     await inventoryService.deleteProduct(id);
     setProducts((prev) => prev.filter((p) => p.id !== id));
+    const updatedMetrics = await inventoryService.getMetrics();
+    setMetrics(updatedMetrics);
     setSelectedProduct(null);
     success('Product Removed', 'Product has been deleted from the catalog.');
   };
