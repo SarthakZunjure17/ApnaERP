@@ -19,6 +19,7 @@ import { Pagination } from '../../components/common/Pagination';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { LoadingState } from '../../components/common/LoadingState';
+import { EmptyState } from '../../components/common/EmptyState';
 import { useToast } from '../../context/ToastContext';
 
 export const EmployeesPage: React.FC = () => {
@@ -28,6 +29,7 @@ export const EmployeesPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false);
+  const pageSize = 10;
 
   // New employee form
   const [newEmployee, setNewEmployee] = useState({
@@ -44,6 +46,7 @@ export const EmployeesPage: React.FC = () => {
   const { success } = useToast();
 
   useEffect(() => {
+    setCurrentPage(1);
     loadEmployees();
   }, [searchQuery, selectedDept]);
 
@@ -58,24 +61,26 @@ export const EmployeesPage: React.FC = () => {
     e.preventDefault();
     if (!newEmployee.first_name || !newEmployee.email) return;
 
-    const created: EmployeeListItem = {
-      id: `emp-${Date.now()}`,
-      employee_code: `EMP-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+    const created = await hrService.createEmployee({
       full_name: `${newEmployee.first_name} ${newEmployee.last_name}`,
       email: newEmployee.email,
       phone: newEmployee.phone || '+91 98765 00000',
       department: newEmployee.department,
       designation: newEmployee.designation,
-      status: 'Active',
-      join_date: 'Today',
       location: newEmployee.location,
-    };
+    });
 
-    setEmployees([created, ...employees]);
+    setEmployees((prev) => [created, ...prev]);
     setIsAddEmployeeModalOpen(false);
     success('Employee Created', `${created.full_name} has been added to workforce.`);
     navigate(`/workforce/employees/${created.id}`);
   };
+
+  const totalPages = Math.max(1, Math.ceil(employees.length / pageSize));
+  const paginatedEmployees = employees.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="space-y-4 sm:space-y-5 animate-fade-in pb-8">
@@ -132,6 +137,16 @@ export const EmployeesPage: React.FC = () => {
       {/* Employees Table */}
       {isLoading ? (
         <LoadingState message="Fetching employees list..." />
+      ) : employees.length === 0 ? (
+        <EmptyState
+          title="No employees found"
+          description={`No workforce records matching "${searchQuery || selectedDept}".`}
+          actionLabel="Clear Filters"
+          onAction={() => {
+            setSearchQuery('');
+            setSelectedDept('All');
+          }}
+        />
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs">
           <div className="overflow-x-auto">
@@ -147,7 +162,7 @@ export const EmployeesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
-                {employees.map((emp) => (
+                {paginatedEmployees.map((emp) => (
                   <tr
                     key={emp.id}
                     onClick={() => navigate(`/workforce/employees/${emp.id}`)}
@@ -213,9 +228,9 @@ export const EmployeesPage: React.FC = () => {
 
           <Pagination
             currentPage={currentPage}
-            totalPages={3}
+            totalPages={totalPages}
             totalEntries={employees.length}
-            pageSize={10}
+            pageSize={pageSize}
             onPageChange={(p) => setCurrentPage(p)}
           />
         </div>

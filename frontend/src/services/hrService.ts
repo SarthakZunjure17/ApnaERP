@@ -317,10 +317,10 @@ export const hrService = {
   },
 
   createEmployee: async (employee: Partial<EmployeeListItem>): Promise<EmployeeListItem> => {
-    const newId = `emp-00${MOCK_EMPLOYEES_LIST.length + 1}`;
+    const newId = employee.id || `emp-${Date.now()}`;
     const newEmp: EmployeeListItem = {
       id: newId,
-      employee_code: `EMP-2024-${String(MOCK_EMPLOYEES_LIST.length + 1).padStart(3, '0')}`,
+      employee_code: employee.employee_code || `EMP-2024-${String(MOCK_EMPLOYEES_LIST.length + 1).padStart(3, '0')}`,
       full_name: employee.full_name || 'New Employee',
       email: employee.email || 'employee@apnaerp.com',
       phone: employee.phone || '+91 90000 00000',
@@ -332,6 +332,47 @@ export const hrService = {
     };
 
     MOCK_EMPLOYEES_LIST.unshift(newEmp);
+
+    const names = newEmp.full_name.split(' ');
+    const newProfile: EmployeeProfile = {
+      id: newId,
+      employee_code: newEmp.employee_code,
+      first_name: names[0] || 'Employee',
+      last_name: names.slice(1).join(' ') || '',
+      full_name: newEmp.full_name,
+      email: newEmp.email,
+      phone: newEmp.phone,
+      avatar_url: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
+      designation: newEmp.designation,
+      department: newEmp.department,
+      location: newEmp.location,
+      status: newEmp.status,
+      hire_date: newEmp.join_date,
+      date_of_birth: '15 Jan 1992',
+      blood_group: 'O+',
+      home_address: `Building 12, Cyber City, ${newEmp.location}`,
+      reporting_manager: {
+        name: 'Priya Sharma',
+        designation: 'Director of Engineering',
+        avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      },
+      attendance_ytd: {
+        percentage: 100,
+        leave_balance: 18,
+        sick_taken: 0,
+      },
+      skills: [
+        { id: '1', name: newEmp.department, colorTheme: 'default' },
+        { id: '2', name: newEmp.designation, colorTheme: 'default' },
+        { id: '3', name: 'Workforce Onboarding', colorTheme: 'default' },
+      ],
+      upcoming_review: {
+        description: 'New hire 90-day onboarding review.',
+        scheduled_date: '15 Dec 2024',
+      },
+    };
+
+    MOCK_PROFILES_MAP[newId] = newProfile;
     return newEmp;
   },
 };

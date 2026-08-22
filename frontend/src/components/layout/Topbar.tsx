@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Menu,
   HelpCircle,
@@ -22,12 +23,14 @@ interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { info, success } = useToast();
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -49,13 +52,34 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
   }, []);
 
   const handleSearch = (query: string) => {
-    if (!query.trim()) return;
-    info('Global Search', `Searching for "${query}" across modules...`);
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+
+    if (q.includes('emp') || q.includes('user') || q.includes('amit') || q.includes('priya') || q.includes('staff')) {
+      navigate('/workforce/employees');
+      info('Search Result', `Navigated to Employees Directory matching "${query}"`);
+    } else if (q.includes('prod') || q.includes('sku') || q.includes('headphone') || q.includes('stock') || q.includes('item')) {
+      navigate('/inventory/products');
+      info('Search Result', `Navigated to Inventory Products matching "${query}"`);
+    } else if (q.includes('po') || q.includes('purch') || q.includes('suppl') || q.includes('acme')) {
+      navigate('/procurement/orders');
+      info('Search Result', `Navigated to Purchase Orders matching "${query}"`);
+    } else if (q.includes('sale') || q.includes('order') || q.includes('so-') || q.includes('cust')) {
+      navigate('/sales/orders');
+      info('Search Result', `Navigated to Sales Orders matching "${query}"`);
+    } else {
+      info('Global Search', `Searching for "${query}" across organization records...`);
+    }
   };
 
   const handleLogout = async () => {
     await logout();
     success('Logged Out', 'You have been safely signed out.');
+  };
+
+  const handleMarkAllRead = () => {
+    setHasUnread(false);
+    success('Notifications', 'All notifications marked as read.');
   };
 
   return (
@@ -100,7 +124,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
               aria-label="Notifications"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-brand-600 ring-2 ring-white dark:ring-slate-900" />
+              {hasUnread && (
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-brand-600 ring-2 ring-white dark:ring-slate-900" />
+              )}
             </button>
 
             {isNotificationsOpen && (
@@ -109,13 +135,16 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                     Notifications
                   </h4>
-                  <span className="text-[11px] font-semibold text-brand-600 cursor-pointer hover:underline">
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] font-semibold text-brand-600 cursor-pointer hover:underline"
+                  >
                     Mark all read
-                  </span>
+                  </button>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-72 overflow-y-auto mt-2">
                   <div className="py-2.5 flex items-start gap-3">
-                    <div className="w-2 h-2 mt-1.5 rounded-full bg-brand-600 shrink-0" />
+                    <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${hasUnread ? 'bg-brand-600' : 'bg-slate-300'}`} />
                     <div>
                       <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                         Purchase Order PO-2023-089 Pending
@@ -127,7 +156,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                     </div>
                   </div>
                   <div className="py-2.5 flex items-start gap-3">
-                    <div className="w-2 h-2 mt-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${hasUnread ? 'bg-amber-500' : 'bg-slate-300'}`} />
                     <div>
                       <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                         Low Stock Alert: SKU A-102
@@ -205,14 +234,26 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                 </div>
 
                 <div className="space-y-0.5">
-                  <div className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      navigate('/workforce/employees/emp-001');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-left"
+                  >
                     <UserIcon className="w-4 h-4 text-slate-400" />
                     <span>My Profile</span>
-                  </div>
-                  <div className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      info('Security Settings', 'Two-Factor Authentication and API keys are active.');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-left"
+                  >
                     <CheckCircle2 className="w-4 h-4 text-slate-400" />
                     <span>Account Security</span>
-                  </div>
+                  </button>
                 </div>
 
                 <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">

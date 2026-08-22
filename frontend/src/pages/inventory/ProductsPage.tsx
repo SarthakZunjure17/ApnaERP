@@ -12,6 +12,12 @@ import {
   Filter,
   MapPin,
   TrendingUp,
+  X,
+  Barcode,
+  DollarSign,
+  Boxes,
+  CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -25,6 +31,7 @@ import { Pagination } from '../../components/common/Pagination';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { LoadingState } from '../../components/common/LoadingState';
+import { EmptyState } from '../../components/common/EmptyState';
 import { useToast } from '../../context/ToastContext';
 
 export const ProductsPage: React.FC = () => {
@@ -44,6 +51,7 @@ export const ProductsPage: React.FC = () => {
 
   // Modal states
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [newProductForm, setNewProductForm] = useState({
     sku: '',
     name: '',
@@ -53,9 +61,11 @@ export const ProductsPage: React.FC = () => {
     unit_price: 150,
   });
 
+  const pageSize = 6;
   const { success, info } = useToast();
 
   useEffect(() => {
+    setCurrentPage(1);
     loadData();
   }, [searchQuery, selectedCategory, selectedWarehouse, selectedStockLevel]);
 
@@ -93,7 +103,8 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleSelectRow = (id: string) => {
+  const handleSelectRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedRows((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
@@ -110,14 +121,60 @@ export const ProductsPage: React.FC = () => {
       formatted_unit_price: `$${newProductForm.unit_price.toFixed(2)}`,
     });
 
-    setProducts([created, ...products]);
+    setProducts((prev) => [created, ...prev]);
     setIsNewProductModalOpen(false);
+    setNewProductForm({
+      sku: '',
+      name: '',
+      category: 'Electronics',
+      warehouse: 'Main Hub (NY)',
+      on_hand: 100,
+      unit_price: 150,
+    });
     success('Product Created', `${created.name} added to catalog.`);
   };
 
-  const handleExport = () => {
-    info('Export Started', 'Exporting inventory products to CSV...');
+  const handleDeleteProduct = async (id: string) => {
+    await inventoryService.deleteProduct(id);
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setSelectedProduct(null);
+    success('Product Removed', 'Product has been deleted from the catalog.');
   };
+
+  const handleExport = () => {
+    if (products.length === 0) {
+      info('No Products', 'There are no products to export.');
+      return;
+    }
+    const headers = ['SKU', 'Name', 'Category', 'Warehouse', 'On Hand', 'Committed', 'Available', 'Unit Price', 'Status'];
+    const rows = products.map((p) => [
+      `"${p.sku}"`,
+      `"${p.name}"`,
+      `"${p.category}"`,
+      `"${p.warehouse}"`,
+      p.on_hand,
+      p.committed,
+      p.available,
+      p.unit_price,
+      `"${p.status}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory_products_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    success('Export Completed', `Exported ${products.length} products to CSV.`);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+  const paginatedProducts = products.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // Sparkline data for stock value card
   const sparklineData = [
@@ -183,7 +240,7 @@ export const ProductsPage: React.FC = () => {
                 Total SKUs
               </span>
               <h3 className="text-2xl sm:text-[28px] font-bold text-slate-900 dark:text-white mt-1 leading-none">
-                {metrics.total_skus.value}
+                {products.length > 0 ? products.length : metrics.total_skus.value}
               </h3>
             </div>
 
@@ -215,7 +272,7 @@ export const ProductsPage: React.FC = () => {
                 Low Stock Alerts
               </span>
               <h3 className="text-2xl sm:text-[28px] font-bold text-rose-600 dark:text-rose-400 mt-1 leading-none">
-                {metrics.low_stock_alerts.count}
+                {products.filter((p) => p.status === 'Low Stock' || p.status === 'Out of Stock').length}
               </h3>
             </div>
 
@@ -336,7 +393,7 @@ export const ProductsPage: React.FC = () => {
           <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        {/* Filter button */}
+        {/* Reset Filter button */}
         <button
           onClick={() => {
             setSelectedCategory('All Categories');
@@ -354,6 +411,18 @@ export const ProductsPage: React.FC = () => {
       {/* Products Table (Matching Screenshot 2) */}
       {isLoading ? (
         <LoadingState message="Loading inventory products..." />
+      ) : products.length === 0 ? (
+        <EmptyState
+          title="No products found"
+          description={`No catalog items match "${searchQuery || selectedCategory}".`}
+          actionLabel="Reset Filters"
+          onAction={() => {
+            setSelectedCategory('All Categories');
+            setSelectedWarehouse('All Warehouses');
+            setSelectedStockLevel('Stock Level: All');
+            setSearchQuery('');
+          }}
+        />
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs">
           <div className="overflow-x-auto">
@@ -379,7 +448,7 @@ export const ProductsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
-                {products.map((item) => {
+                {paginatedProducts.map((item) => {
                   const isChecked = selectedRows.includes(item.id);
                   const isAvailableLow = item.available <= 5 && item.available > 0;
                   const isAvailableZero = item.available === 0;
@@ -387,16 +456,18 @@ export const ProductsPage: React.FC = () => {
                   return (
                     <tr
                       key={item.id}
-                      className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${
+                      onClick={() => setSelectedProduct(item)}
+                      className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors group cursor-pointer ${
                         isChecked ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
                       }`}
                     >
                       {/* Checkbox */}
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => handleSelectRow(item.id)}
+                          onChange={() => {}}
+                          onClick={(e) => handleSelectRow(item.id, e)}
                           className="rounded border-slate-300 dark:border-slate-700 text-brand-600 focus:ring-brand-500"
                         />
                       </td>
@@ -412,7 +483,7 @@ export const ProductsPage: React.FC = () => {
 
                       {/* Product Info (Title + SKU & Category badge) */}
                       <td className="py-3 px-3">
-                        <p className="font-semibold text-slate-900 dark:text-white">
+                        <p className="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors">
                           {item.name}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -478,13 +549,107 @@ export const ProductsPage: React.FC = () => {
           {/* Pagination */}
           <Pagination
             currentPage={currentPage}
-            totalPages={124}
-            totalEntries={1240}
-            pageSize={4}
+            totalPages={totalPages}
+            totalEntries={products.length}
+            pageSize={pageSize}
             onPageChange={(p) => setCurrentPage(p)}
           />
         </div>
       )}
+
+      {/* Product Detail Modal */}
+      <Modal
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        title={selectedProduct ? selectedProduct.name : 'Product Details'}
+      >
+        {selectedProduct && (
+          <div className="space-y-4 text-xs">
+            <div className="flex items-start gap-4 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+              <img
+                src={selectedProduct.image_url}
+                alt={selectedProduct.name}
+                className="w-16 h-16 rounded-lg object-cover bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] font-bold text-brand-600 bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded">
+                    {selectedProduct.sku}
+                  </span>
+                  <StatusBadge status={selectedProduct.status} />
+                </div>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
+                  {selectedProduct.name}
+                </h4>
+                <p className="text-slate-500 mt-0.5">
+                  Category: {selectedProduct.category} • Warehouse: {selectedProduct.warehouse}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5 text-center">
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase block">On Hand</span>
+                <span className="text-base font-bold text-slate-900 dark:text-white mt-0.5 block">
+                  {selectedProduct.on_hand}
+                </span>
+              </div>
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Committed</span>
+                <span className="text-base font-bold text-slate-500 mt-0.5 block">
+                  {selectedProduct.committed}
+                </span>
+              </div>
+              <div className="p-2.5 bg-brand-50 dark:bg-brand-950/40 rounded-lg border border-brand-100 dark:border-brand-900/40">
+                <span className="text-[10px] text-brand-600 dark:text-brand-400 font-semibold uppercase block">Available</span>
+                <span className="text-base font-bold text-brand-700 dark:text-brand-300 mt-0.5 block">
+                  {selectedProduct.available}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Unit Price</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedProduct.formatted_unit_price}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Barcode Identifier</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">
+                  {selectedProduct.barcode || 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Primary Warehouse</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {selectedProduct.warehouse}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDeleteProduct(selectedProduct.id)}
+                leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+              >
+                Delete Product
+              </Button>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setSelectedProduct(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* New Product Modal */}
       <Modal

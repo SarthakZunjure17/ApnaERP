@@ -7,6 +7,7 @@ import {
   CreditCard,
   Package,
   Layers,
+  ShoppingCart,
   UserCheck,
   FileText,
   Landmark,
@@ -62,6 +63,14 @@ const NAV_ITEMS: NavItem[] = [
     section: 'INVENTORY',
     isImplemented: true,
   },
+  // PROCUREMENT
+  {
+    name: 'Purchase Orders',
+    href: '/procurement/orders',
+    icon: 'ShoppingCart',
+    section: 'PROCUREMENT',
+    isImplemented: true,
+  },
   // SALES & CRM
   {
     name: 'Customers',
@@ -75,7 +84,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/sales/orders',
     icon: 'FileText',
     section: 'SALES & CRM',
-    isImplemented: false,
+    isImplemented: true,
   },
   // FINANCE
   {
@@ -120,6 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         return <Package className={iconClass} />;
       case 'Layers':
         return <Layers className={iconClass} />;
+      case 'ShoppingCart':
+        return <ShoppingCart className={iconClass} />;
       case 'UserCheck':
         return <UserCheck className={iconClass} />;
       case 'FileText':
@@ -133,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const sections: NavSection[] = ['OVERVIEW', 'WORKFORCE', 'INVENTORY', 'SALES & CRM', 'FINANCE'];
+  const sections: NavSection[] = ['OVERVIEW', 'WORKFORCE', 'INVENTORY', 'PROCUREMENT', 'SALES & CRM', 'FINANCE'];
 
   return (
     <>
@@ -169,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden cursor-pointer"
             aria-label="Close sidebar"
           >
             <X className="w-4 h-4" />
@@ -180,6 +191,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
           {sections.map((section) => {
             const items = NAV_ITEMS.filter((item) => item.section === section);
+            if (items.length === 0) return null;
+
             return (
               <div key={section}>
                 <div className="px-2.5 mb-1 text-[10px] font-bold text-slate-400/90 dark:text-slate-500 uppercase tracking-wider">

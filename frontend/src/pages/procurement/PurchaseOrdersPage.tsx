@@ -8,6 +8,7 @@ import {
   ChevronRight,
   RotateCcw,
   CheckCircle2,
+  Search,
 } from 'lucide-react';
 import { procurementService } from '../../services/procurementService';
 import { PurchaseOrderListItem } from '../../types/procurement';
@@ -15,17 +16,19 @@ import { Pagination } from '../../components/common/Pagination';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { LoadingState } from '../../components/common/LoadingState';
+import { EmptyState } from '../../components/common/EmptyState';
 import { useToast } from '../../context/ToastContext';
 
 export const PurchaseOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<PurchaseOrderListItem[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState('All Suppliers');
-  const [dateRange, setDateRange] = useState('Jan 1, 2024 - Jan 31, 2024');
-  const [selectedStatus, setSelectedStatus] = useState<string>('Pending');
+  const [dateRange, setDateRange] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('All');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [totalPending, setTotalPending] = useState('$450,230.00');
+  const [totalPending, setTotalPending] = useState('$0.00');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const pageSize = 6;
 
   // Create PO Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -39,6 +42,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   const { success, info } = useToast();
 
   useEffect(() => {
+    setCurrentPage(1);
     loadOrders();
   }, [selectedSupplier, selectedStatus]);
 
@@ -71,28 +75,28 @@ export const PurchaseOrdersPage: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedSupplier('All Suppliers');
     setSelectedStatus('All');
+    setDateRange('');
   };
 
-  const handleCreatePo = (e: React.FormEvent) => {
+  const handleCreatePo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const created: PurchaseOrderListItem = {
-      id: `po-${Date.now()}`,
-      po_number: `PO-2024-${Math.floor(1050 + Math.random() * 50)}`,
-      date: 'Today',
+    const created = await procurementService.createPurchaseOrder({
       supplier_name: newPoForm.supplier_name,
-      supplier_initials: newPoForm.supplier_name.slice(0, 2).toUpperCase(),
       amount: newPoForm.amount,
-      formatted_amount: `$${newPoForm.amount.toLocaleString()}.00`,
       expected_date: newPoForm.expected_date,
-      status: 'Pending Approval',
-      approver_name: 'ERP Admin',
-    };
+    });
 
-    setOrders([created, ...orders]);
+    setOrders((prev) => [created, ...prev]);
     setIsCreateModalOpen(false);
     success('Purchase Order Created', `${created.po_number} submitted for approval.`);
     navigate(`/procurement/orders/${created.id}`);
   };
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const paginatedOrders = orders.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const renderStatusBadge = (status: PurchaseOrderListItem['status']) => {
     switch (status) {
@@ -191,35 +195,19 @@ export const PurchaseOrdersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Date range */}
-            <div className="flex-1">
-              <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Date Range
-              </label>
-              <div className="relative">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-brand-500 font-medium"
-                />
-              </div>
-            </div>
-
             {/* Status Pills */}
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
                 Status
               </label>
               <div className="inline-flex items-center gap-1.5">
-                {(['Draft', 'Pending', 'Approved'] as const).map((status) => {
+                {(['All', 'Draft', 'Pending', 'Approved', 'Rejected'] as const).map((status) => {
                   const isSelected = selectedStatus === status;
                   return (
                     <button
                       key={status}
                       type="button"
-                      onClick={() => setSelectedStatus(isSelected ? 'All' : status)}
+                      onClick={() => setSelectedStatus(status)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
                           ? status === 'Pending'
@@ -259,6 +247,13 @@ export const PurchaseOrdersPage: React.FC = () => {
       {/* Table (Matching Screenshot 5) */}
       {isLoading ? (
         <LoadingState message="Loading purchase orders..." />
+      ) : orders.length === 0 ? (
+        <EmptyState
+          title="No Purchase Orders Found"
+          description={`No purchase orders match your current filter settings (${selectedSupplier}, ${selectedStatus}).`}
+          actionLabel="Clear Filters"
+          onAction={handleClearFilters}
+        />
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs">
           <div className="overflow-x-auto">
@@ -283,7 +278,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
-                {orders.map((po) => {
+                {paginatedOrders.map((po) => {
                   const isChecked = selectedRows.includes(po.id);
 
                   return (
@@ -295,7 +290,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                       }`}
                     >
                       {/* Checkbox */}
-                      <td className="py-3.5 px-3">
+                      <td className="py-3.5 px-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -371,9 +366,9 @@ export const PurchaseOrdersPage: React.FC = () => {
 
           <Pagination
             currentPage={currentPage}
-            totalPages={31}
-            totalEntries={124}
-            pageSize={4}
+            totalPages={totalPages}
+            totalEntries={orders.length}
+            pageSize={pageSize}
             onPageChange={(p) => setCurrentPage(p)}
           />
         </div>
@@ -393,7 +388,7 @@ export const PurchaseOrdersPage: React.FC = () => {
             <select
               value={newPoForm.supplier_name}
               onChange={(e) => setNewPoForm({ ...newPoForm, supplier_name: e.target.value })}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
             >
               <option value="Acme Corp">Acme Corp</option>
               <option value="Global Industries">Global Industries</option>
@@ -411,7 +406,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                 min="100"
                 value={newPoForm.amount}
                 onChange={(e) => setNewPoForm({ ...newPoForm, amount: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               />
             </div>
 
@@ -423,7 +418,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                 type="text"
                 value={newPoForm.expected_date}
                 onChange={(e) => setNewPoForm({ ...newPoForm, expected_date: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
               />
             </div>
           </div>

@@ -126,7 +126,7 @@ export const EmployeeDetailPage: React.FC = () => {
           {/* Avatar with blue verified badge */}
           <div className="relative shrink-0">
             <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+              src={profile.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
               alt={profile.full_name}
               className="w-16 h-16 sm:w-18 sm:h-18 rounded-xl object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm"
             />

@@ -1,4 +1,4 @@
-export type NavSection = 'OVERVIEW' | 'WORKFORCE' | 'INVENTORY' | 'SALES & CRM' | 'FINANCE';
+export type NavSection = 'OVERVIEW' | 'WORKFORCE' | 'INVENTORY' | 'PROCUREMENT' | 'SALES & CRM' | 'FINANCE';
 
 export interface NavItem {
   name: string;

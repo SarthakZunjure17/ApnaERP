@@ -149,6 +149,11 @@ export const inventoryService = {
     }
   },
 
+  getProductById: async (id: string): Promise<ProductItem | null> => {
+    const found = MOCK_PRODUCTS.find((p) => p.id === id || p.sku === id);
+    return found || null;
+  },
+
   getCategories: async (): Promise<CategoryOption[]> => {
     try {
       const response = await api.get('/inventory/categories');
@@ -172,25 +177,52 @@ export const inventoryService = {
   createProduct: async (productData: Partial<ProductItem>): Promise<ProductItem> => {
     try {
       const response = await api.post('/inventory/products', productData);
-      return response.data;
+      if (response.data && response.data.id) return response.data;
     } catch {
-      const newProduct: ProductItem = {
-        id: `prod-${Date.now()}`,
-        sku: productData.sku || `SKU-${Date.now()}`,
-        name: productData.name || 'New Product Item',
-        category: productData.category || 'Electronics',
-        warehouse: productData.warehouse || 'Main Hub (NY)',
-        on_hand: productData.on_hand || 0,
-        committed: productData.committed || 0,
-        available: (productData.on_hand || 0) - (productData.committed || 0),
-        unit_price: productData.unit_price || 0,
-        formatted_unit_price: `$${(productData.unit_price || 0).toFixed(2)}`,
-        status: (productData.on_hand || 0) > 10 ? 'In Stock' : 'Low Stock',
-        image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&auto=format&fit=crop&q=80',
-      };
-      MOCK_PRODUCTS.unshift(newProduct);
-      return newProduct;
+      // Fallback
     }
+
+    const onHand = productData.on_hand || 0;
+    const committed = productData.committed || 0;
+    const available = Math.max(0, onHand - committed);
+    const unitPrice = productData.unit_price || 0;
+
+    let status: ProductItem['status'] = 'In Stock';
+    if (available === 0) {
+      status = 'Out of Stock';
+    } else if (available <= 10) {
+      status = 'Low Stock';
+    }
+
+    const newProduct: ProductItem = {
+      id: `prod-${Date.now()}`,
+      sku: productData.sku || `SKU-${Date.now().toString().slice(-6)}`,
+      name: productData.name || 'New Product Item',
+      category: productData.category || 'Electronics',
+      warehouse: productData.warehouse || 'Main Hub (NY)',
+      on_hand: onHand,
+      committed: committed,
+      available: available,
+      unit_price: unitPrice,
+      formatted_unit_price: `$${unitPrice.toFixed(2)}`,
+      status: status,
+      image_url:
+        productData.image_url ||
+        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&auto=format&fit=crop&q=80',
+      barcode: productData.barcode || `89012345${Math.floor(10000 + Math.random() * 90000)}`,
+    };
+
+    MOCK_PRODUCTS.unshift(newProduct);
+    return newProduct;
+  },
+
+  deleteProduct: async (id: string): Promise<boolean> => {
+    const idx = MOCK_PRODUCTS.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      MOCK_PRODUCTS.splice(idx, 1);
+      return true;
+    }
+    return false;
   },
 };
 
@@ -219,5 +251,5 @@ function filterMockProducts(filters?: {
   if (filters?.stockLevel && filters.stockLevel !== 'Stock Level: All') {
     items = items.filter((p) => p.status.toLowerCase() === filters.stockLevel!.toLowerCase());
   }
-  return { items, total: 1240 };
+  return { items, total: items.length };
 }
