@@ -454,8 +454,11 @@ export const ProductsPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
                 {paginatedProducts.map((item) => {
                   const isChecked = selectedRows.includes(item.id);
-                  const isAvailableLow = item.available <= 5 && item.available > 0;
-                  const isAvailableZero = item.available === 0;
+                  const availableNum = Number(item.available ?? 0);
+                  const onHandNum = Number(item.on_hand ?? 0);
+                  const committedNum = Number(item.committed ?? 0);
+                  const isAvailableLow = availableNum <= 5 && availableNum > 0;
+                  const isAvailableZero = availableNum === 0;
 
                   return (
                     <tr
@@ -477,12 +480,18 @@ export const ProductsPage: React.FC = () => {
                       </td>
 
                       {/* Image Thumbnail */}
-                      <td className="py-3 px-3">
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
-                          className="w-9 h-9 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shrink-0"
-                        />
+                      <td className="py-3 px-3 w-12">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center shrink-0">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="w-5 h-5 text-slate-400" />
+                          )}
+                        </div>
                       </td>
 
                       {/* Product Info (Title + SKU & Category badge) */}
@@ -511,12 +520,12 @@ export const ProductsPage: React.FC = () => {
 
                       {/* On Hand */}
                       <td className="py-3 px-3 text-center font-medium text-slate-800 dark:text-slate-200">
-                        {item.on_hand.toLocaleString()}
+                        {onHandNum.toLocaleString()}
                       </td>
 
                       {/* Committed */}
                       <td className="py-3 px-3 text-center text-slate-500 dark:text-slate-400">
-                        {item.committed.toLocaleString()}
+                        {committedNum.toLocaleString()}
                       </td>
 
                       {/* Available with dynamic color coding */}
@@ -530,7 +539,7 @@ export const ProductsPage: React.FC = () => {
                               : 'text-brand-600 dark:text-blue-400'
                           }
                         >
-                          {item.available.toLocaleString()}
+                          {availableNum.toLocaleString()}
                         </span>
                       </td>
 

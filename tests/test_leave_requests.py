@@ -160,13 +160,13 @@ async def test_leave_request_state_machine_transitions(setup_employee_policy_and
     async with AsyncSessionLocal() as session:
         service = LeaveRequestService(session)
 
-        # 1. Create Draft
+        # 1. Create Draft (Tue 2026-09-08 to Thu 2026-09-10 = 3 working days in future)
         req = await service.create_leave_request(
             LeaveRequestCreate(
                 employee_id=emp.id,
                 leave_type_id=lt.id,
-                start_date=datetime.date(2026, 9, 1),
-                end_date=datetime.date(2026, 9, 3),
+                start_date=datetime.date(2026, 9, 8),
+                end_date=datetime.date(2026, 9, 10),
                 reason="Personal vacation trip",
             )
         )

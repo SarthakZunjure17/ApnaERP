@@ -110,7 +110,7 @@ async def setup_statutory_data(db_session: AsyncSession):
     await db_session.flush()
 
     # 4. Create Country (India)
-    country_code = f"I{uuid.uuid4().hex[:2].upper()}"
+    country_code = f"C{uuid.uuid4().hex[:7].upper()}"
     country = Country(code=country_code, name="India", currency="INR", is_active=True)
     db_session.add(country)
     await db_session.flush()
@@ -185,7 +185,7 @@ async def test_country_crud_and_uniqueness(db_session: AsyncSession):
     """Tests Country creation, duplicate ISO code rejection, and update."""
     service = StatutoryComplianceService(db_session)
 
-    code_val = f"U{uuid.uuid4().hex[:2].upper()}"
+    code_val = f"U{uuid.uuid4().hex[:7].upper()}"
     # Create Country
     c = await service.create_country(
         CountryCreate(code=code_val, name="United States of America", currency="USD")
@@ -379,7 +379,7 @@ async def test_statutory_api_endpoints(async_client: AsyncClient, setup_statutor
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    gbr_code = f"G{uuid.uuid4().hex[:2].upper()}"
+    gbr_code = f"G{uuid.uuid4().hex[:7].upper()}"
     ni_code = f"GBR_NI_{uuid.uuid4().hex[:4].upper()}"
 
     # 1. POST /api/v1/countries

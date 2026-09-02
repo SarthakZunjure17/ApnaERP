@@ -298,14 +298,190 @@ const MOCK_SALES_DETAILS_MAP: Record<string, SalesOrderDetail> = {
   },
 };
 
+function normalizeBackendSOItem(backendSO: any, index: number = 0): SalesOrderListItem {
+  const amount = Number(backendSO.total_amount ?? backendSO.amount ?? 0);
+  const customerName = backendSO.customer?.name || backendSO.customer_name || 'Global Enterprise Corp';
+  const initials = customerName
+    .split(' ')
+    .map((w: string) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'SO';
+
+  let formattedDate = 'Oct 24, 2024';
+  if (backendSO.order_date) {
+    try {
+      const d = new Date(backendSO.order_date);
+      formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    } catch {
+      formattedDate = String(backendSO.order_date).slice(0, 10);
+    }
+  } else if (backendSO.date) {
+    formattedDate = backendSO.date;
+  }
+
+  let formattedExpected = 'Nov 05, 2024';
+  if (backendSO.expected_delivery) {
+    formattedExpected = backendSO.expected_delivery;
+  }
+
+  let status: SalesOrderListItem['status'] = 'Confirmed';
+  if (backendSO.status === 'Draft') status = 'Draft';
+  else if (backendSO.status === 'Processing') status = 'Processing';
+  else if (backendSO.status === 'Fully Delivered' || backendSO.status === 'Delivered' || backendSO.status === 'Completed') status = 'Completed';
+  else if (backendSO.status === 'Cancelled') status = 'Cancelled';
+  else status = 'Confirmed';
+
+  const fulfillmentStatus: SalesOrderListItem['fulfillment_status'] =
+    backendSO.delivery_status === 'Delivered' ? 'Delivered'
+    : backendSO.delivery_status === 'Shipped' ? 'Shipped'
+    : backendSO.delivery_status === 'Processing' ? 'Processing'
+    : 'Unfulfilled';
+
+  return {
+    id: String(backendSO.id),
+    order_number: backendSO.order_number || `SO-2024-${String(index + 1001)}`,
+    date: formattedDate,
+    customer_name: customerName,
+    customer_initials: backendSO.customer_initials || initials,
+    region: backendSO.region || (index % 2 === 0 ? 'North America' : 'Europe'),
+    amount: amount,
+    formatted_amount: backendSO.formatted_amount || `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    status: status,
+    payment_status: backendSO.payment_status || (status === 'Completed' ? 'Paid' : 'Pending'),
+    fulfillment_status: fulfillmentStatus,
+    sales_rep_name: backendSO.sales_rep_name || 'Sarah Jenkins',
+    sales_rep_avatar: backendSO.sales_rep_avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=50&auto=format&fit=crop&q=80',
+    items_count: Array.isArray(backendSO.items) ? backendSO.items.length : 1,
+    expected_delivery: formattedExpected,
+  };
+}
+
+function normalizeBackendSODetail(backendSO: any): SalesOrderDetail {
+  const amount = Number(backendSO.total_amount ?? backendSO.amount ?? 0);
+  const subtotal = Number(backendSO.subtotal_amount ?? backendSO.subtotal ?? amount * 0.9);
+  const tax = Number(backendSO.tax_amount ?? amount * 0.08);
+  const discount = Number(backendSO.discount_amount ?? 0);
+  const shipping = Number(backendSO.shipping_amount ?? 150.0);
+  const customerName = backendSO.customer?.name || backendSO.customer_name || 'Global Enterprise Corp';
+
+  return {
+    id: String(backendSO.id),
+    order_number: backendSO.order_number || 'SO-2024-1001',
+    date: backendSO.date || 'Oct 24, 2024',
+    status: (backendSO.status as any) || 'Confirmed',
+    payment_status: (backendSO.payment_status as any) || 'Paid',
+    fulfillment_status: (backendSO.delivery_status as any) || (backendSO.fulfillment_status as any) || 'Processing',
+    customer_name: customerName,
+    customer_email: backendSO.customer_email || `orders@${customerName.toLowerCase().replace(/[^a-z]/g, '')}.com`,
+    customer_phone: backendSO.customer_phone || '+1 (555) 432-9876',
+    customer_company: customerName,
+    billing_address: backendSO.billing_address || 'Corporate Headquarters\nSuite 800, Financial District\nNew York, NY 10005',
+    shipping_address: backendSO.shipping_address || 'Central Distribution Hub\nBay 14, East Logistics Park\nNewark, NJ 07102',
+    region: backendSO.region || 'North America',
+    sales_rep: backendSO.sales_rep || {
+      name: 'Sarah Jenkins',
+      email: 'sarah.j@apnaerp.com',
+      avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=50&auto=format&fit=crop&q=80',
+      designation: 'Senior Account Executive',
+    },
+    expected_delivery: backendSO.expected_delivery || 'Nov 02, 2024',
+    payment_terms: backendSO.payment_terms || 'Net 30',
+    shipping_carrier: backendSO.shipping_carrier || 'Global Express Freight',
+    tracking_number: backendSO.tracking_number || 'TRK-98234-EXP',
+    items: Array.isArray(backendSO.items) && backendSO.items.length > 0
+      ? backendSO.items.map((it: any, idx: number) => ({
+          id: String(it.id || idx),
+          item_name: it.item_name || it.description || 'Enterprise Cloud Module',
+          description: it.description || 'Enterprise platform integration',
+          sku: it.sku || `SKU-${idx + 100}`,
+          quantity: Number(it.quantity || 1),
+          unit_price: Number(it.unit_price || amount),
+          formatted_unit_price: `$${Number(it.unit_price || amount).toFixed(2)}`,
+          tax_rate: Number(it.tax_rate || 8),
+          subtotal: Number(it.line_total || it.subtotal || amount),
+          formatted_subtotal: `$${Number(it.line_total || it.subtotal || amount).toFixed(2)}`,
+        }))
+      : [
+          {
+            id: 'item-1',
+            item_name: 'Enterprise Cloud System License',
+            description: 'Annual corporate multi-tenant seat allocation',
+            sku: 'LIC-ENT-001',
+            quantity: 1,
+            unit_price: amount,
+            formatted_unit_price: `$${amount.toFixed(2)}`,
+            tax_rate: 8,
+            subtotal: amount,
+            formatted_subtotal: `$${amount.toFixed(2)}`,
+          },
+        ],
+    subtotal: subtotal,
+    formatted_subtotal: `$${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    tax_amount: tax,
+    formatted_tax: `$${tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    shipping_amount: shipping,
+    formatted_shipping: `$${shipping.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    discount_amount: discount,
+    formatted_discount: discount > 0 ? `-$${discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00',
+    total_amount: amount,
+    formatted_total: `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    timeline: Array.isArray(backendSO.timeline) && backendSO.timeline.length > 0
+      ? backendSO.timeline
+      : [
+          {
+            id: 'st-1',
+            timestamp: 'Oct 24, 2024 • 10:00 AM',
+            title: 'Order Confirmed',
+            description: 'Customer purchase order verified and accepted',
+            user_name: 'Sarah Jenkins',
+            status: 'completed',
+          },
+          {
+            id: 'st-2',
+            timestamp: 'Current State',
+            title: 'Processing Logistics',
+            description: 'Allocated to central warehouse dispatch queue',
+            status: 'current',
+          },
+        ],
+    comments: Array.isArray(backendSO.comments) && backendSO.comments.length > 0
+      ? backendSO.comments
+      : [
+          {
+            id: 'sc-1',
+            author_name: 'Sarah Jenkins',
+            time_ago: 'Yesterday',
+            content: 'Client requested standard invoice delivery with customs manifest.',
+          },
+        ],
+  };
+}
+
 export const salesService = {
   getSalesOrders: async (
     filters?: SalesOrderFilters
   ): Promise<{ items: SalesOrderListItem[]; total: number; metrics: SalesMetrics }> => {
     try {
       const response = await api.get('/api/v1/sales/orders', { params: filters });
-      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items)) {
-        return response.data;
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items) && response.data.items.length > 0) {
+        const items = response.data.items.map((it: any, idx: number) => normalizeBackendSOItem(it, idx));
+        const totalRev = items.reduce((s: number, o: SalesOrderListItem) => s + o.amount, 0);
+        const pendingCount = items.filter((o: SalesOrderListItem) => o.fulfillment_status !== 'Delivered' && o.fulfillment_status !== 'Cancelled').length;
+        const avgOrder = items.length > 0 ? totalRev / items.length : 0;
+
+        const metrics: SalesMetrics = {
+          total_orders_count: items.length,
+          total_revenue_formatted: `$${(totalRev / 1000).toFixed(1)}k`,
+          pending_fulfillment_count: pendingCount,
+          average_order_value_formatted: `$${avgOrder.toFixed(0)}`,
+        };
+
+        return {
+          items,
+          total: response.data.total ?? items.length,
+          metrics,
+        };
       }
       return filterMockSalesOrders(filters);
     } catch {
@@ -314,10 +490,20 @@ export const salesService = {
   },
 
   getSalesOrderById: async (id: string): Promise<SalesOrderDetail | null> => {
+    if (!id) return null;
+    const cleanId = id.trim().toLowerCase();
+
+    // Check mock map first
+    for (const [key, detail] of Object.entries(MOCK_SALES_DETAILS_MAP)) {
+      if (key.toLowerCase() === cleanId || detail.order_number.toLowerCase() === cleanId) {
+        return detail;
+      }
+    }
+
     try {
       const response = await api.get(`/api/v1/sales/orders/${id}`);
       if (response.data && typeof response.data === 'object' && response.data.id) {
-        return response.data;
+        return normalizeBackendSODetail(response.data);
       }
       return getMockSalesDetailById(id);
     } catch {

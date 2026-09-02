@@ -68,10 +68,12 @@ export const SalesOrdersPage: React.FC = () => {
         fulfillment: selectedFulfillment,
         paymentStatus: selectedPaymentStatus,
       });
-      setOrders(data.items);
-      setMetrics(data.metrics);
+      setOrders(data.items || []);
+      setMetrics(data.metrics || null);
     } catch (err) {
       console.error('Failed to load sales orders', err);
+      setOrders([]);
+      setMetrics(null);
     } finally {
       setIsLoading(false);
     }

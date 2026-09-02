@@ -295,7 +295,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
           </h3>
 
           <div className="space-y-3.5 relative pl-4 border-l-2 border-slate-100 dark:border-slate-800 text-xs">
-            {po.timeline.map((step) => {
+            {(po.timeline || []).map((step) => {
               const isCompleted = step.status === 'completed';
               const isCurrent = step.status === 'current';
 
@@ -319,18 +319,14 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                     <p className="font-bold text-slate-900 dark:text-white mt-0.5">
                       {step.title}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {step.user_avatar && (
-                        <img
-                          src={step.user_avatar}
-                          alt={step.user_name}
-                          className="w-4 h-4 rounded-full object-cover shrink-0"
-                        />
-                      )}
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {step.description}
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                      {step.description}
+                    </p>
+                    {step.user_name && (
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        By: <span className="font-medium text-slate-700 dark:text-slate-300">{step.user_name}</span>
                       </span>
-                    </div>
+                    )}
                   </div>
                 </div>
               );
@@ -361,7 +357,7 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
-                  {po.items.map((item) => (
+                  {(po.items || []).map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50/50">
                       <td className="py-3 px-2.5">
                         <p className="font-semibold text-slate-900 dark:text-white">
@@ -430,13 +426,13 @@ export const PurchaseOrderDetailPage: React.FC = () => {
                 Internal Comments
               </h3>
               <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">
-                {po.comments.length}
+                {(po.comments || []).length}
               </span>
             </div>
 
             {/* Comments Stream */}
             <div className="space-y-3">
-              {po.comments.map((comment) => (
+              {(po.comments || []).map((comment) => (
                 <div
                   key={comment.id}
                   className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs"

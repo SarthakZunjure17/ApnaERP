@@ -48,13 +48,19 @@ export const PurchaseOrdersPage: React.FC = () => {
 
   const loadOrders = async () => {
     setIsLoading(true);
-    const data = await procurementService.getPurchaseOrders({
-      supplier: selectedSupplier,
-      status: selectedStatus === 'All' ? undefined : selectedStatus === 'Pending' ? 'Pending Approval' : selectedStatus,
-    });
-    setOrders(data.items);
-    setTotalPending(data.totalPendingAmount);
-    setIsLoading(false);
+    try {
+      const data = await procurementService.getPurchaseOrders({
+        supplier: selectedSupplier,
+        status: selectedStatus === 'All' ? undefined : selectedStatus === 'Pending' ? 'Pending Approval' : selectedStatus,
+      });
+      setOrders(data.items || []);
+      setTotalPending(data.totalPendingAmount || '$0.00');
+    } catch {
+      setOrders([]);
+      setTotalPending('$0.00');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {

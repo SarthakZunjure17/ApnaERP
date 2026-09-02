@@ -23,11 +23,7 @@ def setup_test_database():
     """
     Session-wide fixture ensuring database tables exist and RBAC seed data is present.
     """
-    if os.path.exists("apnaerp_test.db"):
-        try:
-            os.remove("apnaerp_test.db")
-        except Exception:
-            pass
+    Base.metadata.drop_all(bind=sync_engine)
     Base.metadata.create_all(bind=sync_engine)
     
     async def run_seed():

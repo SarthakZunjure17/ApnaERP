@@ -2,6 +2,7 @@ import logging
 from typing import Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
+from app.models.user import User
 from app.repositories.rbac import permission_repository, role_permission_repository, role_repository
 from app.schemas.rbac import PermissionCreate, RoleCreate
 
@@ -590,6 +591,33 @@ async def seed_rbac_data(db: AsyncSession) -> None:
                 await role_permission_repository.assign_permission_to_role(
                     db, role_id=chief_accountant_role.id, permission_id=perm_obj.id
                 )
+
+    # 5. Seed Default Super Admin User if not exists
+    from app.repositories.user import user_repository
+    from app.core.security import hash_password
+    from app.models.user_role import UserRole
+    from sqlalchemy import select
+
+    admin_email = "admin@apnaerp.com"
+    existing_admin = await user_repository.get_by_email(db, admin_email)
+    if not existing_admin:
+        admin_user = User(
+            full_name="ERP Admin",
+            email=admin_email,
+            username="admin",
+            password_hash=hash_password("admin123"),
+            is_active=True,
+            is_superuser=True,
+        )
+        db.add(admin_user)
+        await db.flush()
+        if super_admin_role:
+            stmt = select(UserRole).where(UserRole.user_id == admin_user.id, UserRole.role_id == super_admin_role.id)
+            has_role = (await db.execute(stmt)).scalars().first()
+            if not has_role:
+                db.add(UserRole(user_id=admin_user.id, role_id=super_admin_role.id))
+        await db.commit()
+        logger.info(f"Seeded default Super Admin user: {admin_email}")
 
 
 

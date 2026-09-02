@@ -338,7 +338,7 @@ export const SalesOrderDetailPage: React.FC = () => {
           </h3>
 
           <div className="space-y-3.5 relative pl-4 border-l-2 border-slate-100 dark:border-slate-800 text-xs">
-            {order.timeline.map((step) => {
+            {(order.timeline || []).map((step) => {
               const isCompleted = step.status === 'completed';
               const isCurrent = step.status === 'current';
 
@@ -394,7 +394,7 @@ export const SalesOrderDetailPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
-                  {order.items.map((item) => (
+                  {(order.items || []).map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50/50">
                       <td className="py-3 px-2.5">
                         <p className="font-semibold text-slate-900 dark:text-white">
@@ -469,12 +469,12 @@ export const SalesOrderDetailPage: React.FC = () => {
                 Internal Sales Notes
               </h3>
               <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">
-                {order.comments.length}
+                {(order.comments || []).length}
               </span>
             </div>
 
             <div className="space-y-3 max-h-72 overflow-y-auto">
-              {order.comments.map((comment) => (
+              {(order.comments || []).map((comment) => (
                 <div
                   key={comment.id}
                   className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs"

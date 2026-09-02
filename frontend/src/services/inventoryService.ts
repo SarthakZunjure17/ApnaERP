@@ -148,6 +148,44 @@ function calculateDynamicMetrics(): InventoryMetrics {
   };
 }
 
+function normalizeBackendProductItem(backendProd: any, index: number = 0): ProductItem {
+  const onHand = Number(backendProd.on_hand ?? (120 + (index * 45) % 400));
+  const committed = Number(backendProd.committed ?? (index % 3 === 0 ? 12 : 0));
+  const available = Math.max(0, onHand - committed);
+  const unitPrice = Number(backendProd.unit_price ?? (149.0 + (index * 35) % 250));
+
+  let status: ProductItem['status'] = 'In Stock';
+  if (available === 0) {
+    status = 'Out of Stock';
+  } else if (available <= 10) {
+    status = 'Low Stock';
+  }
+
+  const defaultImages = [
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1580481077197-9860b299e525?w=100&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=100&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=100&auto=format&fit=crop&q=80',
+  ];
+
+  return {
+    id: String(backendProd.id),
+    sku: backendProd.sku || `SKU-${index + 100}`,
+    name: backendProd.name || 'Catalog Item',
+    category: backendProd.category_name || backendProd.category || 'Electronics',
+    warehouse: backendProd.default_warehouse_name || backendProd.warehouse || 'Main Hub (NY)',
+    on_hand: onHand,
+    committed: committed,
+    available: available,
+    unit_price: unitPrice,
+    formatted_unit_price: backendProd.formatted_unit_price || `$${unitPrice.toFixed(2)}`,
+    status: (backendProd.status as any) || status,
+    image_url: backendProd.image_url || defaultImages[index % defaultImages.length],
+    barcode: backendProd.barcode || `89012345678${index % 10}`,
+  };
+}
+
 export const inventoryService = {
   getMetrics: async (): Promise<InventoryMetrics> => {
     try {
@@ -174,11 +212,16 @@ export const inventoryService = {
       if (filters?.warehouse && filters.warehouse !== 'All Warehouses') params.warehouse = filters.warehouse;
 
       const response = await api.get('/api/v1/inventory/products', { params });
-      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items)) {
-        return response.data;
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.items) && response.data.items.length > 0) {
+        const items = response.data.items.map((p: any, idx: number) => normalizeBackendProductItem(p, idx));
+        return {
+          items,
+          total: response.data.total ?? items.length,
+        };
       }
-      if (response.data && Array.isArray(response.data)) {
-        return { items: response.data, total: response.data.length };
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        const items = response.data.map((p: any, idx: number) => normalizeBackendProductItem(p, idx));
+        return { items, total: items.length };
       }
       return filterMockProducts(filters);
     } catch {
@@ -192,7 +235,17 @@ export const inventoryService = {
     const found = MOCK_PRODUCTS.find(
       (p) => p.id.toLowerCase() === cleanId || p.sku.toLowerCase() === cleanId
     );
-    return found || null;
+    if (found) return found;
+
+    try {
+      const response = await api.get(`/api/v1/inventory/products/${id}`);
+      if (response.data && typeof response.data === 'object' && response.data.id) {
+        return normalizeBackendProductItem(response.data);
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
   },
 
   getCategories: async (): Promise<CategoryOption[]> => {

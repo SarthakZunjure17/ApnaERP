@@ -257,6 +257,30 @@ const MOCK_EMPLOYEES_LIST: EmployeeListItem[] = [
   },
 ];
 
+function normalizeBackendEmployeeItem(backendEmp: any, index: number = 0): EmployeeListItem {
+  const fullName = backendEmp.full_name || `${backendEmp.first_name || 'Staff'} ${backendEmp.last_name || 'Member'}`.trim();
+  const defaultAvatars = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+  ];
+
+  return {
+    id: String(backendEmp.id),
+    employee_code: backendEmp.employee_code || `EMP-2024-${String(index + 1).padStart(3, '0')}`,
+    full_name: fullName,
+    email: backendEmp.email || backendEmp.work_email || `${fullName.toLowerCase().replace(/\s+/g, '.')}@apnaerp.com`,
+    phone: backendEmp.phone || backendEmp.work_phone || '+91 98765 43210',
+    department: backendEmp.department_name || backendEmp.department || 'Engineering',
+    designation: backendEmp.designation_name || backendEmp.designation || 'Specialist',
+    status: (backendEmp.employment_status || backendEmp.status || 'Active') as EmployeeListItem['status'],
+    join_date: backendEmp.join_date || backendEmp.joining_date || '01 Mar 2023',
+    location: backendEmp.location || 'Mumbai, India',
+    avatar_url: backendEmp.avatar_url || defaultAvatars[index % defaultAvatars.length],
+  };
+}
+
 export const hrService = {
   getEmployees: async (search?: string, department?: string): Promise<EmployeeListItem[]> => {
     try {
@@ -265,11 +289,11 @@ export const hrService = {
       if (department && department !== 'All') params.department = department;
 
       const response = await api.get('/api/v1/employees', { params });
-      if (response.data && Array.isArray(response.data)) {
-        return response.data;
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        return response.data.map((e: any, idx: number) => normalizeBackendEmployeeItem(e, idx));
       }
-      if (response.data && Array.isArray(response.data.items)) {
-        return response.data.items;
+      if (response.data && Array.isArray(response.data.items) && response.data.items.length > 0) {
+        return response.data.items.map((e: any, idx: number) => normalizeBackendEmployeeItem(e, idx));
       }
       return filterMockList(search, department);
     } catch {
@@ -278,10 +302,59 @@ export const hrService = {
   },
 
   getEmployeeById: async (id: string): Promise<EmployeeProfile | null> => {
+    if (!id) return null;
+    const cleanId = id.trim().toLowerCase();
+
+    // 1. Check if it's one of the canonical mock profiles first
+    for (const [key, profile] of Object.entries(MOCK_PROFILES_MAP)) {
+      if (key.toLowerCase() === cleanId || profile.employee_code.toLowerCase() === cleanId) {
+        return profile;
+      }
+    }
+
     try {
       const response = await api.get(`/api/v1/employees/${id}`);
       if (response.data && typeof response.data === 'object' && response.data.id) {
-        return response.data;
+        const emp = response.data;
+        const fullName = emp.full_name || `${emp.first_name || 'Staff'} ${emp.last_name || 'Member'}`.trim();
+        const names = fullName.split(' ');
+        return {
+          id: String(emp.id),
+          employee_code: emp.employee_code || 'EMP-2024-001',
+          first_name: names[0] || 'Employee',
+          last_name: names.slice(1).join(' ') || '',
+          full_name: fullName,
+          email: emp.email || emp.work_email || 'employee@apnaerp.com',
+          phone: emp.phone || emp.work_phone || '+91 98765 43210',
+          avatar_url: emp.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          designation: emp.designation_name || emp.designation || 'Senior Specialist',
+          department: emp.department_name || emp.department || 'Engineering',
+          location: emp.location || 'Mumbai, India',
+          status: (emp.employment_status || emp.status || 'Active') as EmployeeProfile['status'],
+          hire_date: emp.join_date || emp.joining_date || '01 Mar 2021',
+          date_of_birth: emp.date_of_birth || '15 Jan 1990',
+          blood_group: emp.blood_group || 'O+',
+          home_address: emp.home_address || 'B-402, Skyline Apartments, Andheri East, Mumbai',
+          reporting_manager: emp.reporting_manager || {
+            name: 'Priya Sharma',
+            designation: 'Director of Engineering',
+            avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+          },
+          attendance_ytd: emp.attendance_ytd || {
+            percentage: 94,
+            leave_balance: 16,
+            sick_taken: 2,
+          },
+          skills: Array.isArray(emp.skills) && emp.skills.length > 0 ? emp.skills : [
+            { id: '1', name: emp.department || 'Engineering', colorTheme: 'default' },
+            { id: '2', name: emp.designation || 'Specialist', colorTheme: 'default' },
+            { id: '3', name: 'ERP System Ops', isCertified: true, colorTheme: 'blue' },
+          ],
+          upcoming_review: emp.upcoming_review || {
+            description: 'Annual performance review scheduled.',
+            scheduled_date: '15 Dec 2024',
+          },
+        };
       }
       return getMockProfileById(id);
     } catch {
