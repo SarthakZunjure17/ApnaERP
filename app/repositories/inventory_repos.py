@@ -280,14 +280,25 @@ class InventoryPolicyRepository(BaseRepository[InventoryPolicy, InventoryPolicyC
         super().__init__(InventoryPolicy)
 
     async def get_by_warehouse_id(self, db: AsyncSession, warehouse_id: uuid.UUID) -> Optional[InventoryPolicy]:
-        stmt = select(InventoryPolicy).where(InventoryPolicy.warehouse_id == warehouse_id)
+        stmt = (
+            select(InventoryPolicy)
+            .where(InventoryPolicy.warehouse_id == warehouse_id, InventoryPolicy.is_active == True)
+            .order_by(InventoryPolicy.created_at.desc())
+            .limit(1)
+        )
         res = await db.execute(stmt)
-        return res.scalar_one_or_none()
+        return res.scalars().first()
 
     async def get_global_policy(self, db: AsyncSession) -> Optional[InventoryPolicy]:
-        stmt = select(InventoryPolicy).where(InventoryPolicy.warehouse_id.is_(None))
+        stmt = (
+            select(InventoryPolicy)
+            .where(InventoryPolicy.warehouse_id.is_(None), InventoryPolicy.is_active == True)
+            .order_by(InventoryPolicy.created_at.desc())
+            .limit(1)
+        )
         res = await db.execute(stmt)
-        return res.scalar_one_or_none()
+        return res.scalars().first()
+
 
 
 class ProductAttributeRepository(BaseRepository[ProductAttribute, ProductAttributeCreate, ProductAttributeUpdate]):

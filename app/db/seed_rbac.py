@@ -239,10 +239,15 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Transaction Types", "code": "inventory.transaction.read", "description": "Permission to view inventory transaction types", "module_name": "inventory"},
     {"name": "Read Stock Ledger", "code": "inventory.ledger.read", "description": "Permission to view stock ledger entries", "module_name": "inventory"},
     {"name": "Read Stock Balances", "code": "inventory.balance.read", "description": "Permission to view current stock balances and projections", "module_name": "inventory"},
+    {"name": "Read Stock", "code": "inventory.stock.read", "description": "Permission to view stock queries and balances", "module_name": "inventory"},
+    {"name": "Create Stock Movement", "code": "inventory.stock.movement.create", "description": "Permission to create stock IN/OUT/Adjustment movements", "module_name": "inventory"},
+    {"name": "Read Stock Ledger v2", "code": "inventory.stock.ledger.read", "description": "Permission to view stock ledger entries", "module_name": "inventory"},
+    {"name": "Read Stock Balance v2", "code": "inventory.stock.balance.read", "description": "Permission to view current stock balances", "module_name": "inventory"},
     {"name": "Create Opening Stock", "code": "inventory.opening.create", "description": "Permission to create opening stock initialization records", "module_name": "inventory"},
     {"name": "Create Inventory Adjustment", "code": "inventory.adjustment.create", "description": "Permission to create inventory adjustment proposals", "module_name": "inventory"},
     {"name": "Approve Inventory Adjustment", "code": "inventory.adjustment.approve", "description": "Permission to approve inventory adjustment proposals", "module_name": "inventory"},
     {"name": "Apply Inventory Adjustment", "code": "inventory.adjustment.apply", "description": "Permission to apply approved inventory adjustments to stock ledger", "module_name": "inventory"},
+
 
     # Warehouse Operations Engine Permissions
     {"name": "Create Goods Receipt", "code": "inventory.receipt.create", "description": "Permission to create goods receipt documents", "module_name": "inventory"},

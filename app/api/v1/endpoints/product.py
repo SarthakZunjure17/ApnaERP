@@ -12,7 +12,9 @@ from app.schemas.inventory import (
     ProductUpdate,
     ProductWarehouseResponse,
 )
+from app.schemas.stock_engine import ProductStockSummaryResponse
 from app.services.inventory_services import product_service, product_warehouse_service
+
 
 router = APIRouter()
 
@@ -152,3 +154,15 @@ async def get_product_warehouses(
     """Retrieve all warehouse configurations for a product."""
     await product_service.get_product(db, id)
     return await product_warehouse_service.list_by_product(db, product_id=id, skip=skip, limit=limit)
+
+
+@router.get("/{id}/stock", response_model=ProductStockSummaryResponse, status_code=status.HTTP_200_OK)
+async def get_product_stock(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.product.read")),
+):
+    """Retrieve live authoritative stock balances across all warehouses for a product."""
+    from app.services.stock_engine_services import stock_balance_service
+    return await stock_balance_service.get_product_stock_summary(db, id)
+

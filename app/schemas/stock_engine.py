@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Any, Dict, List, Optional
 import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,103 @@ class InventoryTransactionTypeResponse(InventoryTransactionTypeBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Generic Stock Movements (Milestone v0.6.1) ---
+
+class StockMovementCreate(BaseModel):
+    """
+    Schema for creating generic stock movements: STOCK_IN, STOCK_OUT, ADJUSTMENT.
+    """
+    product_id: uuid.UUID = Field(..., description="Target Product master record UUID")
+    warehouse_id: uuid.UUID = Field(..., description="Target Warehouse facility UUID")
+    storage_location_id: Optional[uuid.UUID] = Field(None, description="Optional target storage location (Rack/Shelf/Bin) UUID")
+    movement_type: str = Field(
+        "STOCK_IN",
+        description="Movement semantic type: STOCK_IN, STOCK_OUT, ADJUSTMENT",
+    )
+    direction: Optional[str] = Field(
+        None,
+        description="Explicit direction: IN, OUT. Inferred automatically if omitted for STOCK_IN / STOCK_OUT.",
+    )
+    quantity: Decimal = Field(
+        ...,
+        gt=Decimal("0.0"),
+        description="Movement quantity magnitude (must be strictly positive > 0)",
+    )
+    idempotency_key: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Optional unique key to ensure idempotent movement processing",
+    )
+    reference_type: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Optional upstream document type (e.g. Manual, OpeningStock, Adjustment)",
+    )
+    reference_id: Optional[uuid.UUID] = Field(
+        None,
+        description="Optional upstream document UUID",
+    )
+    reason: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Business reason for movement",
+    )
+    notes: Optional[str] = Field(
+        None,
+        description="Descriptive notes or remarks",
+    )
+    metadata_json: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Extensible JSON metadata",
+    )
+
+
+class StockMovementResponse(BaseModel):
+    """
+    Response schema for stock movements and ledger transactions.
+    """
+    id: uuid.UUID
+    product_id: uuid.UUID
+    warehouse_id: uuid.UUID
+    storage_location_id: Optional[uuid.UUID] = None
+    movement_type: str
+    direction: str
+    quantity: Decimal
+    quantity_before: Decimal
+    quantity_after: Decimal
+    running_balance: Decimal
+    transaction_type_id: Optional[uuid.UUID] = None
+    unit_id: Optional[uuid.UUID] = None
+    unit_of_measure_id: Optional[uuid.UUID] = None
+    reference_type: Optional[str] = None
+    reference_id: Optional[uuid.UUID] = None
+    idempotency_key: Optional[str] = None
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+    remarks: Optional[str] = None
+    metadata_json: Optional[Dict[str, Any]] = None
+    transaction_date: datetime
+    created_by: Optional[uuid.UUID] = None
+    created_at: datetime
+
+    # Display names
+    product_sku: Optional[str] = None
+    product_name: Optional[str] = None
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None
+    storage_location_code: Optional[str] = None
+    transaction_type_code: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedStockMovementResponse(BaseModel):
+    items: List[StockMovementResponse]
+    total: int
+    skip: int
+    limit: int
+
+
 # --- Stock Ledger ---
 
 class StockLedgerResponse(BaseModel):
@@ -34,15 +131,23 @@ class StockLedgerResponse(BaseModel):
     product_id: uuid.UUID
     warehouse_id: uuid.UUID
     storage_location_id: Optional[uuid.UUID] = None
-    transaction_type_id: uuid.UUID
+    movement_type: str = "STOCK_IN"
+    direction: str
+    quantity: Decimal
+    quantity_before: Decimal = Decimal("0.0")
+    quantity_after: Decimal = Decimal("0.0")
+    running_balance: Decimal
+    transaction_type_id: Optional[uuid.UUID] = None
+    unit_id: Optional[uuid.UUID] = None
+    unit_of_measure_id: Optional[uuid.UUID] = None
     reference_type: Optional[str] = None
     reference_id: Optional[uuid.UUID] = None
-    quantity: Decimal
-    unit_id: Optional[uuid.UUID] = None
-    direction: str
-    running_balance: Decimal
-    transaction_date: datetime
+    idempotency_key: Optional[str] = None
+    reason: Optional[str] = None
+    notes: Optional[str] = None
     remarks: Optional[str] = None
+    metadata_json: Optional[Dict[str, Any]] = None
+    transaction_date: datetime
     created_by: Optional[uuid.UUID] = None
     created_at: datetime
 
@@ -72,9 +177,10 @@ class StockBalanceResponse(BaseModel):
     warehouse_id: uuid.UUID
     storage_location_id: Optional[uuid.UUID] = None
     available_quantity: Decimal
-    reserved_quantity: Decimal
-    damaged_quantity: Decimal
-    in_transit_quantity: Decimal
+    quantity_on_hand: Decimal = Decimal("0.0")
+    reserved_quantity: Decimal = Decimal("0.0")
+    damaged_quantity: Decimal = Decimal("0.0")
+    in_transit_quantity: Decimal = Decimal("0.0")
     total_quantity: Decimal = Decimal("0.0")
     last_calculated: datetime
 
@@ -82,8 +188,16 @@ class StockBalanceResponse(BaseModel):
     product_name: Optional[str] = None
     warehouse_code: Optional[str] = None
     warehouse_name: Optional[str] = None
+    storage_location_code: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedStockBalanceResponse(BaseModel):
+    items: List[StockBalanceResponse]
+    total: int
+    skip: int
+    limit: int
 
 
 class WarehouseStockSummaryResponse(BaseModel):
@@ -104,6 +218,16 @@ class ProductStockSummaryResponse(BaseModel):
     total_reserved_stock: Decimal
     total_damaged_stock: Decimal
     warehouse_balances: List[StockBalanceResponse] = []
+
+
+class StorageLocationStockSummaryResponse(BaseModel):
+    storage_location_id: uuid.UUID
+    storage_location_code: str
+    warehouse_id: uuid.UUID
+    warehouse_code: str
+    total_products: int
+    total_available_stock: Decimal
+    balances: List[StockBalanceResponse] = []
 
 
 # --- Opening Stock ---

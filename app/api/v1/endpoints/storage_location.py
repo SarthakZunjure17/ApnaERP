@@ -90,3 +90,15 @@ async def delete_storage_location(
 ):
     """Delete or safely deactivate a storage location."""
     await storage_location_service.delete_location(db, id, current_user_id=current_user.id)
+
+
+@router.get("/{id}/stock", status_code=status.HTTP_200_OK)
+async def get_storage_location_stock(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.location.read")),
+):
+    """Retrieve live authoritative stock balances for a storage location."""
+    from app.services.stock_engine_services import stock_balance_service
+    return await stock_balance_service.get_location_stock_summary(db, id)
+

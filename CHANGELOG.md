@@ -5,6 +5,37 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.1] - 2026-09-05
+
+### Milestone Stock Ledger & Authoritative Stock Balances
+
+#### Added
+- **Authoritative Stock Quantity Engine (`app/models/stock_ledger.py`, `app/models/stock_balance.py`)**:
+  - `StockBalance`: Authoritative current inventory quantity `quantity_on_hand` at `Product + Warehouse + StorageLocation` grain with database-level `UNIQUE(product_id, warehouse_id, storage_location_id)` constraint.
+  - `StockLedger`: Append-only, immutable inventory movement ledger capturing `movement_type` (`STOCK_IN`, `STOCK_OUT`, `ADJUSTMENT`), `direction` (`IN`, `OUT`), `quantity` (> 0), `quantity_before`, `quantity_after`, `idempotency_key`, `reason`, `notes`, and metadata.
+- **Alembic Database Migration (`alembic/versions/f9b0c1d2e3f5_phase_v061_enhance_stock_ledger_and_balances.py`)**:
+  - Additive schema upgrade adding `quantity_before`, `quantity_after`, `idempotency_key`, `reason`, `notes`, and `movement_type` with unique idempotency indexing and foreign key protections.
+- **Pydantic Validation Schemas (`app/schemas/stock_engine.py`)**:
+  - Strict input validation schemas: `StockMovementCreate`, `StockMovementResponse`, `PaginatedStockMovementResponse`, and updated `StockBalanceResponse`.
+- **Async Repositories (`app/repositories/stock_engine_repos.py`)**:
+  - Enhanced `StockBalanceRepository` with transactional row-locking `get_for_update` and atomic `get_or_create_for_update`.
+  - Enhanced `StockLedgerRepository` with `find_by_idempotency_key`, composite filtering, and immutable querying.
+- **Transactional Domain Services (`app/services/stock_engine_services.py`)**:
+  - `StockMovementService`: Processes `STOCK_IN`, `STOCK_OUT`, and `ADJUSTMENT` operations in a single atomic database transaction. Features PostgreSQL `SELECT ... FOR UPDATE` row locking, in-process async synchronization, negative stock policy hierarchy resolution (`Warehouse` -> `Global`), and database-enforced idempotency deduplication.
+  - `StockBalanceService`: Provides real-time balance queries and aggregate quantity lookups across products, warehouses, and storage locations.
+- **Granular RBAC Security (`app/db/seed_rbac.py`)**:
+  - Seeded permissions: `inventory.stock.read`, `inventory.stock.movement.create`, `inventory.stock.ledger.read`, `inventory.stock.balance.read` mapped to `Super Admin` and `Inventory Manager` roles.
+- **REST API Routers (`app/api/v1/endpoints/`)**:
+  - Mounted `/api/v1/stock/movements` (`POST`, `GET`).
+  - Mounted `/api/v1/stock/ledger` & `/api/v1/stock/ledger/{id}`.
+  - Mounted `/api/v1/stock/balances` & `/api/v1/stock/balances/{id}`.
+  - Mounted `/api/v1/products/{product_id}/stock`, `/api/v1/warehouses/{warehouse_id}/stock`, and `/api/v1/storage-locations/{location_id}/stock`.
+- **Comprehensive Integration Test Suite (`tests/test_stock_ledger_v061.py`, `tests/test_stock_ledger_engine.py`)**:
+  - 23 tests verifying Stock IN/OUT/Adjustment, negative-stock policy rules, PostgreSQL concurrency locking, idempotency deduplication, transaction rollback safety, grain uniqueness, and RBAC authorization.
+- **Architecture Documentation & ADR (`docs/`)**:
+  - `docs/inventory/stock-ledger-and-balances.md`: Comprehensive domain specification for the v0.6.1 authoritative stock engine.
+  - `docs/adr/ADR-0024-stock-ledger-and-balances.md`: Architecture Decision Record for Milestone v0.6.1.
+
 ## [v0.6.0] - 2026-08-08
 
 ### Milestone Inventory Foundation & Master Data

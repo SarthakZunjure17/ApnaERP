@@ -77,5 +77,15 @@ class StockBalance(Base, UUIDMixin):
     warehouse: Mapped["Warehouse"] = relationship("Warehouse", lazy="selectin")
     storage_location: Mapped[Optional["StorageLocation"]] = relationship("StorageLocation", lazy="selectin")
 
+    @property
+    def quantity_on_hand(self) -> float:
+        """Canonical accessor for current physical quantity on hand."""
+        return self.available_quantity
+
+    @quantity_on_hand.setter
+    def quantity_on_hand(self, value: float):
+        self.available_quantity = value
+
     def __repr__(self) -> str:
-        return f"<StockBalance(product_id={self.product_id}, warehouse_id={self.warehouse_id}, available={self.available_quantity})>"
+        return f"<StockBalance(product_id={self.product_id}, warehouse_id={self.warehouse_id}, qty_on_hand={self.available_quantity})>"
+

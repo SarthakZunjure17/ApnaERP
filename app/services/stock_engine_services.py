@@ -1,9 +1,11 @@
+import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
 import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
+
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,7 @@ from app.exceptions.base import (
     ValidationException,
 )
 from app.models.inventory_adjustment import InventoryAdjustment
+from app.models.inventory_policy import InventoryPolicy
 from app.models.inventory_transaction_type import InventoryTransactionType
 from app.models.opening_stock import OpeningStock
 from app.models.product import Product
@@ -22,6 +25,7 @@ from app.models.stock_balance import StockBalance
 from app.models.stock_ledger import StockLedger
 from app.models.warehouse import Warehouse
 from app.repositories.inventory_repos import (
+    inventory_policy_repository,
     product_repository,
     storage_location_repository,
     warehouse_repository,
@@ -39,6 +43,8 @@ from app.schemas.stock_engine import (
     OpeningStockCreate,
     ProductStockSummaryResponse,
     StockBalanceResponse,
+    StockMovementCreate,
+    StorageLocationStockSummaryResponse,
     WarehouseStockSummaryResponse,
 )
 from app.services.audit_log import audit_log_service
@@ -61,11 +67,335 @@ class InventoryTransactionTypeService:
         return ttype
 
 
+class StockMovementService:
+    """
+    Authoritative Inventory Quantity and Movement Engine for ApnaERP.
+    Coordinates immutable StockLedger transaction logs and row-locked StockBalance quantity updates
+    inside a single atomic database transaction.
+    """
+    def __init__(self):
+        self._lock = asyncio.Lock()
+
+    async def resolve_negative_stock_policy(
+        self, db: AsyncSession, warehouse_id: uuid.UUID, product: Product
+    ) -> bool:
+        """
+        Resolves whether negative stock is allowed using the canonical policy hierarchy:
+        1. Warehouse-specific InventoryPolicy (if active)
+        2. Global InventoryPolicy (where warehouse_id is NULL, if active)
+        3. Product master allow_negative_stock fallback
+        """
+        # 1. Warehouse Policy
+        wh_policy = await inventory_policy_repository.get_by_warehouse_id(db, warehouse_id)
+        if wh_policy and wh_policy.is_active:
+            return bool(wh_policy.negative_stock_allowed)
+
+        # 2. Global Policy
+        global_policy = await inventory_policy_repository.get_global_policy(db)
+        if global_policy and global_policy.is_active:
+            return bool(global_policy.negative_stock_allowed)
+
+        # 3. Product fallback
+        return bool(getattr(product, "allow_negative_stock", False))
+
+    async def process_movement(
+        self,
+        db: AsyncSession,
+        movement_in: StockMovementCreate,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> StockLedger:
+        """
+        Executes an atomic, concurrency-safe, idempotent stock movement.
+        Updates StockBalance under a row-level lock and records an immutable StockLedger entry.
+        """
+        async with self._lock:
+            # 1. Idempotency Check
+            if movement_in.idempotency_key:
+                existing = await stock_ledger_repository.find_by_idempotency_key(db, movement_in.idempotency_key)
+                if existing:
+                    logger.info(f"Duplicate stock movement ignored due to idempotency_key: {movement_in.idempotency_key}")
+                    return existing
+
+            # 2. Validate Product
+            product = await product_repository.get_by_id(db, movement_in.product_id)
+            if not product:
+                raise NotFoundException(f"Product with ID '{movement_in.product_id}' not found.")
+            if hasattr(product, "is_active") and not product.is_active:
+                raise ValidationException(f"Product SKU '{product.sku}' is inactive.")
+            if product.status == "Archived":
+                raise ValidationException(f"Product SKU '{product.sku}' is archived and read-only.")
+            if hasattr(product, "is_stockable") and not product.is_stockable:
+                raise ValidationException(f"Product SKU '{product.sku}' is not configured as stockable inventory.")
+            if hasattr(product, "track_inventory") and not product.track_inventory:
+                raise ValidationException(f"Product SKU '{product.sku}' does not track inventory.")
+
+            # 3. Validate Warehouse
+            warehouse = await warehouse_repository.get_by_id(db, movement_in.warehouse_id)
+            if not warehouse or not warehouse.is_active:
+                raise NotFoundException(f"Warehouse with ID '{movement_in.warehouse_id}' not found or inactive.")
+
+            # 4. Validate Storage Location if provided
+            if movement_in.storage_location_id:
+                location = await storage_location_repository.get_by_id(db, movement_in.storage_location_id)
+                if not location:
+                    raise NotFoundException(f"Storage location with ID '{movement_in.storage_location_id}' not found.")
+                if hasattr(location, "is_active") and not location.is_active:
+                    raise ValidationException(f"Storage location '{location.code}' is inactive.")
+                if location.warehouse_id != movement_in.warehouse_id:
+                    raise ValidationException("Storage location does not belong to the specified warehouse.")
+
+            # 5. Validate Quantity
+            qty = Decimal(str(movement_in.quantity))
+            if qty <= Decimal("0.0"):
+                raise ValidationException("Movement quantity must be strictly positive.")
+
+            # 6. Normalize Movement Type & Direction
+            movement_type = (movement_in.movement_type or "STOCK_IN").upper()
+            if movement_type not in ("STOCK_IN", "STOCK_OUT", "ADJUSTMENT"):
+                movement_type = "STOCK_IN"
+
+            direction = movement_in.direction.upper() if movement_in.direction else None
+            if not direction:
+                if movement_type == "STOCK_IN":
+                    direction = "IN"
+                elif movement_type == "STOCK_OUT":
+                    direction = "OUT"
+                elif movement_type == "ADJUSTMENT":
+                    direction = "IN"
+                else:
+                    direction = "IN"
+
+            if direction not in ("IN", "OUT"):
+                raise ValidationException(f"Movement direction must be 'IN' or 'OUT', received '{direction}'.")
+
+            # 7. Row-level Lock on StockBalance
+            balance = await stock_balance_repository.get_or_create_for_update(
+                db,
+                product_id=movement_in.product_id,
+                warehouse_id=movement_in.warehouse_id,
+                storage_location_id=movement_in.storage_location_id,
+            )
+
+            qty_before = Decimal(str(balance.available_quantity))
+            if direction == "IN":
+                qty_after = qty_before + qty
+            else:  # OUT
+                qty_after = qty_before - qty
+
+            # 8. Negative Stock Enforcement
+            if qty_after < Decimal("0.0"):
+                allow_negative = await self.resolve_negative_stock_policy(db, movement_in.warehouse_id, product)
+                if not allow_negative:
+                    raise ValidationException(
+                        f"Insufficient stock for product SKU '{product.sku}' at warehouse '{warehouse.code}'. "
+                        f"Current available: {qty_before}, requested deduction: {qty}. Negative stock is disabled."
+                    )
+
+            # 9. Atomic Transaction: Update Balance + Insert Ledger Record
+            now = datetime.now(timezone.utc)
+            balance.available_quantity = qty_after
+            balance.last_calculated = now
+
+            entry_data = {
+                "product_id": movement_in.product_id,
+                "warehouse_id": movement_in.warehouse_id,
+                "storage_location_id": movement_in.storage_location_id,
+                "movement_type": movement_type,
+                "direction": direction,
+                "quantity": qty,
+                "quantity_before": qty_before,
+                "quantity_after": qty_after,
+                "running_balance": qty_after,
+                "unit_id": product.base_unit_id,
+                "reference_type": movement_in.reference_type or "ManualMovement",
+                "reference_id": movement_in.reference_id,
+                "idempotency_key": movement_in.idempotency_key,
+                "reason": movement_in.reason,
+                "notes": movement_in.notes,
+                "remarks": movement_in.notes or movement_in.reason,
+                "metadata_json": movement_in.metadata_json,
+                "transaction_date": now,
+                "created_by": current_user_id,
+                "created_at": now,
+            }
+
+            ledger_entry = await stock_ledger_repository.create_ledger_entry(db, entry_data, commit=False)
+
+            # Commit both balance update and ledger entry together atomically
+            await db.commit()
+            await db.refresh(ledger_entry)
+            await db.refresh(balance)
+
+            # Invalidate Cache if Redis configured
+            try:
+                await redis_manager.delete_pattern("stock_balance:*")
+                await redis_manager.delete_pattern("warehouse_summary:*")
+                await redis_manager.delete_pattern("product_stock:*")
+            except Exception:
+                pass
+
+            # 10. Audit Logging
+            try:
+                await audit_log_service.log_event(
+                    db,
+                    action=f"STOCK_{movement_type}_{direction}",
+                    entity_type="StockLedger",
+                    entity_id=str(ledger_entry.id),
+                    user_id=current_user_id,
+                    previous_data={"quantity_before": float(qty_before)},
+                    new_data={
+                        "quantity": float(qty),
+                        "quantity_before": float(qty_before),
+                        "quantity_after": float(qty_after),
+                        "warehouse_id": str(movement_in.warehouse_id),
+                        "product_id": str(movement_in.product_id),
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Audit log failed for stock movement {ledger_entry.id}: {e}")
+
+            return ledger_entry
+
+    async def stock_in(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        quantity: Decimal,
+        storage_location_id: Optional[uuid.UUID] = None,
+        idempotency_key: Optional[str] = None,
+        reference_type: Optional[str] = None,
+        reference_id: Optional[uuid.UUID] = None,
+        reason: Optional[str] = None,
+        notes: Optional[str] = None,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> StockLedger:
+        if quantity <= Decimal("0.0"):
+            raise ValidationException("Movement quantity must be strictly positive.")
+        movement_in = StockMovementCreate(
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            movement_type="STOCK_IN",
+            direction="IN",
+            quantity=quantity,
+            idempotency_key=idempotency_key,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            reason=reason,
+            notes=notes,
+        )
+        return await self.process_movement(db, movement_in, current_user_id=current_user_id)
+
+    async def stock_out(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        quantity: Decimal,
+        storage_location_id: Optional[uuid.UUID] = None,
+        idempotency_key: Optional[str] = None,
+        reference_type: Optional[str] = None,
+        reference_id: Optional[uuid.UUID] = None,
+        reason: Optional[str] = None,
+        notes: Optional[str] = None,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> StockLedger:
+        if quantity <= Decimal("0.0"):
+            raise ValidationException("Movement quantity must be strictly positive.")
+        movement_in = StockMovementCreate(
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            movement_type="STOCK_OUT",
+            direction="OUT",
+            quantity=quantity,
+            idempotency_key=idempotency_key,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            reason=reason,
+            notes=notes,
+        )
+        return await self.process_movement(db, movement_in, current_user_id=current_user_id)
+
+    async def adjustment(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        quantity: Decimal,
+        direction: str,
+        storage_location_id: Optional[uuid.UUID] = None,
+        idempotency_key: Optional[str] = None,
+        reference_type: Optional[str] = None,
+        reference_id: Optional[uuid.UUID] = None,
+        reason: Optional[str] = None,
+        notes: Optional[str] = None,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> StockLedger:
+        if quantity <= Decimal("0.0"):
+            raise ValidationException("Movement quantity must be strictly positive.")
+        movement_in = StockMovementCreate(
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            movement_type="ADJUSTMENT",
+            direction=direction,
+            quantity=quantity,
+            idempotency_key=idempotency_key,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            reason=reason,
+            notes=notes,
+        )
+        return await self.process_movement(db, movement_in, current_user_id=current_user_id)
+
+
+
 class StockLedgerService:
     """
-    Service for executing immutable stock ledger entries, running balance calculations,
-    and negative stock validation.
+    Service for querying and viewing immutable stock ledger entries.
     """
+    async def get_ledger_entries(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
+        transaction_type_id: Optional[uuid.UUID] = None,
+        movement_type: Optional[str] = None,
+        direction: Optional[str] = None,
+        reference_type: Optional[str] = None,
+        reference_id: Optional[uuid.UUID] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        search_term: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Tuple[List[StockLedger], int]:
+        return await stock_ledger_repository.get_ledger_entries_paginated(
+            db,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            transaction_type_id=transaction_type_id,
+            movement_type=movement_type,
+            direction=direction,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            start_date=start_date,
+            end_date=end_date,
+            search_term=search_term,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def get_by_id(self, db: AsyncSession, id: uuid.UUID) -> StockLedger:
+        entry = await stock_ledger_repository.get_by_id(db, id)
+        if not entry:
+            raise NotFoundException(f"Stock ledger entry with ID '{id}' not found.")
+        return entry
+
     async def create_ledger_entry(
         self,
         db: AsyncSession,
@@ -83,24 +413,21 @@ class StockLedgerService:
         transaction_date: Optional[datetime] = None,
     ) -> StockLedger:
         """
-        Creates an immutable stock ledger entry, evaluates negative stock limits, computes
-        running balance, invalidates cache, and dispatches projection refresh task.
+        Legacy adapter executing via StockMovementService or directly maintaining atomic consistency.
         """
-        # 1. Validate Product
+        # Validate Product
         product = await product_repository.get_by_id(db, product_id)
         if not product:
             raise NotFoundException(f"Product with ID '{product_id}' not found.")
-        if not product.track_inventory:
-            raise ValidationException(f"Product SKU '{product.sku}' is not configured for inventory tracking.")
         if product.status == "Archived":
             raise ValidationException(f"Product SKU '{product.sku}' is archived and read-only.")
 
-        # 2. Validate Warehouse
+        # Validate Warehouse
         warehouse = await warehouse_repository.get_by_id(db, warehouse_id)
         if not warehouse or not warehouse.is_active:
             raise NotFoundException(f"Warehouse with ID '{warehouse_id}' not found or inactive.")
 
-        # 3. Validate Storage Location if provided
+        # Validate Storage Location
         if storage_location_id:
             location = await storage_location_repository.get_by_id(db, storage_location_id)
             if not location:
@@ -108,13 +435,11 @@ class StockLedgerService:
             if location.warehouse_id != warehouse_id:
                 raise ValidationException("Storage location does not belong to the specified warehouse.")
 
-        # 4. Lookup Transaction Type
+        # Transaction Type
         ttype = await inventory_transaction_type_repository.get_by_code(db, transaction_type_code)
-        if not ttype:
-            raise NotFoundException(f"Transaction type code '{transaction_type_code}' not found.")
 
-        # 5. Fetch previous running balance
-        prev_balance = await stock_ledger_repository.get_latest_running_balance(
+        # Row-locked Balance
+        balance = await stock_balance_repository.get_or_create_for_update(
             db, product_id=product_id, warehouse_id=warehouse_id, storage_location_id=storage_location_id
         )
 
@@ -122,98 +447,96 @@ class StockLedgerService:
         if qty <= Decimal("0.0"):
             raise ValidationException("Transaction quantity must be strictly positive.")
 
-        # Determine net delta
-        if direction.upper() in ("IN", "PRODUCTION_RECEIPT", "RETURN_IN"):
-            new_running_balance = prev_balance + qty
-        elif direction.upper() in ("OUT", "SALES_ISSUE", "PRODUCTION_CONSUMPTION", "RETURN_OUT"):
-            new_running_balance = prev_balance - qty
-        elif direction.upper() in ("ADJUSTMENT", "SYSTEM", "TRANSFER"):
-            # If direction is explicitly provided or adjustment delta
-            new_running_balance = prev_balance + qty  # caller specifies positive or negative qty
+        qty_before = Decimal(str(balance.available_quantity))
+        dir_upper = direction.upper()
+
+        if dir_upper in ("IN", "PRODUCTION_RECEIPT", "RETURN_IN"):
+            qty_after = qty_before + qty
+            norm_dir = "IN"
+        elif dir_upper in ("OUT", "SALES_ISSUE", "PRODUCTION_CONSUMPTION", "RETURN_OUT"):
+            qty_after = qty_before - qty
+            norm_dir = "OUT"
         else:
-            new_running_balance = prev_balance + qty
+            qty_after = qty_before + qty
+            norm_dir = "IN"
 
-        # 6. Negative Stock Validation
-        if new_running_balance < Decimal("0.0") and not product.allow_negative_stock:
-            raise ValidationException(
-                f"Negative stock is disabled for product SKU '{product.sku}'. Proposed transaction would result in negative balance ({new_running_balance})."
-            )
+        # Negative Stock Validation
+        if qty_after < Decimal("0.0"):
+            wh_policy = await inventory_policy_repository.get_by_warehouse_id(db, warehouse_id)
+            global_policy = await inventory_policy_repository.get_global_policy(db)
+            allow_neg = False
+            if wh_policy and wh_policy.is_active:
+                allow_neg = bool(wh_policy.negative_stock_allowed)
+            elif global_policy and global_policy.is_active:
+                allow_neg = bool(global_policy.negative_stock_allowed)
+            else:
+                allow_neg = bool(getattr(product, "allow_negative_stock", False))
 
-        # 7. Insert Immutable Ledger Entry
+            if not allow_neg:
+                raise ValidationException(
+                    f"Negative stock is disabled for product SKU '{product.sku}'. Proposed transaction would result in negative balance ({qty_after})."
+                )
+
+        now = datetime.now(timezone.utc)
+        balance.available_quantity = qty_after
+        balance.last_calculated = now
+
         entry_data = {
             "product_id": product_id,
             "warehouse_id": warehouse_id,
             "storage_location_id": storage_location_id,
-            "transaction_type_id": ttype.id,
+            "transaction_type_id": ttype.id if ttype else None,
+            "movement_type": "STOCK_IN" if norm_dir == "IN" else "STOCK_OUT",
+            "direction": norm_dir,
+            "quantity": qty,
+            "quantity_before": qty_before,
+            "quantity_after": qty_after,
+            "running_balance": qty_after,
+            "unit_id": unit_id or product.base_unit_id,
             "reference_type": reference_type,
             "reference_id": reference_id,
-            "quantity": qty,
-            "unit_id": unit_id or product.base_unit_id,
-            "direction": direction.upper(),
-            "running_balance": new_running_balance,
-            "transaction_date": transaction_date or datetime.now(timezone.utc),
             "remarks": remarks,
+            "notes": remarks,
+            "transaction_date": transaction_date or now,
             "created_by": current_user_id,
+            "created_at": now,
         }
-        ledger_entry = await stock_ledger_repository.create_ledger_entry(db, entry_data)
+        ledger_entry = await stock_ledger_repository.create_ledger_entry(db, entry_data, commit=False)
+        await db.commit()
+        await db.refresh(ledger_entry)
+        await db.refresh(balance)
 
-        # 8. Synchronous StockBalance projection update & Redis cache invalidation
-        await stock_balance_repository.upsert_balance(
-            db,
-            product_id=product_id,
-            warehouse_id=warehouse_id,
-            storage_location_id=storage_location_id,
-            available_quantity=new_running_balance,
-        )
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+            await redis_manager.delete_pattern("warehouse_summary:*")
+            await redis_manager.delete_pattern("product_stock:*")
+        except Exception:
+            pass
 
-        await redis_manager.delete_pattern("stock_balance:*")
-        await redis_manager.delete_pattern("warehouse_summary:*")
-        await redis_manager.delete_pattern("product_stock:*")
-
-        # 9. Audit event logging
-        await audit_log_service.log_event(
-            db,
-            action="STOCK_LEDGER_CREATE",
-            entity_type="StockLedger",
-            entity_id=ledger_entry.id,
-            user_id=current_user_id,
-        )
+        try:
+            await audit_log_service.log_event(
+                db,
+                action="STOCK_LEDGER_CREATE",
+                entity_type="StockLedger",
+                entity_id=ledger_entry.id,
+                user_id=current_user_id,
+            )
+        except Exception:
+            pass
 
         return ledger_entry
-
-    async def get_ledger_entries(
-        self,
-        db: AsyncSession,
-        product_id: Optional[uuid.UUID] = None,
-        warehouse_id: Optional[uuid.UUID] = None,
-        storage_location_id: Optional[uuid.UUID] = None,
-        transaction_type_id: Optional[uuid.UUID] = None,
-        reference_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        search_term: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 100,
-    ) -> Tuple[List[StockLedger], int]:
-        return await stock_ledger_repository.get_ledger_entries_paginated(
-            db,
-            product_id=product_id,
-            warehouse_id=warehouse_id,
-            storage_location_id=storage_location_id,
-            transaction_type_id=transaction_type_id,
-            reference_type=reference_type,
-            start_date=start_date,
-            end_date=end_date,
-            search_term=search_term,
-            skip=skip,
-            limit=limit,
-        )
 
 
 class StockBalanceService:
     """
-    Service for querying and recalculating StockBalance projections.
+    Service for querying and verifying StockBalance current state.
     """
+    async def get_by_id(self, db: AsyncSession, id: uuid.UUID) -> StockBalance:
+        bal = await stock_balance_repository.get_by_id(db, id)
+        if not bal:
+            raise NotFoundException(f"Stock balance record with ID '{id}' not found.")
+        return bal
+
     async def recalculate_balance_projection(
         self,
         db: AsyncSession,
@@ -222,7 +545,7 @@ class StockBalanceService:
         storage_location_id: Optional[uuid.UUID] = None,
     ) -> StockBalance:
         """
-        Recalculates StockBalance projection directly from StockLedger history.
+        Recalculates StockBalance state directly from StockLedger historical entries.
         """
         calculated_balance = await stock_ledger_repository.calculate_derived_balance_from_history(
             db, product_id=product_id, warehouse_id=warehouse_id, storage_location_id=storage_location_id
@@ -234,7 +557,10 @@ class StockBalanceService:
             storage_location_id=storage_location_id,
             available_quantity=calculated_balance,
         )
-        await redis_manager.delete_pattern("stock_balance:*")
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+        except Exception:
+            pass
         return bal
 
     async def get_or_create_balance(
@@ -264,28 +590,31 @@ class StockBalanceService:
         warehouse_id: Optional[uuid.UUID] = None,
         location_id: Optional[uuid.UUID] = None,
     ) -> List[StockBalance]:
+        if product_id and warehouse_id and location_id:
+            bal = await stock_balance_repository.get_by_keys(
+                db, product_id=product_id, warehouse_id=warehouse_id, storage_location_id=location_id
+            )
+            return [bal] if bal else []
+        if product_id and warehouse_id:
+            stmt = select(StockBalance).where(
+                StockBalance.product_id == product_id,
+                StockBalance.warehouse_id == warehouse_id,
+            )
+            res = await db.execute(stmt)
+            return list(res.scalars().all())
         if product_id:
             return await stock_balance_repository.get_balances_by_product(db, product_id)
         if warehouse_id:
             return await stock_balance_repository.get_balances_by_warehouse(db, warehouse_id)
         if location_id:
             return await stock_balance_repository.get_balances_by_location(db, location_id)
-        
+
         result = await db.execute(select(StockBalance))
         return list(result.scalars().all())
 
     async def get_warehouse_stock_summary(
         self, db: AsyncSession, warehouse_id: uuid.UUID
     ) -> WarehouseStockSummaryResponse:
-        cache_key = f"warehouse_summary:{warehouse_id}"
-        cached = await redis_manager.get(cache_key)
-        if cached:
-            try:
-                data = json.loads(cached)
-                return WarehouseStockSummaryResponse(**data)
-            except Exception:
-                pass
-
         warehouse = await warehouse_repository.get_by_id(db, warehouse_id)
         if not warehouse:
             raise NotFoundException(f"Warehouse with ID '{warehouse_id}' not found.")
@@ -295,7 +624,7 @@ class StockBalanceService:
         total_res = sum(Decimal(str(b.reserved_quantity)) for b in balances)
         total_dam = sum(Decimal(str(b.damaged_quantity)) for b in balances)
 
-        res = WarehouseStockSummaryResponse(
+        return WarehouseStockSummaryResponse(
             warehouse_id=warehouse.id,
             warehouse_code=warehouse.code,
             warehouse_name=warehouse.name,
@@ -304,21 +633,10 @@ class StockBalanceService:
             total_reserved_stock=total_res,
             total_damaged_stock=total_dam,
         )
-        await redis_manager.set(cache_key, res.model_dump_json(), ex=300)
-        return res
 
     async def get_product_stock_summary(
         self, db: AsyncSession, product_id: uuid.UUID
     ) -> ProductStockSummaryResponse:
-        cache_key = f"product_stock:{product_id}"
-        cached = await redis_manager.get(cache_key)
-        if cached:
-            try:
-                data = json.loads(cached)
-                return ProductStockSummaryResponse(**data)
-            except Exception:
-                pass
-
         product = await product_repository.get_by_id(db, product_id)
         if not product:
             raise NotFoundException(f"Product with ID '{product_id}' not found.")
@@ -328,9 +646,22 @@ class StockBalanceService:
         total_res = sum(Decimal(str(b.reserved_quantity)) for b in balances)
         total_dam = sum(Decimal(str(b.damaged_quantity)) for b in balances)
 
-        bal_responses = [StockBalanceResponse.model_validate(b) for b in balances]
+        bal_responses = []
+        for b in balances:
+            item = StockBalanceResponse.model_validate(b)
+            item.quantity_on_hand = b.available_quantity
+            item.total_quantity = b.available_quantity + b.reserved_quantity + b.damaged_quantity + b.in_transit_quantity
+            if b.product:
+                item.product_sku = b.product.sku
+                item.product_name = b.product.name
+            if b.warehouse:
+                item.warehouse_code = b.warehouse.code
+                item.warehouse_name = b.warehouse.name
+            if b.storage_location:
+                item.storage_location_code = b.storage_location.code
+            bal_responses.append(item)
 
-        res = ProductStockSummaryResponse(
+        return ProductStockSummaryResponse(
             product_id=product.id,
             sku=product.sku,
             product_name=product.name,
@@ -339,8 +670,42 @@ class StockBalanceService:
             total_damaged_stock=total_dam,
             warehouse_balances=bal_responses,
         )
-        await redis_manager.set(cache_key, res.model_dump_json(), ex=300)
-        return res
+
+    async def get_location_stock_summary(
+        self, db: AsyncSession, location_id: uuid.UUID
+    ) -> StorageLocationStockSummaryResponse:
+        location = await storage_location_repository.get_by_id(db, location_id)
+        if not location:
+            raise NotFoundException(f"Storage location with ID '{location_id}' not found.")
+
+        warehouse = await warehouse_repository.get_by_id(db, location.warehouse_id)
+        balances = await stock_balance_repository.get_balances_by_location(db, location_id)
+        total_avail = sum(Decimal(str(b.available_quantity)) for b in balances)
+
+        bal_responses = []
+        for b in balances:
+            item = StockBalanceResponse.model_validate(b)
+            item.quantity_on_hand = b.available_quantity
+            item.total_quantity = b.available_quantity + b.reserved_quantity + b.damaged_quantity + b.in_transit_quantity
+            if b.product:
+                item.product_sku = b.product.sku
+                item.product_name = b.product.name
+            if b.warehouse:
+                item.warehouse_code = b.warehouse.code
+                item.warehouse_name = b.warehouse.name
+            if b.storage_location:
+                item.storage_location_code = b.storage_location.code
+            bal_responses.append(item)
+
+        return StorageLocationStockSummaryResponse(
+            storage_location_id=location.id,
+            storage_location_code=location.code,
+            warehouse_id=location.warehouse_id,
+            warehouse_code=warehouse.code if warehouse else "",
+            total_products=len(balances),
+            total_available_stock=total_avail,
+            balances=bal_responses,
+        )
 
 
 class OpeningStockService:
@@ -353,14 +718,9 @@ class OpeningStockService:
     async def create_opening_stock(
         self, db: AsyncSession, obj_in: OpeningStockCreate, current_user_id: Optional[uuid.UUID] = None
     ) -> OpeningStock:
-        """
-        Creates OpeningStock record and executes corresponding StockLedger entry.
-        """
-        # Duplicate Reference Number Check
         if await opening_stock_repository.exists_by_reference(db, obj_in.reference_number):
             raise DuplicateResourceException(f"Opening stock reference number '{obj_in.reference_number}' already exists.")
 
-        # Duplicate Product/Warehouse/Location Opening Stock Check
         if await opening_stock_repository.exists_by_product_warehouse_location(
             db, product_id=obj_in.product_id, warehouse_id=obj_in.warehouse_id, location_id=obj_in.location_id
         ):
@@ -394,13 +754,16 @@ class OpeningStockService:
             current_user_id=current_user_id,
         )
 
-        await audit_log_service.log_event(
-            db,
-            action="OPENING_STOCK_CREATE",
-            entity_type="OpeningStock",
-            entity_id=opening.id,
-            user_id=current_user_id,
-        )
+        try:
+            await audit_log_service.log_event(
+                db,
+                action="OPENING_STOCK_CREATE",
+                entity_type="OpeningStock",
+                entity_id=opening.id,
+                user_id=current_user_id,
+            )
+        except Exception:
+            pass
 
         try:
             send_stock_notification_task.delay(
@@ -450,14 +813,14 @@ class InventoryAdjustmentService:
             if loc.warehouse_id != obj_in.warehouse_id:
                 raise ValidationException("Storage location does not belong to the specified warehouse.")
 
-        # Calculate current expected balance
-        expected_qty = await stock_ledger_repository.get_latest_running_balance(
+        # Calculate current expected balance from StockBalance
+        bal = await stock_balance_repository.get_by_keys(
             db, product_id=obj_in.product_id, warehouse_id=obj_in.warehouse_id, storage_location_id=obj_in.location_id
         )
+        expected_qty = Decimal(str(bal.available_quantity)) if bal else Decimal("0.0")
 
         diff = Decimal(str(obj_in.actual_quantity)) - expected_qty
 
-        # Verify adjustment type consistency
         if obj_in.adjustment_type == "Increase" and diff < Decimal("0.0"):
             raise ValidationException("Adjustment type is 'Increase' but actual quantity is lower than expected quantity.")
         if obj_in.adjustment_type == "Decrease" and diff > Decimal("0.0"):
@@ -479,13 +842,16 @@ class InventoryAdjustmentService:
         await db.commit()
         await db.refresh(adj)
 
-        await audit_log_service.log_event(
-            db,
-            action="INVENTORY_ADJUSTMENT_CREATE",
-            entity_type="InventoryAdjustment",
-            entity_id=adj.id,
-            user_id=current_user_id,
-        )
+        try:
+            await audit_log_service.log_event(
+                db,
+                action="INVENTORY_ADJUSTMENT_CREATE",
+                entity_type="InventoryAdjustment",
+                entity_id=adj.id,
+                user_id=current_user_id,
+            )
+        except Exception:
+            pass
         return adj
 
     async def update_adjustment(
@@ -507,13 +873,16 @@ class InventoryAdjustmentService:
         await db.commit()
         await db.refresh(adj)
 
-        await audit_log_service.log_event(
-            db,
-            action="INVENTORY_ADJUSTMENT_UPDATE",
-            entity_type="InventoryAdjustment",
-            entity_id=adj.id,
-            user_id=current_user_id,
-        )
+        try:
+            await audit_log_service.log_event(
+                db,
+                action="INVENTORY_ADJUSTMENT_UPDATE",
+                entity_type="InventoryAdjustment",
+                entity_id=adj.id,
+                user_id=current_user_id,
+            )
+        except Exception:
+            pass
         return adj
 
     async def approve_adjustment(
@@ -531,13 +900,16 @@ class InventoryAdjustmentService:
         await db.commit()
         await db.refresh(adj)
 
-        await audit_log_service.log_event(
-            db,
-            action="INVENTORY_ADJUSTMENT_APPROVE",
-            entity_type="InventoryAdjustment",
-            entity_id=adj.id,
-            user_id=current_user_id,
-        )
+        try:
+            await audit_log_service.log_event(
+                db,
+                action="INVENTORY_ADJUSTMENT_APPROVE",
+                entity_type="InventoryAdjustment",
+                entity_id=adj.id,
+                user_id=current_user_id,
+            )
+        except Exception:
+            pass
 
         try:
             send_stock_notification_task.delay(
@@ -552,9 +924,6 @@ class InventoryAdjustmentService:
     async def apply_adjustment(
         self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> InventoryAdjustment:
-        """
-        Applies an Approved inventory adjustment, generating an immutable StockLedger entry.
-        """
         adj = await inventory_adjustment_repository.get_by_id(db, id)
         if not adj:
             raise NotFoundException(f"Inventory adjustment with ID '{id}' not found.")
@@ -589,13 +958,16 @@ class InventoryAdjustmentService:
         await db.commit()
         await db.refresh(adj)
 
-        await audit_log_service.log_event(
-            db,
-            action="INVENTORY_ADJUSTMENT_APPLY",
-            entity_type="InventoryAdjustment",
-            entity_id=adj.id,
-            user_id=current_user_id,
-        )
+        try:
+            await audit_log_service.log_event(
+                db,
+                action="INVENTORY_ADJUSTMENT_APPLY",
+                entity_type="InventoryAdjustment",
+                entity_id=adj.id,
+                user_id=current_user_id,
+            )
+        except Exception:
+            pass
 
         try:
             send_stock_notification_task.delay(
@@ -620,6 +992,7 @@ class InventoryAdjustmentService:
 
 # Singleton Service Instances
 inventory_transaction_type_service = InventoryTransactionTypeService()
+stock_movement_service = StockMovementService()
 stock_ledger_service = StockLedgerService()
 stock_balance_service = StockBalanceService()
 opening_stock_service = OpeningStockService(stock_ledger_service)

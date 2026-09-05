@@ -114,3 +114,15 @@ async def delete_warehouse(
 ):
     """Delete or safely deactivate a warehouse facility."""
     await warehouse_service.delete_warehouse(db, id, current_user_id=current_user.id)
+
+
+@router.get("/{id}/stock", status_code=status.HTTP_200_OK)
+async def get_warehouse_stock(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.warehouse.read")),
+):
+    """Retrieve live authoritative stock summary for a warehouse."""
+    from app.services.stock_engine_services import stock_balance_service
+    return await stock_balance_service.get_warehouse_stock_summary(db, id)
+

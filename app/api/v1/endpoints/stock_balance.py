@@ -6,8 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, has_permission
 from app.models.user import User
 from app.schemas.stock_engine import (
+    PaginatedStockBalanceResponse,
     ProductStockSummaryResponse,
     StockBalanceResponse,
+    StorageLocationStockSummaryResponse,
     WarehouseStockSummaryResponse,
 )
 from app.services.stock_engine_services import stock_balance_service
@@ -16,8 +18,8 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
-@router.get("s", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
-@router.get("/balances", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
+@router.get("s", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK, include_in_schema=False)
+@router.get("/balances", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK, include_in_schema=False)
 async def get_stock_balances(
     product_id: Optional[uuid.UUID] = Query(None),
     warehouse_id: Optional[uuid.UUID] = Query(None),
@@ -25,13 +27,14 @@ async def get_stock_balances(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_permission("inventory.balance.read")),
 ):
-    """Retrieve stock balance projections filtered by product, warehouse, or location."""
+    """Retrieve stock balances filtered by product, warehouse, or location."""
     balances = await stock_balance_service.get_balances(
         db, product_id=product_id, warehouse_id=warehouse_id, location_id=location_id
     )
     res = []
     for b in balances:
         resp = StockBalanceResponse.model_validate(b)
+        resp.quantity_on_hand = b.available_quantity
         resp.total_quantity = b.available_quantity + b.reserved_quantity + b.damaged_quantity + b.in_transit_quantity
         if b.product:
             resp.product_sku = b.product.sku
@@ -39,6 +42,8 @@ async def get_stock_balances(
         if b.warehouse:
             resp.warehouse_code = b.warehouse.code
             resp.warehouse_name = b.warehouse.name
+        if b.storage_location:
+            resp.storage_location_code = b.storage_location.code
         res.append(resp)
     return res
 
@@ -63,26 +68,36 @@ async def get_product_stock_summary(
     return await stock_balance_service.get_product_stock_summary(db, product_id)
 
 
-@router.get("/location/{location_id}", response_model=List[StockBalanceResponse], status_code=status.HTTP_200_OK)
+@router.get("/location/{location_id}", response_model=StorageLocationStockSummaryResponse, status_code=status.HTTP_200_OK)
 async def get_location_stock_balances(
     location_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_permission("inventory.balance.read")),
 ):
     """Retrieve stock balances for a specific storage location."""
-    balances = await stock_balance_service.get_balances(db, location_id=location_id)
-    res = []
-    for b in balances:
-        resp = StockBalanceResponse.model_validate(b)
-        resp.total_quantity = b.available_quantity + b.reserved_quantity + b.damaged_quantity + b.in_transit_quantity
-        if b.product:
-            resp.product_sku = b.product.sku
-            resp.product_name = b.product.name
-        if b.warehouse:
-            resp.warehouse_code = b.warehouse.code
-            resp.warehouse_name = b.warehouse.name
-        res.append(resp)
-    return res
+    return await stock_balance_service.get_location_stock_summary(db, location_id)
+
+
+@router.get("/{id}", response_model=StockBalanceResponse, status_code=status.HTTP_200_OK)
+async def get_stock_balance_by_id(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.balance.read")),
+):
+    """Retrieve a single stock balance record by its UUID."""
+    b = await stock_balance_service.get_by_id(db, id)
+    resp = StockBalanceResponse.model_validate(b)
+    resp.quantity_on_hand = b.available_quantity
+    resp.total_quantity = b.available_quantity + b.reserved_quantity + b.damaged_quantity + b.in_transit_quantity
+    if b.product:
+        resp.product_sku = b.product.sku
+        resp.product_name = b.product.name
+    if b.warehouse:
+        resp.warehouse_code = b.warehouse.code
+        resp.warehouse_name = b.warehouse.name
+    if b.storage_location:
+        resp.storage_location_code = b.storage_location.code
+    return resp
 
 
 @router.post("/recalculate", response_model=StockBalanceResponse, status_code=status.HTTP_200_OK)
@@ -98,6 +113,7 @@ async def recalculate_stock_balance(
         db, product_id=product_id, warehouse_id=warehouse_id, storage_location_id=location_id
     )
     resp = StockBalanceResponse.model_validate(b)
+    resp.quantity_on_hand = b.available_quantity
     resp.total_quantity = b.available_quantity + b.reserved_quantity + b.damaged_quantity + b.in_transit_quantity
     if b.product:
         resp.product_sku = b.product.sku
@@ -105,4 +121,6 @@ async def recalculate_stock_balance(
     if b.warehouse:
         resp.warehouse_code = b.warehouse.code
         resp.warehouse_name = b.warehouse.name
+    if b.storage_location:
+        resp.storage_location_code = b.storage_location.code
     return resp

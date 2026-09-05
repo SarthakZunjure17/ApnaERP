@@ -118,6 +118,7 @@ from app.api.v1.endpoints import (
     statutory_rule,
     stock_balance,
     stock_ledger,
+    stock_movements,
     stock_reservations,
     stock_transfer,
     storage_location,
@@ -192,12 +193,18 @@ api_router.include_router(product_attribute.router, prefix="/product-attributes"
 api_router.include_router(product_document.router, tags=["Product Documents"])
 
 # Stock Engine Routers
+api_router.include_router(stock_movements.router, prefix="/stock", tags=["Stock Engine"])
+api_router.include_router(stock_movements.router, prefix="/inventory/stock", tags=["Stock Engine"])
+api_router.include_router(stock_ledger.router, prefix="/stock/ledger", tags=["Stock Ledger Engine"])
+api_router.include_router(stock_balance.router, prefix="/stock/balances", tags=["Stock Balance"])
+api_router.include_router(stock_balance.router, prefix="/stock/balance", tags=["Stock Balance"])
 api_router.include_router(inventory_transaction_type.router, prefix="/inventory/transaction-types", tags=["Transaction Types"])
 api_router.include_router(opening_stock.router, prefix="/inventory/opening-stocks", tags=["Opening Stocks"])
 api_router.include_router(stock_ledger.router, prefix="/inventory/ledger", tags=["Stock Ledger Engine"])
 api_router.include_router(inventory_adjustment.router, prefix="/inventory/adjustments", tags=["Stock Adjustments"])
 api_router.include_router(stock_balance.router, prefix="/inventory/balance", tags=["Stock Balance Snapshot"])
 api_router.include_router(stock_balance.router, prefix="/inventory/balances", tags=["Stock Balance Snapshot"])
+
 
 # Warehouse Operations Engine Routers
 api_router.include_router(goods_receipt.router, prefix="/inventory/goods-receipts", tags=["Goods Receipt Note (GRN)"])

@@ -47,6 +47,14 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
     def __init__(self):
         super().__init__(StockLedger)
 
+    async def find_by_idempotency_key(self, db: AsyncSession, idempotency_key: str) -> Optional[StockLedger]:
+        """
+        Retrieves a stock ledger entry by its unique idempotency key.
+        """
+        stmt = select(StockLedger).where(StockLedger.idempotency_key == idempotency_key)
+        result = await db.execute(stmt)
+        return result.scalars().first()
+
     async def get_latest_running_balance(
         self,
         db: AsyncSession,
@@ -69,14 +77,19 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
         val = result.scalar_one_or_none()
         return Decimal(str(val)) if val is not None else Decimal("0.0")
 
-    async def create_ledger_entry(self, db: AsyncSession, obj_in: Dict[str, Any]) -> StockLedger:
+    async def create_ledger_entry(
+        self, db: AsyncSession, obj_in: Dict[str, Any], commit: bool = True
+    ) -> StockLedger:
         """
-        Inserts an immutable ledger entry.
+        Inserts an immutable ledger entry. Supports transactional atomic commit handling.
         """
         ledger = StockLedger(**obj_in)
         db.add(ledger)
-        await db.commit()
-        await db.refresh(ledger)
+        if commit:
+            await db.commit()
+            await db.refresh(ledger)
+        else:
+            await db.flush()
         return ledger
 
     async def get_ledger_entries_paginated(
@@ -86,7 +99,10 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
         warehouse_id: Optional[uuid.UUID] = None,
         storage_location_id: Optional[uuid.UUID] = None,
         transaction_type_id: Optional[uuid.UUID] = None,
+        movement_type: Optional[str] = None,
+        direction: Optional[str] = None,
         reference_type: Optional[str] = None,
+        reference_id: Optional[uuid.UUID] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         search_term: Optional[str] = None,
@@ -108,8 +124,14 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
             filters.append(StockLedger.storage_location_id == storage_location_id)
         if transaction_type_id:
             filters.append(StockLedger.transaction_type_id == transaction_type_id)
+        if movement_type:
+            filters.append(func.upper(StockLedger.movement_type) == movement_type.upper())
+        if direction:
+            filters.append(func.upper(StockLedger.direction) == direction.upper())
         if reference_type:
             filters.append(func.lower(StockLedger.reference_type) == reference_type.lower())
+        if reference_id:
+            filters.append(StockLedger.reference_id == reference_id)
         if start_date:
             filters.append(StockLedger.transaction_date >= start_date)
         if end_date:
@@ -121,6 +143,9 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
                 or_(
                     StockLedger.reference_type.ilike(search_pattern),
                     StockLedger.remarks.ilike(search_pattern),
+                    StockLedger.reason.ilike(search_pattern),
+                    StockLedger.notes.ilike(search_pattern),
+                    StockLedger.movement_type.ilike(search_pattern),
                     StockLedger.direction.ilike(search_pattern),
                 )
             )
@@ -158,20 +183,20 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
         total = Decimal("0.0")
         for e in entries:
             qty = Decimal(str(e.quantity))
-            if e.direction == "IN":
+            if e.direction.upper() == "IN":
                 total += qty
-            elif e.direction == "OUT":
+            elif e.direction.upper() == "OUT":
                 total -= qty
-            elif e.direction == "ADJUSTMENT":
-                total += qty  # positive or negative qty for adjustment
-            elif e.direction == "SYSTEM":
+            elif e.direction.upper() in ("ADJUSTMENT", "SYSTEM"):
+                # if negative/positive adjustment or delta
                 total += qty
         return total
 
 
 class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
     """
-    Repository for managing StockBalance projection records.
+    Repository for managing StockBalance records.
+    Authoritative state for current inventory at Product + Warehouse + Location grain.
     """
     def __init__(self):
         super().__init__(StockBalance)
@@ -195,6 +220,60 @@ class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
         result = await db.execute(stmt)
         return result.scalars().first()
 
+    async def get_for_update(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        storage_location_id: Optional[uuid.UUID] = None,
+    ) -> Optional[StockBalance]:
+        """
+        Retrieves a StockBalance row locked with PostgreSQL SELECT ... FOR UPDATE
+        for transaction-safe concurrency control.
+        """
+        stmt = select(StockBalance).where(
+            StockBalance.product_id == product_id,
+            StockBalance.warehouse_id == warehouse_id,
+        )
+        if storage_location_id:
+            stmt = stmt.where(StockBalance.storage_location_id == storage_location_id)
+        else:
+            stmt = stmt.where(StockBalance.storage_location_id.is_(None))
+
+        stmt = stmt.with_for_update()
+        result = await db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_or_create_for_update(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        storage_location_id: Optional[uuid.UUID] = None,
+    ) -> StockBalance:
+        """
+        Safely retrieves or initializes a StockBalance row with transactional row-level lock.
+        """
+        bal = await self.get_for_update(db, product_id, warehouse_id, storage_location_id)
+        if not bal:
+            # Check if exists without lock (in case dialect doesn't lock non-existent rows)
+            bal = await self.get_by_keys(db, product_id, warehouse_id, storage_location_id)
+            if not bal:
+                now = datetime.now(timezone.utc)
+                bal = StockBalance(
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    storage_location_id=storage_location_id,
+                    available_quantity=Decimal("0.0"),
+                    reserved_quantity=Decimal("0.0"),
+                    damaged_quantity=Decimal("0.0"),
+                    in_transit_quantity=Decimal("0.0"),
+                    last_calculated=now,
+                )
+                db.add(bal)
+                await db.flush()
+        return bal
+
     async def upsert_balance(
         self,
         db: AsyncSession,
@@ -205,6 +284,7 @@ class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
         reserved_quantity: Decimal = Decimal("0.0"),
         damaged_quantity: Decimal = Decimal("0.0"),
         in_transit_quantity: Decimal = Decimal("0.0"),
+        commit: bool = True,
     ) -> StockBalance:
         existing = await self.get_by_keys(db, product_id, warehouse_id, storage_location_id)
         now = datetime.now(timezone.utc)
@@ -214,8 +294,11 @@ class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
             existing.damaged_quantity = damaged_quantity
             existing.in_transit_quantity = in_transit_quantity
             existing.last_calculated = now
-            await db.commit()
-            await db.refresh(existing)
+            if commit:
+                await db.commit()
+                await db.refresh(existing)
+            else:
+                await db.flush()
             return existing
         else:
             bal = StockBalance(
@@ -229,8 +312,11 @@ class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
                 last_calculated=now,
             )
             db.add(bal)
-            await db.commit()
-            await db.refresh(bal)
+            if commit:
+                await db.commit()
+                await db.refresh(bal)
+            else:
+                await db.flush()
             return bal
 
     async def get_balances_by_product(self, db: AsyncSession, product_id: uuid.UUID) -> List[StockBalance]:
