@@ -98,6 +98,32 @@ def has_permission(permission_code: str) -> Callable:
 require_permission = has_permission
 
 
+def has_any_permission(*permission_codes: str) -> Callable:
+    """
+    Dependency factory verifying that the authenticated user possesses at least one of the required permissions.
+    Superusers or users holding 'admin.full_access' bypass specific code checks.
+    """
+    async def permission_checker(
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        if current_user.is_superuser:
+            return current_user
+
+        user_perms = await rbac_service.get_user_permission_codes(db, current_user.id)
+
+        if "admin.full_access" in user_perms or any(p in user_perms for p in permission_codes):
+            return current_user
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied: Missing one of required permissions: {', '.join(permission_codes)}.",
+        )
+
+    return permission_checker
+
+
+
 def has_role(role_name: str) -> Callable:
 
     """

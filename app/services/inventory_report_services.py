@@ -1,6 +1,9 @@
+import csv
 from datetime import datetime, timezone
 from decimal import Decimal
+import io
 import json
+import math
 import uuid
 from typing import Any, Dict, List, Optional
 from sqlalchemy import func, select
@@ -16,15 +19,496 @@ from app.models.stock_ledger import StockLedger
 from app.models.stock_reservation import StockReservation
 from app.models.warehouse import Warehouse
 from app.repositories.inventory_advanced_repos import inventory_analytics_repository
+from app.repositories.inventory_report_repos import inventory_report_repository
 from app.schemas.inventory_advanced import (
     InventoryAgingItem,
     InventoryDashboardSummary,
     MovementAnalysisItem,
     StockValuationItem,
 )
+from app.schemas.inventory_reports import (
+    AvailableStockReportItem,
+    BatchExpiryReportItem,
+    BatchExpiryReportSummary,
+    InventoryAgingReportItem,
+    InventoryAgingReportSummary,
+    InventoryExecutiveDashboardResponse,
+    InventoryMovementAnalyticsResponse,
+    LowStockReportItem,
+    LowStockReportSummary,
+    PaginatedAvailableStockReportResponse,
+    PaginatedBatchExpiryReportResponse,
+    PaginatedInventoryAgingReportResponse,
+    PaginatedLowStockReportResponse,
+    PaginatedProductInventoryReportResponse,
+    PaginatedSerialInventoryReportResponse,
+    PaginatedStockMovementReportResponse,
+    PaginatedStockReportResponse,
+    PaginatedStockReservationReportResponse,
+    PaginatedWarehouseInventoryReportResponse,
+    ProductInventoryReportItem,
+    SerialInventoryReportItem,
+    StockMovementReportItem,
+    StockMovementReportSummary,
+    StockReportItem,
+    StockReportSummary,
+    StockReservationReportItem,
+    StockReservationReportSummary,
+    WarehouseInventoryReportItem,
+)
 
 
 class InventoryReportService:
+    """
+    Service layer providing read-only operational reports, movement analytics,
+    and CSV export transformations over authoritative inventory data.
+    """
+
+    # =========================================================================
+    # 1. CURRENT STOCK REPORT
+    # =========================================================================
+    async def get_current_stock_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
+        category_id: Optional[uuid.UUID] = None,
+        tracking_type: Optional[str] = None,
+        active_only: bool = True,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedStockReportResponse:
+        skip = (page - 1) * size
+        items, total, summary = await inventory_report_repository.get_current_stock_report(
+            db=db,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            category_id=category_id,
+            tracking_type=tracking_type,
+            active_only=active_only,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedStockReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+            summary=summary,
+        )
+
+    # =========================================================================
+    # 2. STOCK MOVEMENT REPORT
+    # =========================================================================
+    async def get_stock_movement_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
+        movement_type: Optional[str] = None,
+        direction: Optional[str] = None,
+        batch_id: Optional[uuid.UUID] = None,
+        reference_type: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedStockMovementReportResponse:
+        skip = (page - 1) * size
+        items, total, summary = await inventory_report_repository.get_stock_movement_report(
+            db=db,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            movement_type=movement_type,
+            direction=direction,
+            batch_id=batch_id,
+            reference_type=reference_type,
+            date_from=date_from,
+            date_to=date_to,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedStockMovementReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+            summary=summary,
+        )
+
+    # =========================================================================
+    # 3. WAREHOUSE INVENTORY REPORT
+    # =========================================================================
+    async def get_warehouse_inventory_report(
+        self,
+        db: AsyncSession,
+        warehouse_id: Optional[uuid.UUID] = None,
+        is_active: Optional[bool] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedWarehouseInventoryReportResponse:
+        skip = (page - 1) * size
+        items, total = await inventory_report_repository.get_warehouse_inventory_report(
+            db=db,
+            warehouse_id=warehouse_id,
+            is_active=is_active,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedWarehouseInventoryReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
+
+    # =========================================================================
+    # 4. PRODUCT INVENTORY REPORT
+    # =========================================================================
+    async def get_product_inventory_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        category_id: Optional[uuid.UUID] = None,
+        tracking_type: Optional[str] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedProductInventoryReportResponse:
+        skip = (page - 1) * size
+        items, total = await inventory_report_repository.get_product_inventory_report(
+            db=db,
+            product_id=product_id,
+            category_id=category_id,
+            tracking_type=tracking_type,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedProductInventoryReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
+
+    # =========================================================================
+    # 5. BATCH & EXPIRY REPORT
+    # =========================================================================
+    async def get_batch_expiry_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        status: Optional[str] = None,
+        expiry_status: Optional[str] = None,
+        expiring_within_days: Optional[int] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedBatchExpiryReportResponse:
+        skip = (page - 1) * size
+        items, total, summary = await inventory_report_repository.get_batch_expiry_report(
+            db=db,
+            product_id=product_id,
+            status=status,
+            expiry_status=expiry_status,
+            expiring_within_days=expiring_within_days,
+            date_from=date_from,
+            date_to=date_to,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedBatchExpiryReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+            summary=summary,
+        )
+
+    # =========================================================================
+    # 6. SERIAL INVENTORY REPORT
+    # =========================================================================
+    async def get_serial_inventory_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
+        batch_id: Optional[uuid.UUID] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedSerialInventoryReportResponse:
+        skip = (page - 1) * size
+        items, total = await inventory_report_repository.get_serial_inventory_report(
+            db=db,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            batch_id=batch_id,
+            status=status,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedSerialInventoryReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
+
+    # =========================================================================
+    # 7. STOCK RESERVATIONS REPORT
+    # =========================================================================
+    async def get_reservation_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        status: Optional[str] = None,
+        reserved_for_type: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedStockReservationReportResponse:
+        skip = (page - 1) * size
+        items, total, summary = await inventory_report_repository.get_reservation_report(
+            db=db,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            status=status,
+            reserved_for_type=reserved_for_type,
+            date_from=date_from,
+            date_to=date_to,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedStockReservationReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+            summary=summary,
+        )
+
+    # =========================================================================
+    # 8. AVAILABLE STOCK REPORT
+    # =========================================================================
+    async def get_available_stock_report(
+        self,
+        db: AsyncSession,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        storage_location_id: Optional[uuid.UUID] = None,
+        category_id: Optional[uuid.UUID] = None,
+        tracking_type: Optional[str] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedAvailableStockReportResponse:
+        skip = (page - 1) * size
+        items, total = await inventory_report_repository.get_available_stock_report(
+            db=db,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            storage_location_id=storage_location_id,
+            category_id=category_id,
+            tracking_type=tracking_type,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedAvailableStockReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
+
+    # =========================================================================
+    # 9. LOW STOCK / REORDER REPORT
+    # =========================================================================
+    async def get_low_stock_report(
+        self,
+        db: AsyncSession,
+        warehouse_id: Optional[uuid.UUID] = None,
+        category_id: Optional[uuid.UUID] = None,
+        below_reorder_only: bool = False,
+        below_min_only: bool = False,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedLowStockReportResponse:
+        skip = (page - 1) * size
+        items, total, summary = await inventory_report_repository.get_low_stock_report(
+            db=db,
+            warehouse_id=warehouse_id,
+            category_id=category_id,
+            below_reorder_only=below_reorder_only,
+            below_min_only=below_min_only,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedLowStockReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+            summary=summary,
+        )
+
+    # =========================================================================
+    # 10. INVENTORY MOVEMENT ANALYTICS
+    # =========================================================================
+    async def get_movement_analytics(
+        self,
+        db: AsyncSession,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        product_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        category_id: Optional[uuid.UUID] = None,
+    ) -> InventoryMovementAnalyticsResponse:
+        return await inventory_report_repository.get_movement_analytics(
+            db=db,
+            date_from=date_from,
+            date_to=date_to,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+            category_id=category_id,
+        )
+
+    # =========================================================================
+    # 11. INVENTORY AGING REPORT
+    # =========================================================================
+    async def get_inventory_aging_report_paginated(
+        self,
+        db: AsyncSession,
+        warehouse_id: Optional[uuid.UUID] = None,
+        aging_bucket: Optional[str] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+        size: int = 50,
+    ) -> PaginatedInventoryAgingReportResponse:
+        skip = (page - 1) * size
+        items, total, summary = await inventory_report_repository.get_inventory_aging_report(
+            db=db,
+            warehouse_id=warehouse_id,
+            aging_bucket=aging_bucket,
+            search=search,
+            skip=skip,
+            limit=size,
+        )
+        pages = math.ceil(total / size) if size > 0 else 1
+        return PaginatedInventoryAgingReportResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+            summary=summary,
+        )
+
+    # =========================================================================
+    # 12. EXECUTIVE DASHBOARD SUMMARY
+    # =========================================================================
+    async def get_executive_dashboard_summary(
+        self,
+        db: AsyncSession,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> InventoryExecutiveDashboardResponse:
+        return await inventory_report_repository.get_dashboard_summary(
+            db=db,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+    # =========================================================================
+    # 13. CSV EXPORT UTILITY
+    # =========================================================================
+    def export_report_to_csv(self, report_type: str, items: List[Any]) -> str:
+        """
+        Converts any list of report Pydantic schemas into standard CSV formatted string.
+        """
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        if not items:
+            writer.writerow(["No data available for export"])
+            return output.getvalue()
+
+        # Determine columns dynamically from first model dump
+        first_item = items[0]
+        if hasattr(first_item, "model_dump"):
+            data_dict = first_item.model_dump()
+        elif isinstance(first_item, dict):
+            data_dict = first_item
+        else:
+            data_dict = first_item.__dict__
+
+        headers = list(data_dict.keys())
+        writer.writerow([h.replace("_", " ").title() for h in headers])
+
+        for item in items:
+            row_dict = item.model_dump() if hasattr(item, "model_dump") else (item if isinstance(item, dict) else item.__dict__)
+            row_values = []
+            for h in headers:
+                val = row_dict.get(h)
+                if isinstance(val, (datetime,)):
+                    val = val.isoformat()
+                elif isinstance(val, (Decimal,)):
+                    val = str(val)
+                elif isinstance(val, (list, dict)):
+                    val = json.dumps(val)
+                elif val is None:
+                    val = ""
+                row_values.append(val)
+            writer.writerow(row_values)
+
+        return output.getvalue()
+
+    # =========================================================================
+    # BACKWARD COMPATIBILITY METHODS
+    # =========================================================================
     async def get_stock_valuation_report(
         self, db: AsyncSession, warehouse_id: Optional[uuid.UUID] = None
     ) -> List[StockValuationItem]:
@@ -35,7 +519,7 @@ class InventoryReportService:
                 Product.name.label("product_name"),
                 StockBalance.warehouse_id,
                 Warehouse.code.label("warehouse_code"),
-                StockBalance.available_quantity,
+                StockBalance.available_quantity.label("available_quantity"),
             )
             .join(Product, StockBalance.product_id == Product.id)
             .join(Warehouse, StockBalance.warehouse_id == Warehouse.id)
@@ -49,7 +533,6 @@ class InventoryReportService:
         items: List[StockValuationItem] = []
         for r in rows:
             qty = Decimal(str(r.available_quantity))
-            # Standard estimated unit valuation (defaulting to 100.0 if not specified in price list)
             est_cost = Decimal("100.00")
             val = qty * est_cost
             items.append(
@@ -64,64 +547,29 @@ class InventoryReportService:
                     total_valuation=val,
                 )
             )
-
         return items
 
     async def get_inventory_aging_report(
         self, db: AsyncSession, warehouse_id: Optional[uuid.UUID] = None
     ) -> List[InventoryAgingItem]:
-        stmt = (
-            select(
-                StockBalance.product_id,
-                Product.sku,
-                Product.name.label("product_name"),
-                Warehouse.code.label("warehouse_code"),
-                StockBalance.available_quantity,
-                StockBalance.last_calculated,
-            )
-            .join(Product, StockBalance.product_id == Product.id)
-            .join(Warehouse, StockBalance.warehouse_id == Warehouse.id)
-        )
-        if warehouse_id:
-            stmt = stmt.where(StockBalance.warehouse_id == warehouse_id)
-
-        res = await db.execute(stmt)
-        rows = res.all()
-        now = datetime.now(timezone.utc)
-
+        rep = await self.get_inventory_aging_report_paginated(db, warehouse_id=warehouse_id, page=1, size=500)
         items: List[InventoryAgingItem] = []
-        for r in rows:
-            if r.last_calculated:
-                r_dt = r.last_calculated if r.last_calculated.tzinfo else r.last_calculated.replace(tzinfo=timezone.utc)
-                days = (now - r_dt).days
-            else:
-                days = 0
-
-            if days <= 30:
-                bucket = "0-30 days"
-            elif days <= 60:
-                bucket = "31-60 days"
-            elif days <= 90:
-                bucket = "61-90 days"
-            else:
-                bucket = "90+ days"
-
+        for it in rep.items:
+            days = it.days_since_last_inbound or it.days_since_last_movement or 0
             items.append(
                 InventoryAgingItem(
-                    product_id=r.product_id,
-                    sku=r.sku,
-                    product_name=r.product_name,
-                    warehouse_code=r.warehouse_code,
-                    quantity=Decimal(str(r.available_quantity)),
+                    product_id=it.product_id,
+                    sku=it.product_sku,
+                    product_name=it.product_name,
+                    warehouse_code=it.warehouse_code,
+                    quantity=it.quantity_on_hand,
                     days_in_stock=days,
-                    aging_bucket=bucket,
+                    aging_bucket=it.aging_bucket,
                 )
             )
-
         return items
 
     async def get_movement_analysis_report(self, db: AsyncSession) -> List[MovementAnalysisItem]:
-        """Classifies SKUs into Fast Moving, Slow Moving, and Dead Stock based on recent ledger issue frequency."""
         stmt = (
             select(
                 Product.id.label("product_id"),
@@ -158,47 +606,44 @@ class InventoryReportService:
                     movement_category=cat,
                 )
             )
-
         return items
 
 
 class InventoryAnalyticsService:
+    """
+    Analytics service maintaining backward compatible endpoints and snapshotting.
+    """
+
     async def get_dashboard_summary(self, db: AsyncSession) -> InventoryDashboardSummary:
-        cache_key = "inventory:dashboard:summary"
-        cached = await redis_manager.get_json(cache_key)
-        if cached:
-            return InventoryDashboardSummary(**cached)
+        dash = await inventory_report_repository.get_dashboard_summary(db)
+        wh_summaries = [
+            {
+                "warehouse_code": w.warehouse_code,
+                "warehouse_name": w.warehouse_name,
+                "stock_qty": float(w.total_on_hand_quantity),
+            }
+            for w in dash.warehouse_stock_breakdown
+        ]
+        top_prods = [
+            {
+                "product_sku": p.product_sku,
+                "product_name": p.product_name,
+                "movement_qty": float(p.total_moved_quantity),
+            }
+            for p in dash.top_moving_products
+        ]
 
-        # 1. Total valuation & items count
-        tot_val_stmt = select(func.coalesce(func.sum(StockBalance.available_quantity), 0))
-        tot_val_res = await db.execute(tot_val_stmt)
-        tot_items = Decimal(str(tot_val_res.scalar() or 0))
-        tot_val = tot_items * Decimal("100.00")
-
-        # 2. Total reserved stock
-        res_stmt = select(func.coalesce(func.sum(StockReservation.quantity), 0)).where(StockReservation.status == "Active")
-        res_res = await db.execute(res_stmt)
-        tot_reserved = Decimal(str(res_res.scalar() or 0))
-
-        # 3. Total expiring stock
-        exp_stmt = select(func.coalesce(func.sum(Batch.current_quantity), 0)).where(Batch.status == "Active").where(Batch.expiry_date.isnot(None))
-        exp_res = await db.execute(exp_stmt)
-        tot_expiring = Decimal(str(exp_res.scalar() or 0))
-
-        summary = InventoryDashboardSummary(
-            total_inventory_value=tot_val,
-            total_items_count=tot_items,
+        return InventoryDashboardSummary(
+            total_inventory_value=dash.total_on_hand_quantity * Decimal("100.00"),
+            total_items_count=dash.total_on_hand_quantity,
             turnover_ratio=Decimal("3.50"),
             warehouse_utilization_pct=Decimal("78.50"),
-            reserved_stock_qty=tot_reserved,
-            available_stock_qty=max(Decimal("0.0"), tot_items - tot_reserved),
-            expiring_stock_qty=tot_expiring,
-            top_moving_products=[],
-            warehouse_stock_breakdown=[],
+            reserved_stock_qty=dash.total_reserved_quantity,
+            available_stock_qty=dash.total_available_quantity,
+            expiring_stock_qty=Decimal(str(dash.expired_batches_count + dash.expiring_soon_batches_count)),
+            top_moving_products=top_prods,
+            warehouse_stock_breakdown=wh_summaries,
         )
-
-        await redis_manager.set_json(cache_key, json.loads(summary.model_dump_json()), expire=300)
-        return summary
 
     async def generate_analytics_snapshot(self, db: AsyncSession) -> InventoryAnalyticsSnapshot:
         summary = await self.get_dashboard_summary(db)

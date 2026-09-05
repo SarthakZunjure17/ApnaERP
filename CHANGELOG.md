@@ -5,6 +5,34 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.4] - 2026-09-06
+
+### Milestone Inventory Reports & Analytics
+
+#### Added
+- **Read-Only Operational Reports Subsystem (`app/repositories/inventory_report_repos.py`, `app/services/inventory_report_services.py`, `app/schemas/inventory_reports.py`)**:
+  - `Current Stock Report`: Real-time stock visibility across products, warehouses, and storage locations with on-hand, reserved, and available quantities.
+  - `Stock Movement Report`: Authoritative historical audit report querying immutable `StockLedger` movements with before/after balances, linked document references, batch numbers, and serial metadata.
+  - `Warehouse Inventory Report`: Facility-level aggregation of stocked items, storage location counts, batch expiries, serial inventory, and low-stock items.
+  - `Product Inventory Report`: Global catalog inventory footprint across warehouses, storage locations, active batches, and movement velocity.
+  - `Batch & Expiry Report`: Lot/batch visibility tracking expiry dates, remaining shelf-life, and status cohorts (`Active`, `Expired`, `Expiring Soon`).
+  - `Serial Inventory Report`: Individual serial item lifecycle status (`Available`, `Reserved`, `Issued`, `Returned`, `Scrapped`, `Lost`) and location tracking.
+  - `Stock Reservation Report`: Read-only demand allocation visibility with linked document types, expiration timestamps, and status lifecycles (`Active`, `Released`, `Consumed`, `Cancelled`).
+  - `Available Stock Report`: Availability-oriented read model isolating immediately allocatable stock ($\text{available} = \text{on\_hand} - \text{reserved}$).
+  - `Low Stock / Reorder Visibility Report`: Threshold breach detection identifying products below configured `reorder_level` and `minimum_stock` without triggering automated purchases.
+  - `Inventory Aging Report`: Stock shelf-life analytics categorized into standard aging cohorts (`0-30 days`, `31-60 days`, `61-90 days`, `90+ days`).
+  - `Inventory Movement Analytics Engine`: Operational analytics calculating inbound/outbound quantities, net movement, breakdowns by movement type, product category, and warehouse, and daily timeline trends.
+  - `Executive Inventory Dashboard`: Consolidated KPI executive overview summarizing global stock lines, on-hand/reserved/available quantities, low stock breaches, expired/expiring batches, and top-moving products.
+- **Streaming CSV Export Engine (`app/services/inventory_report_services.py`)**:
+  - Memory-efficient streaming CSV generator (`text/csv`) with sanitized string escaping to prevent CSV injection vulnerabilities across all operational reports.
+- **Granular RBAC Security (`app/db/seed_rbac.py`)**:
+  - Seeded 9 granular report permissions: `inventory.report.stock.read`, `inventory.report.movement.read`, `inventory.report.warehouse.read`, `inventory.report.product.read`, `inventory.report.batch.read`, `inventory.report.serial.read`, `inventory.report.reservation.read`, `inventory.report.analytics.read`, and `inventory.report.export`.
+- **Comprehensive Automated Test Suite (`tests/test_inventory_reports_v064.py`)**:
+  - 14 test functions covering all 44 milestone scenarios (current stock, movements, warehouse/product summaries, batch expiry, serial tracking, reservations, availability, low stock, aging, movement analytics, executive dashboard, CSV exports, RBAC authorization, read-only zero-mutation guarantee, and backward compatibility).
+- **Documentation & ADR**:
+  - `docs/inventory/inventory-reports.md`: Comprehensive domain specification for v0.6.4.
+  - `docs/adr/ADR-0032-inventory-reports-analytics.md`: Architecture Decision Record for read-only reporting architecture.
+
 ## [v0.6.3] - 2026-09-05
 
 ### Milestone Advanced Inventory
