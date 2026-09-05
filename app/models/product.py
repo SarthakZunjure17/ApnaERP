@@ -127,6 +127,13 @@ class Product(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         comment="Flag allowing negative stock balances",
     )
+    tracking_type: Mapped[str] = mapped_column(
+        String(20),
+        default="NONE",
+        nullable=False,
+        index=True,
+        comment="Tracking strategy: NONE, BATCH, SERIAL",
+    )
     default_warehouse_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("warehouses.id", ondelete="SET NULL"),
@@ -263,6 +270,14 @@ class Product(Base, UUIDMixin, TimestampMixin):
     @property
     def base_uom(self) -> "UnitOfMeasure":
         return self.base_unit
+
+    @property
+    def is_batch_tracked(self) -> bool:
+        return (self.tracking_type or "NONE").upper() == "BATCH"
+
+    @property
+    def is_serial_tracked(self) -> bool:
+        return (self.tracking_type or "NONE").upper() == "SERIAL"
 
     def __repr__(self) -> str:
         return f"<Product(sku='{self.sku}', name='{self.name}', status='{self.status}')>"

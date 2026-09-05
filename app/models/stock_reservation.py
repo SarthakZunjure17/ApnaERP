@@ -84,6 +84,16 @@ class StockReservation(Base, UUIDMixin, TimestampMixin):
         index=True,
         comment="Optional expiration date/time for auto-releasing the reservation",
     )
+    released_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when reservation was released",
+    )
+    consumed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when reservation was consumed by a physical stock issue",
+    )
     remarks: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
@@ -102,6 +112,30 @@ class StockReservation(Base, UUIDMixin, TimestampMixin):
     storage_location: Mapped[Optional["StorageLocation"]] = relationship("StorageLocation", lazy="selectin")
     batch: Mapped[Optional["Batch"]] = relationship("Batch", lazy="selectin")
     creator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by], lazy="selectin")
+
+    @property
+    def notes(self) -> Optional[str]:
+        return self.remarks
+
+    @notes.setter
+    def notes(self, val: Optional[str]):
+        self.remarks = val
+
+    @property
+    def reference_type(self) -> str:
+        return self.reserved_for_type
+
+    @reference_type.setter
+    def reference_type(self, val: str):
+        self.reserved_for_type = val
+
+    @property
+    def reference_id(self) -> Optional[uuid.UUID]:
+        return self.reserved_for_id
+
+    @reference_id.setter
+    def reference_id(self, val: Optional[uuid.UUID]):
+        self.reserved_for_id = val
 
     def __repr__(self) -> str:
         return f"<StockReservation(id={self.id}, number='{self.reservation_number}', product_id={self.product_id}, qty={self.quantity}, status='{self.status}')>"

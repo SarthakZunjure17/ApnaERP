@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 
 # ============================================================================
@@ -14,16 +14,50 @@ class BatchCreate(BaseModel):
     manufacturing_date: Optional[datetime] = None
     expiry_date: Optional[datetime] = None
     supplier_batch_ref: Optional[str] = Field(None, max_length=100)
+    supplier_reference: Optional[str] = Field(None, max_length=100)
     current_quantity: Decimal = Field(default=Decimal("0.0"), ge=Decimal("0.0"))
     status: Optional[str] = Field(default="Active", max_length=20)
+    notes: Optional[str] = None
+    remarks: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_batch_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "supplier_reference" in data and data["supplier_reference"] is not None and not data.get("supplier_batch_ref"):
+                data["supplier_batch_ref"] = data["supplier_reference"]
+            elif "supplier_batch_ref" in data and data["supplier_batch_ref"] is not None and not data.get("supplier_reference"):
+                data["supplier_reference"] = data["supplier_batch_ref"]
+            if "notes" in data and data["notes"] is not None and not data.get("remarks"):
+                data["remarks"] = data["notes"]
+            elif "remarks" in data and data["remarks"] is not None and not data.get("notes"):
+                data["notes"] = data["remarks"]
+        return data
 
 
 class BatchUpdate(BaseModel):
     manufacturing_date: Optional[datetime] = None
     expiry_date: Optional[datetime] = None
     supplier_batch_ref: Optional[str] = None
+    supplier_reference: Optional[str] = None
     current_quantity: Optional[Decimal] = Field(None, ge=Decimal("0.0"))
     status: Optional[str] = None
+    notes: Optional[str] = None
+    remarks: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_batch_update_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "supplier_reference" in data and data["supplier_reference"] is not None and not data.get("supplier_batch_ref"):
+                data["supplier_batch_ref"] = data["supplier_reference"]
+            elif "supplier_batch_ref" in data and data["supplier_batch_ref"] is not None and not data.get("supplier_reference"):
+                data["supplier_reference"] = data["supplier_batch_ref"]
+            if "notes" in data and data["notes"] is not None and not data.get("remarks"):
+                data["remarks"] = data["notes"]
+            elif "remarks" in data and data["remarks"] is not None and not data.get("notes"):
+                data["notes"] = data["remarks"]
+        return data
 
 
 class BatchResponse(BaseModel):
@@ -35,12 +69,27 @@ class BatchResponse(BaseModel):
     manufacturing_date: Optional[datetime] = None
     expiry_date: Optional[datetime] = None
     supplier_batch_ref: Optional[str] = None
+    supplier_reference: Optional[str] = None
     current_quantity: Decimal
     status: str
+    notes: Optional[str] = None
+    remarks: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_batch_aliases(cls, data: Any) -> Any:
+        if hasattr(data, "supplier_batch_ref") and not hasattr(data, "supplier_reference"):
+            data.supplier_reference = data.supplier_batch_ref
+        elif isinstance(data, dict):
+            if "supplier_batch_ref" in data and not data.get("supplier_reference"):
+                data["supplier_reference"] = data["supplier_batch_ref"]
+            if "remarks" in data and not data.get("notes"):
+                data["notes"] = data["remarks"]
+        return data
 
 
 class PaginatedBatchResponse(BaseModel):
@@ -143,10 +192,37 @@ class StockReservationCreate(BaseModel):
     storage_location_id: Optional[uuid.UUID] = None
     batch_id: Optional[uuid.UUID] = None
     quantity: Decimal = Field(..., gt=Decimal("0.0"))
-    reserved_for_type: str = Field(..., max_length=50, description="Sales, Manufacturing, Procurement, Internal")
+    reserved_for_type: Optional[str] = Field("Sales", max_length=50, description="Sales, Manufacturing, Procurement, Internal")
+    reference_type: Optional[str] = Field(None, max_length=50)
     reserved_for_id: Optional[uuid.UUID] = None
+    reference_id: Optional[uuid.UUID] = None
     expires_at: Optional[datetime] = None
     remarks: Optional[str] = None
+    notes: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_res_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "reference_type" in data and data["reference_type"] is not None and not data.get("reserved_for_type"):
+                data["reserved_for_type"] = data["reference_type"]
+            elif "reserved_for_type" in data and data["reserved_for_type"] is not None and not data.get("reference_type"):
+                data["reference_type"] = data["reserved_for_type"]
+            if "reference_id" in data and data["reference_id"] is not None and not data.get("reserved_for_id"):
+                data["reserved_for_id"] = data["reference_id"]
+            elif "reserved_for_id" in data and data["reserved_for_id"] is not None and not data.get("reference_id"):
+                data["reference_id"] = data["reserved_for_id"]
+            if "notes" in data and data["notes"] is not None and not data.get("remarks"):
+                data["remarks"] = data["notes"]
+            elif "remarks" in data and data["remarks"] is not None and not data.get("notes"):
+                data["notes"] = data["remarks"]
+        return data
+
+
+class StockReservationConsumeRequest(BaseModel):
+    quantity: Optional[Decimal] = Field(None, gt=Decimal("0.0"), description="Quantity to consume (defaults to full reservation qty)")
+    issue_id: Optional[uuid.UUID] = Field(None, description="Optional linked GoodsIssue document ID")
+    notes: Optional[str] = None
 
 
 class StockReservationResponse(BaseModel):
@@ -160,15 +236,38 @@ class StockReservationResponse(BaseModel):
     batch_id: Optional[uuid.UUID] = None
     quantity: Decimal
     reserved_for_type: str
+    reference_type: Optional[str] = None
     reserved_for_id: Optional[uuid.UUID] = None
+    reference_id: Optional[uuid.UUID] = None
     status: str
     expires_at: Optional[datetime] = None
+    released_at: Optional[datetime] = None
+    consumed_at: Optional[datetime] = None
     remarks: Optional[str] = None
+    notes: Optional[str] = None
     created_by: Optional[uuid.UUID] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_res_aliases(cls, data: Any) -> Any:
+        if hasattr(data, "reserved_for_type") and not hasattr(data, "reference_type"):
+            data.reference_type = data.reserved_for_type
+        if hasattr(data, "reserved_for_id") and not hasattr(data, "reference_id"):
+            data.reference_id = data.reserved_for_id
+        if hasattr(data, "remarks") and not hasattr(data, "notes"):
+            data.notes = data.remarks
+        elif isinstance(data, dict):
+            if "reserved_for_type" in data and not data.get("reference_type"):
+                data["reference_type"] = data["reserved_for_type"]
+            if "reserved_for_id" in data and not data.get("reference_id"):
+                data["reference_id"] = data["reserved_for_id"]
+            if "remarks" in data and not data.get("notes"):
+                data["notes"] = data["remarks"]
+        return data
 
 
 class PaginatedStockReservationResponse(BaseModel):

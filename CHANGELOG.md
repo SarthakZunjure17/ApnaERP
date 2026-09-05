@@ -5,6 +5,38 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.3] - 2026-09-05
+
+### Milestone Advanced Inventory
+
+#### Added
+- **Product Tracking Strategy (`app/models/product.py`)**:
+  - Extended `Product` model with `tracking_type` enum (`NONE`, `BATCH`, `SERIAL`) and property accessors `is_batch_tracked` and `is_serial_tracked`.
+- **Batch & Lot Management (`app/models/batch.py`, `app/repositories/inventory_advanced_repos.py`, `app/services/inventory_advanced_services.py`)**:
+  - `Batch`: Tracks production/supplier lots with `manufacturing_date`, `expiry_date`, `supplier_batch_ref`, `current_quantity`, `status` (`Active`, `Expired`, `Consumed`), and `notes`.
+  - FEFO/FIFO batch allocation helper algorithms in `BatchService`.
+- **Serial Number Tracking (`app/models/serial_number.py`, `app/repositories/inventory_advanced_repos.py`, `app/services/inventory_advanced_services.py`)**:
+  - `SerialNumber`: Tracks individual unit items with globally unique `serial_number`, location references (`warehouse_id`, `storage_location_id`), associated `batch_id`, status transitions (`Available`, `Reserved`, `Issued`, `Returned`, `Scrapped`, `Lost`), and JSONB chronological lifecycle `history`.
+  - 1-to-1 quantity validation and duplicate serial prevention during goods movements.
+- **Stock Reservations Subsystem (`app/models/stock_reservation.py`, `app/repositories/inventory_advanced_repos.py`, `app/services/inventory_advanced_services.py`)**:
+  - `StockReservation`: Manages logical stock allocations with `reservation_number`, `quantity`, `reserved_for_type`, `reserved_for_id`, `expires_at`, `released_at`, `consumed_at`, and status (`Active`, `Released`, `Consumed`, `Cancelled`).
+  - Row-level lock acquisition on `StockBalance` prevents over-reservation and ensures strict concurrency control.
+  - Zero direct `StockLedger` mutation on reservation create/release events; physical stock remains untouched.
+  - Atomic reservation consumption on Goods Issue notes.
+- **Stock Movement & Warehouse Operations Integration (`app/services/stock_engine_services.py`, `app/services/warehouse_operations_services.py`)**:
+  - Enhanced `StockMovementService.stock_in()` and `stock_out()` with batch tracking, expiry date validation on stock-out, and serial number count/status verification.
+  - Extended `StockLedger` model and schema with nullable `batch_id` and `serial_numbers` metadata.
+  - Integrated `WarehouseExecutionService` with tracked Goods Receipt, Goods Issue, and Stock Transfer documents.
+- **Alembic Migration (`alembic/versions/a0b1c2d3e4f5_phase_v063_advanced_inventory_tracking.py`)**:
+  - Additive database migration adding tracking columns to `products`, `stock_ledger`, `goods_receipt_items`, `goods_issue_items`, `stock_transfer_items`, and creating `batches`, `serial_numbers`, `lots`, `stock_reservations` tables.
+- **Granular RBAC Security (`app/db/seed_rbac.py`)**:
+  - Seeded permissions: `inventory.batch.read`, `inventory.batch.create`, `inventory.batch.update`, `inventory.serial.read`, `inventory.serial.create`, `inventory.serial.update`, `inventory.reservation.read`, `inventory.reservation.create`, `inventory.reservation.release`, `inventory.reservation.consume`, `inventory.reservation.cancel`.
+- **Comprehensive Test Suite (`tests/test_advanced_inventory_v063.py`)**:
+  - 27 test functions covering 38 distinct scenarios for batch lifecycle, duplicate rejection, expiry validation, serial number tracking, over-reservation rejection, reservation release/consumption, transaction rollback, deadlock-free transfers, and API/RBAC verification.
+- **Documentation & ADR**:
+  - `docs/inventory/advanced-inventory.md`: Complete domain specification.
+  - `docs/adr/ADR-0026-advanced-inventory.md`: Architecture Decision Record for v0.6.3.
+
 ## [v0.6.2] - 2026-09-05
 
 ### Milestone Warehouse Operations

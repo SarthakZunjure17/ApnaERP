@@ -63,6 +63,14 @@ class StockMovementCreate(BaseModel):
         None,
         description="Optional upstream document UUID",
     )
+    batch_id: Optional[uuid.UUID] = Field(
+        None,
+        description="Optional associated batch ID for batch-tracked products",
+    )
+    serial_numbers: Optional[List[str]] = Field(
+        None,
+        description="Optional list of serial numbers for serial-tracked movements",
+    )
     reason: Optional[str] = Field(
         None,
         max_length=255,
@@ -86,6 +94,7 @@ class StockMovementResponse(BaseModel):
     product_id: uuid.UUID
     warehouse_id: uuid.UUID
     storage_location_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
     movement_type: str
     direction: str
     quantity: Decimal
@@ -112,6 +121,7 @@ class StockMovementResponse(BaseModel):
     warehouse_code: Optional[str] = None
     warehouse_name: Optional[str] = None
     storage_location_code: Optional[str] = None
+    batch_number: Optional[str] = None
     transaction_type_code: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -131,6 +141,7 @@ class StockLedgerResponse(BaseModel):
     product_id: uuid.UUID
     warehouse_id: uuid.UUID
     storage_location_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
     movement_type: str = "STOCK_IN"
     direction: str
     quantity: Decimal
@@ -157,6 +168,7 @@ class StockLedgerResponse(BaseModel):
     warehouse_code: Optional[str] = None
     warehouse_name: Optional[str] = None
     storage_location_code: Optional[str] = None
+    batch_number: Optional[str] = None
     transaction_type_code: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

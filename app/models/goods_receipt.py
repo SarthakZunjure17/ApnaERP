@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import uuid
 from typing import List, Optional
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -150,6 +150,33 @@ class GoodsReceiptItem(Base, UUIDMixin):
         nullable=True,
         comment="Unit cost of received goods",
     )
+    batch_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("batches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Optional associated batch ID",
+    )
+    batch_number: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Optional batch/lot number",
+    )
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Optional batch expiration date",
+    )
+    manufacturing_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Optional batch manufacturing date",
+    )
+    serial_numbers: Mapped[Optional[List[str]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="List of serial numbers for serialized item receipts",
+    )
     remarks: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
@@ -161,6 +188,7 @@ class GoodsReceiptItem(Base, UUIDMixin):
     product: Mapped["Product"] = relationship("Product", lazy="selectin")
     storage_location: Mapped[Optional["StorageLocation"]] = relationship("StorageLocation", lazy="selectin")
     unit: Mapped[Optional["UnitOfMeasure"]] = relationship("UnitOfMeasure", lazy="selectin")
+    batch: Mapped[Optional["Batch"]] = relationship("Batch", lazy="selectin")
 
     @property
     def notes(self) -> Optional[str]:

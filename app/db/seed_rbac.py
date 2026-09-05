@@ -296,6 +296,8 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
 
     {"name": "Create Stock Reservation", "code": "inventory.reservation.create", "description": "Permission to reserve stock", "module_name": "inventory"},
     {"name": "Read Stock Reservation", "code": "inventory.reservation.read", "description": "Permission to view stock reservations", "module_name": "inventory"},
+    {"name": "Release Stock Reservation", "code": "inventory.reservation.release", "description": "Permission to release active stock reservations", "module_name": "inventory"},
+    {"name": "Consume Stock Reservation", "code": "inventory.reservation.consume", "description": "Permission to consume active stock reservations", "module_name": "inventory"},
     {"name": "Cancel Stock Reservation", "code": "inventory.reservation.cancel", "description": "Permission to cancel stock reservations", "module_name": "inventory"},
 
     {"name": "Create Cycle Count", "code": "inventory.cycle_count.create", "description": "Permission to create cycle count documents", "module_name": "inventory"},

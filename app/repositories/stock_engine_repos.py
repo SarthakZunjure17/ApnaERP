@@ -192,6 +192,13 @@ class StockLedgerRepository(BaseRepository[StockLedger, Any, Any]):
                 total += qty
         return total
 
+    async def get_multi_by_product(
+        self, db: AsyncSession, product_id: uuid.UUID
+    ) -> List[StockLedger]:
+        stmt = select(StockLedger).where(StockLedger.product_id == product_id).order_by(StockLedger.transaction_date.asc(), StockLedger.created_at.asc())
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
 
 class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
     """
@@ -219,6 +226,15 @@ class StockBalanceRepository(BaseRepository[StockBalance, Any, Any]):
 
         result = await db.execute(stmt)
         return result.scalars().first()
+
+    async def get_by_dimensions(
+        self,
+        db: AsyncSession,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        storage_location_id: Optional[uuid.UUID] = None,
+    ) -> Optional[StockBalance]:
+        return await self.get_by_keys(db, product_id, warehouse_id, storage_location_id)
 
     async def get_for_update(
         self,

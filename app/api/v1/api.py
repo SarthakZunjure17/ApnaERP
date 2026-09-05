@@ -217,8 +217,10 @@ api_router.include_router(stock_transfer.router, prefix="/warehouse/transfers", 
 # Inventory Advanced Domain Completion Routers
 api_router.include_router(batches.router, prefix="/inventory/batches", tags=["Batch Management"])
 api_router.include_router(serial_numbers.router, prefix="/inventory/serials", tags=["Serial Number Tracking"])
+api_router.include_router(serial_numbers.router, prefix="/inventory/serial-numbers", tags=["Serial Number Tracking"])
 api_router.include_router(lots.router, prefix="/inventory/lots", tags=["Lot Tracking"])
 api_router.include_router(stock_reservations.router, prefix="/inventory/reservations", tags=["Stock Reservations"])
+api_router.include_router(stock_reservations.router, prefix="/inventory/stock-reservations", tags=["Stock Reservations"])
 api_router.include_router(cycle_counts.router, prefix="/inventory/cycle-counts", tags=["Cycle Counting"])
 api_router.include_router(inventory_reports.router, prefix="/inventory/reports", tags=["Inventory Reports"])
 api_router.include_router(inventory_analytics.router, prefix="/inventory/analytics", tags=["Inventory Analytics"])

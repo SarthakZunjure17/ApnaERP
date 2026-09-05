@@ -16,14 +16,20 @@ from app.exceptions.base import (
     NotFoundException,
     ValidationException,
 )
+from app.models.batch import Batch
 from app.models.inventory_adjustment import InventoryAdjustment
 from app.models.inventory_policy import InventoryPolicy
 from app.models.inventory_transaction_type import InventoryTransactionType
 from app.models.opening_stock import OpeningStock
 from app.models.product import Product
+from app.models.serial_number import SerialNumber
 from app.models.stock_balance import StockBalance
 from app.models.stock_ledger import StockLedger
 from app.models.warehouse import Warehouse
+from app.repositories.inventory_advanced_repos import (
+    batch_repository,
+    serial_number_repository,
+)
 from app.repositories.inventory_repos import (
     inventory_policy_repository,
     product_repository,
@@ -169,7 +175,136 @@ class StockMovementService:
             if direction not in ("IN", "OUT"):
                 raise ValidationException(f"Movement direction must be 'IN' or 'OUT', received '{direction}'.")
 
-            # 7. Row-level Lock on StockBalance
+            # 7. Tracking Validations & Mutex Logic
+            # A. Batch Tracking Validation
+            batch = None
+            if product.is_batch_tracked or movement_in.batch_id:
+                if product.is_batch_tracked and not movement_in.batch_id:
+                    raise ValidationException(f"Product SKU '{product.sku}' is batch-tracked; batch_id is required.")
+
+                if movement_in.batch_id:
+                    batch = await batch_repository.get_by_id(db, movement_in.batch_id)
+                    if not batch:
+                        raise NotFoundException(f"Batch with ID '{movement_in.batch_id}' not found.")
+                    if batch.product_id != product.id:
+                        raise ValidationException(
+                            f"Batch '{batch.batch_number}' does not belong to product SKU '{product.sku}'."
+                        )
+
+                    now = datetime.now(timezone.utc)
+                    if direction == "OUT":
+                        # Expiry Validation
+                        if batch.expiry_date:
+                            exp_dt = batch.expiry_date if batch.expiry_date.tzinfo else batch.expiry_date.replace(tzinfo=timezone.utc)
+                            if exp_dt <= now:
+                                raise ValidationException(
+                                    f"Batch '{batch.batch_number}' expired on {batch.expiry_date.strftime('%Y-%m-%d')} and cannot be issued."
+                                )
+
+                        # Batch Quantity Availability Validation
+                        batch_qty = Decimal(str(batch.current_quantity))
+                        if qty > batch_qty:
+                            raise ValidationException(
+                                f"Insufficient stock in batch '{batch.batch_number}' for product SKU '{product.sku}'. "
+                                f"Available in batch: {batch_qty}, requested: {qty}."
+                            )
+                        batch.current_quantity = float(batch_qty - qty)
+                        if batch.current_quantity <= 0:
+                            batch.status = "Consumed"
+                    elif direction == "IN":
+                        batch_qty = Decimal(str(batch.current_quantity))
+                        batch.current_quantity = float(batch_qty + qty)
+                        if batch.status == "Consumed" and batch.current_quantity > 0:
+                            batch.status = "Active"
+
+            # B. Serial Number Tracking Validation
+            if product.is_serial_tracked or movement_in.serial_numbers:
+                if product.is_serial_tracked and not movement_in.serial_numbers:
+                    raise ValidationException(
+                        f"Product SKU '{product.sku}' is serial-tracked; serial_numbers list is required."
+                    )
+
+                if movement_in.serial_numbers:
+                    sn_list = list(movement_in.serial_numbers)
+                    if int(qty) != len(sn_list) or qty != Decimal(str(len(sn_list))):
+                        raise ValidationException(
+                            f"Quantity ({qty}) does not match the count of serial numbers provided ({len(sn_list)})."
+                        )
+                    if len(set(sn_list)) != len(sn_list):
+                        raise ValidationException("Duplicate serial numbers found in the supplied list.")
+
+                    now = datetime.now(timezone.utc)
+                    if direction == "IN":
+                        for sn_str in sn_list:
+                            existing_sn = await serial_number_repository.get_by_number(db, sn_str)
+                            if existing_sn:
+                                if existing_sn.product_id != product.id:
+                                    raise ValidationException(
+                                        f"Serial number '{sn_str}' belongs to a different product."
+                                    )
+                                if existing_sn.status == "Available":
+                                    raise ValidationException(
+                                        f"Serial number '{sn_str}' is already active and available in stock."
+                                    )
+                                existing_sn.status = "Available"
+                                existing_sn.warehouse_id = movement_in.warehouse_id
+                                existing_sn.storage_location_id = movement_in.storage_location_id
+                                if movement_in.batch_id:
+                                    existing_sn.batch_id = movement_in.batch_id
+                                hist = list(existing_sn.history or [])
+                                hist.append({
+                                    "event": "STOCK_IN",
+                                    "movement_type": movement_type,
+                                    "warehouse_id": str(movement_in.warehouse_id),
+                                    "storage_location_id": str(movement_in.storage_location_id) if movement_in.storage_location_id else None,
+                                    "timestamp": now.isoformat(),
+                                })
+                                existing_sn.history = hist
+                            else:
+                                new_sn = SerialNumber(
+                                    serial_number=sn_str,
+                                    product_id=product.id,
+                                    warehouse_id=movement_in.warehouse_id,
+                                    storage_location_id=movement_in.storage_location_id,
+                                    batch_id=movement_in.batch_id,
+                                    status="Available",
+                                    history=[{
+                                        "event": "INITIAL_RECEIPT",
+                                        "movement_type": movement_type,
+                                        "warehouse_id": str(movement_in.warehouse_id),
+                                        "storage_location_id": str(movement_in.storage_location_id) if movement_in.storage_location_id else None,
+                                        "timestamp": now.isoformat(),
+                                    }],
+                                )
+                                db.add(new_sn)
+                    elif direction == "OUT":
+                        for sn_str in sn_list:
+                            existing_sn = await serial_number_repository.get_by_number(db, sn_str)
+                            if not existing_sn:
+                                raise NotFoundException(f"Serial number '{sn_str}' not found.")
+                            if existing_sn.product_id != product.id:
+                                raise ValidationException(
+                                    f"Serial number '{sn_str}' does not belong to product SKU '{product.sku}'."
+                                )
+                            if existing_sn.status not in ("Available", "Reserved"):
+                                raise ValidationException(
+                                    f"Serial number '{sn_str}' is not available for issue (current status: '{existing_sn.status}')."
+                                )
+                            if existing_sn.warehouse_id != movement_in.warehouse_id:
+                                raise ValidationException(
+                                    f"Serial number '{sn_str}' is located at a different warehouse."
+                                )
+                            existing_sn.status = "Issued"
+                            hist = list(existing_sn.history or [])
+                            hist.append({
+                                "event": "STOCK_OUT",
+                                "movement_type": movement_type,
+                                "warehouse_id": str(movement_in.warehouse_id),
+                                "timestamp": now.isoformat(),
+                            })
+                            existing_sn.history = hist
+
+            # 8. Row-level Lock on StockBalance
             balance = await stock_balance_repository.get_or_create_for_update(
                 db,
                 product_id=movement_in.product_id,
@@ -183,7 +318,7 @@ class StockMovementService:
             else:  # OUT
                 qty_after = qty_before - qty
 
-            # 8. Negative Stock Enforcement
+            # 9. Negative Stock Enforcement
             if qty_after < Decimal("0.0"):
                 allow_negative = await self.resolve_negative_stock_policy(db, movement_in.warehouse_id, product)
                 if not allow_negative:
@@ -192,15 +327,20 @@ class StockMovementService:
                         f"Current available: {qty_before}, requested deduction: {qty}. Negative stock is disabled."
                     )
 
-            # 9. Atomic Transaction: Update Balance + Insert Ledger Record
+            # 10. Atomic Transaction: Update Balance + Insert Ledger Record
             now = datetime.now(timezone.utc)
             balance.available_quantity = qty_after
             balance.last_calculated = now
+
+            meta_data = dict(movement_in.metadata_json or {})
+            if movement_in.serial_numbers:
+                meta_data["serial_numbers"] = list(movement_in.serial_numbers)
 
             entry_data = {
                 "product_id": movement_in.product_id,
                 "warehouse_id": movement_in.warehouse_id,
                 "storage_location_id": movement_in.storage_location_id,
+                "batch_id": movement_in.batch_id,
                 "movement_type": movement_type,
                 "direction": direction,
                 "quantity": qty,
@@ -214,7 +354,7 @@ class StockMovementService:
                 "reason": movement_in.reason,
                 "notes": movement_in.notes,
                 "remarks": movement_in.notes or movement_in.reason,
-                "metadata_json": movement_in.metadata_json,
+                "metadata_json": meta_data if meta_data else None,
                 "transaction_date": now,
                 "created_by": current_user_id,
                 "created_at": now,
@@ -233,10 +373,11 @@ class StockMovementService:
                     await redis_manager.delete_pattern("stock_balance:*")
                     await redis_manager.delete_pattern("warehouse_summary:*")
                     await redis_manager.delete_pattern("product_stock:*")
+                    await redis_manager.delete_pattern("batch:*")
                 except Exception:
                     pass
 
-                # 10. Audit Logging
+                # 11. Audit Logging
                 try:
                     await audit_log_service.log_event(
                         db,
@@ -251,6 +392,7 @@ class StockMovementService:
                             "quantity_after": float(qty_after),
                             "warehouse_id": str(movement_in.warehouse_id),
                             "product_id": str(movement_in.product_id),
+                            "batch_id": str(movement_in.batch_id) if movement_in.batch_id else None,
                         },
                     )
                 except Exception as e:
@@ -268,6 +410,8 @@ class StockMovementService:
         warehouse_id: uuid.UUID,
         quantity: Decimal,
         storage_location_id: Optional[uuid.UUID] = None,
+        batch_id: Optional[uuid.UUID] = None,
+        serial_numbers: Optional[List[str]] = None,
         idempotency_key: Optional[str] = None,
         reference_type: Optional[str] = None,
         reference_id: Optional[uuid.UUID] = None,
@@ -282,6 +426,8 @@ class StockMovementService:
             product_id=product_id,
             warehouse_id=warehouse_id,
             storage_location_id=storage_location_id,
+            batch_id=batch_id,
+            serial_numbers=serial_numbers,
             movement_type="STOCK_IN",
             direction="IN",
             quantity=quantity,
@@ -300,6 +446,8 @@ class StockMovementService:
         warehouse_id: uuid.UUID,
         quantity: Decimal,
         storage_location_id: Optional[uuid.UUID] = None,
+        batch_id: Optional[uuid.UUID] = None,
+        serial_numbers: Optional[List[str]] = None,
         idempotency_key: Optional[str] = None,
         reference_type: Optional[str] = None,
         reference_id: Optional[uuid.UUID] = None,
@@ -314,6 +462,8 @@ class StockMovementService:
             product_id=product_id,
             warehouse_id=warehouse_id,
             storage_location_id=storage_location_id,
+            batch_id=batch_id,
+            serial_numbers=serial_numbers,
             movement_type="STOCK_OUT",
             direction="OUT",
             quantity=quantity,
@@ -333,6 +483,8 @@ class StockMovementService:
         quantity: Decimal,
         direction: str,
         storage_location_id: Optional[uuid.UUID] = None,
+        batch_id: Optional[uuid.UUID] = None,
+        serial_numbers: Optional[List[str]] = None,
         idempotency_key: Optional[str] = None,
         reference_type: Optional[str] = None,
         reference_id: Optional[uuid.UUID] = None,
@@ -347,6 +499,8 @@ class StockMovementService:
             product_id=product_id,
             warehouse_id=warehouse_id,
             storage_location_id=storage_location_id,
+            batch_id=batch_id,
+            serial_numbers=serial_numbers,
             movement_type="ADJUSTMENT",
             direction=direction,
             quantity=quantity,

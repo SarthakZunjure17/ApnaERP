@@ -61,8 +61,22 @@ class Batch(Base, UUIDMixin, TimestampMixin):
         comment="Batch status: Active, Expired, Consumed",
     )
 
+    notes: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Optional batch notes",
+    )
+
     # Relationships
     product: Mapped["Product"] = relationship("Product", lazy="selectin")
+
+    @property
+    def supplier_reference(self) -> Optional[str]:
+        return self.supplier_batch_ref
+
+    @supplier_reference.setter
+    def supplier_reference(self, val: Optional[str]):
+        self.supplier_batch_ref = val
 
     def __repr__(self) -> str:
         return f"<Batch(id={self.id}, batch_number='{self.batch_number}', product_id={self.product_id}, status='{self.status}')>"

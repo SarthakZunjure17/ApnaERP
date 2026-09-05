@@ -30,7 +30,7 @@ async def register_serial_number(
     current_user: User = Depends(get_current_user),
 ):
     """Register a new serial number."""
-    return await serial_number_service.create_serial(db, obj_in=obj_in)
+    return await serial_number_service.create_serial(db, obj_in=obj_in, current_user_id=current_user.id)
 
 
 @router.get(
@@ -65,6 +65,7 @@ async def update_serial_status(
         status=obj_in.status or "Available",
         warehouse_id=obj_in.warehouse_id,
         storage_location_id=obj_in.storage_location_id,
+        current_user_id=current_user.id,
     )
 
 

@@ -38,6 +38,11 @@ class BatchRepository(BaseRepository[Batch, BatchCreate, BatchUpdate]):
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_product_and_number(self, db: AsyncSession, product_id: uuid.UUID, batch_number: str) -> Optional[Batch]:
+        stmt = select(Batch).where(Batch.product_id == product_id, Batch.batch_number == batch_number)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_multi_paginated(
         self,
         db: AsyncSession,

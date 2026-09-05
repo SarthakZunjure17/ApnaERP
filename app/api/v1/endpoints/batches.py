@@ -25,7 +25,7 @@ async def create_batch(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new product batch."""
-    return await batch_service.create_batch(db, obj_in=obj_in)
+    return await batch_service.create_batch(db, obj_in=obj_in, current_user_id=current_user.id)
 
 
 @router.get(
@@ -54,7 +54,22 @@ async def update_batch(
     current_user: User = Depends(get_current_user),
 ):
     """Update a batch record."""
-    return await batch_service.update_batch(db, batch_id=batch_id, obj_in=obj_in)
+    return await batch_service.update_batch(db, batch_id=batch_id, obj_in=obj_in, current_user_id=current_user.id)
+
+
+@router.patch(
+    "/{batch_id}",
+    response_model=BatchResponse,
+    dependencies=[Depends(has_permission("inventory.batch.update"))],
+)
+async def patch_batch(
+    batch_id: uuid.UUID,
+    obj_in: BatchUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Partially update a batch record."""
+    return await batch_service.update_batch(db, batch_id=batch_id, obj_in=obj_in, current_user_id=current_user.id)
 
 
 @router.get(

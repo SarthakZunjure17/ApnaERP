@@ -86,6 +86,13 @@ class StockLedger(Base, UUIDMixin):
         nullable=True,
         comment="Unit of Measure for the transaction quantity",
     )
+    batch_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("batches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Optional associated batch ID",
+    )
     reference_type: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
@@ -151,6 +158,7 @@ class StockLedger(Base, UUIDMixin):
     storage_location: Mapped[Optional["StorageLocation"]] = relationship("StorageLocation", lazy="selectin")
     transaction_type: Mapped[Optional["InventoryTransactionType"]] = relationship("InventoryTransactionType", lazy="selectin")
     unit: Mapped[Optional["UnitOfMeasure"]] = relationship("UnitOfMeasure", lazy="selectin")
+    batch: Mapped[Optional["Batch"]] = relationship("Batch", lazy="selectin")
     creator: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by], lazy="selectin")
 
     @property

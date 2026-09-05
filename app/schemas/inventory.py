@@ -491,6 +491,7 @@ class ProductBase(BaseModel):
     is_purchasable: bool = True
     track_inventory: bool = True
     allow_negative_stock: bool = False
+    tracking_type: str = Field("NONE", description="Tracking mode: NONE, BATCH, SERIAL")
     default_warehouse_id: Optional[uuid.UUID] = None
     reorder_level: Optional[Decimal] = Field(None, ge=0)
     reorder_quantity: Optional[Decimal] = Field(None, ge=0)
@@ -551,6 +552,7 @@ class ProductUpdate(BaseModel):
     is_purchasable: Optional[bool] = None
     track_inventory: Optional[bool] = None
     allow_negative_stock: Optional[bool] = None
+    tracking_type: Optional[str] = None
     default_warehouse_id: Optional[uuid.UUID] = None
     reorder_level: Optional[Decimal] = Field(None, ge=0)
     reorder_quantity: Optional[Decimal] = Field(None, ge=0)

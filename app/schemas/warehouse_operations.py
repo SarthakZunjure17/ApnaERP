@@ -13,6 +13,11 @@ class GoodsReceiptItemCreate(BaseModel):
     quantity: Decimal = Field(..., gt=0, description="Quantity received (must be positive)")
     unit_id: Optional[uuid.UUID] = None
     unit_cost: Optional[Decimal] = Field(None, ge=0)
+    batch_id: Optional[uuid.UUID] = None
+    batch_number: Optional[str] = None
+    manufacturing_date: Optional[datetime] = None
+    expiry_date: Optional[datetime] = None
+    serial_numbers: Optional[List[str]] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None
 
@@ -37,6 +42,11 @@ class GoodsReceiptItemResponse(BaseModel):
     quantity: Decimal
     unit_id: Optional[uuid.UUID] = None
     unit_cost: Optional[Decimal] = None
+    batch_id: Optional[uuid.UUID] = None
+    batch_number: Optional[str] = None
+    manufacturing_date: Optional[datetime] = None
+    expiry_date: Optional[datetime] = None
+    serial_numbers: Optional[List[str]] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None
 
@@ -152,6 +162,9 @@ class GoodsIssueItemCreate(BaseModel):
     storage_location_id: Optional[uuid.UUID] = None
     quantity: Decimal = Field(..., gt=0, description="Quantity issued (must be positive)")
     unit_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
+    serial_numbers: Optional[List[str]] = None
+    reservation_id: Optional[uuid.UUID] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None
 
@@ -175,6 +188,10 @@ class GoodsIssueItemResponse(BaseModel):
     storage_location_id: Optional[uuid.UUID] = None
     quantity: Decimal
     unit_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
+    batch_number: Optional[str] = None
+    serial_numbers: Optional[List[str]] = None
+    reservation_id: Optional[uuid.UUID] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None
 
@@ -286,6 +303,8 @@ class StockTransferItemCreate(BaseModel):
     product_id: uuid.UUID
     quantity: Decimal = Field(..., gt=0, description="Quantity transferred (must be positive)")
     unit_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
+    serial_numbers: Optional[List[str]] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None
 
@@ -308,6 +327,9 @@ class StockTransferItemResponse(BaseModel):
     product_id: uuid.UUID
     quantity: Decimal
     unit_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
+    batch_number: Optional[str] = None
+    serial_numbers: Optional[List[str]] = None
     remarks: Optional[str] = None
     notes: Optional[str] = None
 

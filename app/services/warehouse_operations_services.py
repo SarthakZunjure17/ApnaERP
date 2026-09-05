@@ -34,6 +34,8 @@ from app.schemas.warehouse_operations import (
     StockTransferCreate,
     StockTransferUpdate,
 )
+from app.repositories.inventory_advanced_repos import batch_repository, serial_number_repository
+from app.services.inventory_advanced_services import stock_reservation_service
 from app.services.audit_log import audit_log_service
 from app.services.stock_engine_services import stock_movement_service
 from app.tasks.warehouse_operations_tasks import send_warehouse_notification_task
@@ -53,15 +55,35 @@ class WarehouseExecutionService:
     ) -> None:
         """
         Executes a GoodsReceipt by creating STOCK_IN movements for each line item.
+        Supports batch creation/lookup and serial numbers registration.
         Uses commit=False to allow atomic multi-line transaction grouping.
         """
         for item in receipt.items:
+            batch_id = item.batch_id
+            if not batch_id and item.batch_number:
+                existing_batch = await batch_repository.get_by_product_and_number(db, item.product_id, item.batch_number)
+                if not existing_batch:
+                    existing_batch = await batch_repository.create(
+                        db,
+                        obj_in={
+                            "product_id": item.product_id,
+                            "batch_number": item.batch_number,
+                            "expiry_date": item.expiry_date,
+                            "manufacturing_date": item.manufacturing_date,
+                            "status": "Active",
+                            "current_quantity": 0.0,
+                        },
+                    )
+                batch_id = existing_batch.id
+
             await stock_movement_service.stock_in(
                 db,
                 product_id=item.product_id,
                 warehouse_id=receipt.warehouse_id,
                 quantity=Decimal(str(item.quantity)),
                 storage_location_id=item.storage_location_id,
+                batch_id=batch_id,
+                serial_numbers=item.serial_numbers,
                 reference_type="GoodsReceipt",
                 reference_id=receipt.id,
                 reason=f"Goods Receipt #{receipt.receipt_number}",
@@ -74,16 +96,29 @@ class WarehouseExecutionService:
         self, db: AsyncSession, issue: GoodsIssue, current_user_id: Optional[uuid.UUID] = None
     ) -> None:
         """
-        Executes a GoodsIssue by creating STOCK_OUT movements for each line item (validating negative stock rules).
+        Executes a GoodsIssue by creating STOCK_OUT movements for each line item (validating negative stock and expiry rules).
+        Consumes reservations atomically when reservation_id is provided.
         Uses commit=False to allow atomic multi-line transaction grouping.
         """
         for item in issue.items:
+            # If line is tied to a stock reservation, consume it atomically
+            if item.reservation_id:
+                await stock_reservation_service.consume_reservation(
+                    db,
+                    reservation_id=item.reservation_id,
+                    consume_qty=Decimal(str(item.quantity)),
+                    current_user_id=current_user_id,
+                    commit=False,
+                )
+
             await stock_movement_service.stock_out(
                 db,
                 product_id=item.product_id,
                 warehouse_id=issue.warehouse_id,
                 quantity=Decimal(str(item.quantity)),
                 storage_location_id=item.storage_location_id,
+                batch_id=item.batch_id,
+                serial_numbers=item.serial_numbers,
                 reference_type="GoodsIssue",
                 reference_id=issue.id,
                 reason=f"Goods Issue #{issue.issue_number} ({issue.issue_reason})",
@@ -130,6 +165,8 @@ class WarehouseExecutionService:
                 warehouse_id=transfer.source_warehouse_id,
                 quantity=Decimal(str(item.quantity)),
                 storage_location_id=transfer.source_location_id,
+                batch_id=item.batch_id,
+                serial_numbers=item.serial_numbers,
                 reference_type="StockTransfer",
                 reference_id=transfer.id,
                 reason=f"Stock Transfer #{transfer.transfer_number} (Source OUT)",
@@ -146,6 +183,8 @@ class WarehouseExecutionService:
                 warehouse_id=transfer.destination_warehouse_id,
                 quantity=Decimal(str(item.quantity)),
                 storage_location_id=transfer.destination_location_id,
+                batch_id=item.batch_id,
+                serial_numbers=item.serial_numbers,
                 reference_type="StockTransfer",
                 reference_id=transfer.id,
                 reason=f"Stock Transfer #{transfer.transfer_number} (Destination IN)",
@@ -167,6 +206,8 @@ class WarehouseExecutionService:
                 warehouse_id=transfer.source_warehouse_id,
                 quantity=Decimal(str(item.quantity)),
                 storage_location_id=transfer.source_location_id,
+                batch_id=item.batch_id,
+                serial_numbers=item.serial_numbers,
                 reference_type="StockTransfer",
                 reference_id=transfer.id,
                 reason=f"Stock Transfer Dispatch #{transfer.transfer_number} (Out of source WH)",
@@ -188,6 +229,8 @@ class WarehouseExecutionService:
                 warehouse_id=transfer.destination_warehouse_id,
                 quantity=Decimal(str(item.quantity)),
                 storage_location_id=transfer.destination_location_id,
+                batch_id=item.batch_id,
+                serial_numbers=item.serial_numbers,
                 reference_type="StockTransfer",
                 reference_id=transfer.id,
                 reason=f"Stock Transfer Completion #{transfer.transfer_number} (Into dest WH)",
@@ -232,6 +275,18 @@ class GoodsReceiptService:
             if hasattr(prod, "track_inventory") and not prod.track_inventory:
                 raise ValidationException(f"Product SKU '{prod.sku}' does not track inventory.")
 
+            if prod.is_batch_tracked and not (getattr(item, "batch_id", None) or getattr(item, "batch_number", None)):
+                raise ValidationException(f"Product SKU '{prod.sku}' is batch-tracked; batch_id or batch_number is required.")
+
+            if prod.is_serial_tracked:
+                serials = getattr(item, "serial_numbers", None) or []
+                if not serials:
+                    raise ValidationException(f"Product SKU '{prod.sku}' is serial-tracked; serial_numbers list is required.")
+                if len(serials) != int(qty):
+                    raise ValidationException(f"Quantity ({qty}) does not match serial numbers count ({len(serials)}).")
+                if len(set(serials)) != len(serials):
+                    raise ValidationException("Duplicate serial numbers found in the line item.")
+
             if item.storage_location_id:
                 loc = await storage_location_repository.get_by_id(db, item.storage_location_id)
                 if not loc:
@@ -270,6 +325,11 @@ class GoodsReceiptService:
                     unit_id=item.unit_id,
                     unit_cost=item.unit_cost,
                     remarks=item_remarks,
+                    batch_id=getattr(item, "batch_id", None),
+                    batch_number=getattr(item, "batch_number", None),
+                    expiry_date=getattr(item, "expiry_date", None),
+                    manufacturing_date=getattr(item, "manufacturing_date", None),
+                    serial_numbers=getattr(item, "serial_numbers", None),
                 )
             )
 
@@ -315,6 +375,11 @@ class GoodsReceiptService:
                         unit_id=item.unit_id,
                         unit_cost=item.unit_cost,
                         remarks=item.remarks or item.notes,
+                        batch_id=getattr(item, "batch_id", None),
+                        batch_number=getattr(item, "batch_number", None),
+                        expiry_date=getattr(item, "expiry_date", None),
+                        manufacturing_date=getattr(item, "manufacturing_date", None),
+                        serial_numbers=getattr(item, "serial_numbers", None),
                     )
                 )
 
@@ -525,6 +590,18 @@ class GoodsIssueService:
             if hasattr(prod, "track_inventory") and not prod.track_inventory:
                 raise ValidationException(f"Product SKU '{prod.sku}' does not track inventory.")
 
+            if prod.is_batch_tracked and not getattr(item, "batch_id", None):
+                raise ValidationException(f"Product SKU '{prod.sku}' is batch-tracked; batch_id is required.")
+
+            if prod.is_serial_tracked:
+                serials = getattr(item, "serial_numbers", None) or []
+                if not serials:
+                    raise ValidationException(f"Product SKU '{prod.sku}' is serial-tracked; serial_numbers list is required.")
+                if len(serials) != int(qty):
+                    raise ValidationException(f"Quantity ({qty}) does not match serial numbers count ({len(serials)}).")
+                if len(set(serials)) != len(serials):
+                    raise ValidationException("Duplicate serial numbers found in the line item.")
+
             if item.storage_location_id:
                 loc = await storage_location_repository.get_by_id(db, item.storage_location_id)
                 if not loc:
@@ -561,6 +638,9 @@ class GoodsIssueService:
                     quantity=item.quantity,
                     unit_id=item.unit_id,
                     remarks=item_remarks,
+                    batch_id=getattr(item, "batch_id", None),
+                    serial_numbers=getattr(item, "serial_numbers", None),
+                    reservation_id=getattr(item, "reservation_id", None),
                 )
             )
 
@@ -603,6 +683,9 @@ class GoodsIssueService:
                         quantity=item.quantity,
                         unit_id=item.unit_id,
                         remarks=item.remarks or item.notes,
+                        batch_id=getattr(item, "batch_id", None),
+                        serial_numbers=getattr(item, "serial_numbers", None),
+                        reservation_id=getattr(item, "reservation_id", None),
                     )
                 )
 
@@ -839,6 +922,18 @@ class StockTransferService:
             if hasattr(prod, "track_inventory") and not prod.track_inventory:
                 raise ValidationException(f"Product SKU '{prod.sku}' does not track inventory.")
 
+            if prod.is_batch_tracked and not getattr(item, "batch_id", None):
+                raise ValidationException(f"Product SKU '{prod.sku}' is batch-tracked; batch_id is required.")
+
+            if prod.is_serial_tracked:
+                serials = getattr(item, "serial_numbers", None) or []
+                if not serials:
+                    raise ValidationException(f"Product SKU '{prod.sku}' is serial-tracked; serial_numbers list is required.")
+                if len(serials) != int(qty):
+                    raise ValidationException(f"Quantity ({qty}) does not match serial numbers count ({len(serials)}).")
+                if len(set(serials)) != len(serials):
+                    raise ValidationException("Duplicate serial numbers found in the line item.")
+
     async def create_transfer(
         self, db: AsyncSession, obj_in: StockTransferCreate, current_user_id: Optional[uuid.UUID] = None
     ) -> StockTransfer:
@@ -869,6 +964,8 @@ class StockTransferService:
                     quantity=item.quantity,
                     unit_id=item.unit_id,
                     remarks=item_remarks,
+                    batch_id=getattr(item, "batch_id", None),
+                    serial_numbers=getattr(item, "serial_numbers", None),
                 )
             )
 
@@ -914,6 +1011,8 @@ class StockTransferService:
                         quantity=item.quantity,
                         unit_id=item.unit_id,
                         remarks=item.remarks or item.notes,
+                        batch_id=getattr(item, "batch_id", None),
+                        serial_numbers=getattr(item, "serial_numbers", None),
                     )
                 )
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import uuid
 from typing import List, Optional
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -155,6 +155,18 @@ class StockTransferItem(Base, UUIDMixin):
         nullable=True,
         comment="Unit of Measure for transferred quantity",
     )
+    batch_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("batches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Optional associated batch ID for transferred items",
+    )
+    serial_numbers: Mapped[Optional[List[str]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="List of serial numbers for serialized item transfers",
+    )
     remarks: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
@@ -165,6 +177,7 @@ class StockTransferItem(Base, UUIDMixin):
     stock_transfer: Mapped["StockTransfer"] = relationship("StockTransfer", back_populates="items")
     product: Mapped["Product"] = relationship("Product", lazy="selectin")
     unit: Mapped[Optional["UnitOfMeasure"]] = relationship("UnitOfMeasure", lazy="selectin")
+    batch: Mapped[Optional["Batch"]] = relationship("Batch", lazy="selectin")
 
     @property
     def notes(self) -> Optional[str]:
