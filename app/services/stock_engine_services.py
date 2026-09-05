@@ -103,6 +103,7 @@ class StockMovementService:
         db: AsyncSession,
         movement_in: StockMovementCreate,
         current_user_id: Optional[uuid.UUID] = None,
+        commit: bool = True,
     ) -> StockLedger:
         """
         Executes an atomic, concurrency-safe, idempotent stock movement.
@@ -221,38 +222,42 @@ class StockMovementService:
 
             ledger_entry = await stock_ledger_repository.create_ledger_entry(db, entry_data, commit=False)
 
-            # Commit both balance update and ledger entry together atomically
-            await db.commit()
-            await db.refresh(ledger_entry)
-            await db.refresh(balance)
+            if commit:
+                # Commit both balance update and ledger entry together atomically
+                await db.commit()
+                await db.refresh(ledger_entry)
+                await db.refresh(balance)
 
-            # Invalidate Cache if Redis configured
-            try:
-                await redis_manager.delete_pattern("stock_balance:*")
-                await redis_manager.delete_pattern("warehouse_summary:*")
-                await redis_manager.delete_pattern("product_stock:*")
-            except Exception:
-                pass
+                # Invalidate Cache if Redis configured
+                try:
+                    await redis_manager.delete_pattern("stock_balance:*")
+                    await redis_manager.delete_pattern("warehouse_summary:*")
+                    await redis_manager.delete_pattern("product_stock:*")
+                except Exception:
+                    pass
 
-            # 10. Audit Logging
-            try:
-                await audit_log_service.log_event(
-                    db,
-                    action=f"STOCK_{movement_type}_{direction}",
-                    entity_type="StockLedger",
-                    entity_id=str(ledger_entry.id),
-                    user_id=current_user_id,
-                    previous_data={"quantity_before": float(qty_before)},
-                    new_data={
-                        "quantity": float(qty),
-                        "quantity_before": float(qty_before),
-                        "quantity_after": float(qty_after),
-                        "warehouse_id": str(movement_in.warehouse_id),
-                        "product_id": str(movement_in.product_id),
-                    },
-                )
-            except Exception as e:
-                logger.warning(f"Audit log failed for stock movement {ledger_entry.id}: {e}")
+                # 10. Audit Logging
+                try:
+                    await audit_log_service.log_event(
+                        db,
+                        action=f"STOCK_{movement_type}_{direction}",
+                        entity_type="StockLedger",
+                        entity_id=str(ledger_entry.id),
+                        user_id=current_user_id,
+                        previous_data={"quantity_before": float(qty_before)},
+                        new_data={
+                            "quantity": float(qty),
+                            "quantity_before": float(qty_before),
+                            "quantity_after": float(qty_after),
+                            "warehouse_id": str(movement_in.warehouse_id),
+                            "product_id": str(movement_in.product_id),
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"Audit log failed for stock movement {ledger_entry.id}: {e}")
+            else:
+                await db.flush()
+                await db.refresh(ledger_entry)
 
             return ledger_entry
 
@@ -269,6 +274,7 @@ class StockMovementService:
         reason: Optional[str] = None,
         notes: Optional[str] = None,
         current_user_id: Optional[uuid.UUID] = None,
+        commit: bool = True,
     ) -> StockLedger:
         if quantity <= Decimal("0.0"):
             raise ValidationException("Movement quantity must be strictly positive.")
@@ -285,7 +291,7 @@ class StockMovementService:
             reason=reason,
             notes=notes,
         )
-        return await self.process_movement(db, movement_in, current_user_id=current_user_id)
+        return await self.process_movement(db, movement_in, current_user_id=current_user_id, commit=commit)
 
     async def stock_out(
         self,
@@ -300,6 +306,7 @@ class StockMovementService:
         reason: Optional[str] = None,
         notes: Optional[str] = None,
         current_user_id: Optional[uuid.UUID] = None,
+        commit: bool = True,
     ) -> StockLedger:
         if quantity <= Decimal("0.0"):
             raise ValidationException("Movement quantity must be strictly positive.")
@@ -316,7 +323,7 @@ class StockMovementService:
             reason=reason,
             notes=notes,
         )
-        return await self.process_movement(db, movement_in, current_user_id=current_user_id)
+        return await self.process_movement(db, movement_in, current_user_id=current_user_id, commit=commit)
 
     async def adjustment(
         self,
@@ -332,6 +339,7 @@ class StockMovementService:
         reason: Optional[str] = None,
         notes: Optional[str] = None,
         current_user_id: Optional[uuid.UUID] = None,
+        commit: bool = True,
     ) -> StockLedger:
         if quantity <= Decimal("0.0"):
             raise ValidationException("Movement quantity must be strictly positive.")
@@ -348,7 +356,7 @@ class StockMovementService:
             reason=reason,
             notes=notes,
         )
-        return await self.process_movement(db, movement_in, current_user_id=current_user_id)
+        return await self.process_movement(db, movement_in, current_user_id=current_user_id, commit=commit)
 
 
 

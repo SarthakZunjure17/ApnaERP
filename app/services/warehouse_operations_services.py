@@ -20,6 +20,7 @@ from app.repositories.inventory_repos import (
     storage_location_repository,
     warehouse_repository,
 )
+from app.repositories.stock_engine_repos import stock_balance_repository
 from app.repositories.warehouse_operations_repos import (
     goods_issue_repository,
     goods_receipt_repository,
@@ -34,7 +35,7 @@ from app.schemas.warehouse_operations import (
     StockTransferUpdate,
 )
 from app.services.audit_log import audit_log_service
-from app.services.stock_engine_services import stock_ledger_service
+from app.services.stock_engine_services import stock_movement_service
 from app.tasks.warehouse_operations_tasks import send_warehouse_notification_task
 
 logger = logging.getLogger("app.services.warehouse_operations")
@@ -43,125 +44,200 @@ logger = logging.getLogger("app.services.warehouse_operations")
 class WarehouseExecutionService:
     """
     Orchestration service responsible for executing warehouse operations and generating
-    immutable StockLedger entries via StockLedgerService.
+    immutable StockLedger entries and updating StockBalance via the authoritative StockMovementService.
+    Does NOT directly modify StockBalance.available_quantity.
     """
+
     async def execute_goods_receipt(
         self, db: AsyncSession, receipt: GoodsReceipt, current_user_id: Optional[uuid.UUID] = None
     ) -> None:
         """
-        Executes a GoodsReceipt by creating IN ledger entries for each line item.
+        Executes a GoodsReceipt by creating STOCK_IN movements for each line item.
+        Uses commit=False to allow atomic multi-line transaction grouping.
         """
         for item in receipt.items:
-            await stock_ledger_service.create_ledger_entry(
+            await stock_movement_service.stock_in(
                 db,
                 product_id=item.product_id,
                 warehouse_id=receipt.warehouse_id,
-                storage_location_id=item.storage_location_id,
-                transaction_type_code="PURCHASE_RECEIPT",
                 quantity=Decimal(str(item.quantity)),
-                direction="IN",
-                unit_id=item.unit_id,
+                storage_location_id=item.storage_location_id,
                 reference_type="GoodsReceipt",
                 reference_id=receipt.id,
-                remarks=f"Goods Receipt #{receipt.receipt_number}",
+                reason=f"Goods Receipt #{receipt.receipt_number}",
+                notes=item.remarks or item.notes or receipt.remarks or receipt.notes,
                 current_user_id=current_user_id,
+                commit=False,
             )
 
     async def execute_goods_issue(
         self, db: AsyncSession, issue: GoodsIssue, current_user_id: Optional[uuid.UUID] = None
     ) -> None:
         """
-        Executes a GoodsIssue by creating OUT ledger entries for each line item (validating negative stock rules).
+        Executes a GoodsIssue by creating STOCK_OUT movements for each line item (validating negative stock rules).
+        Uses commit=False to allow atomic multi-line transaction grouping.
         """
-        transaction_type_code = "PRODUCTION_CONSUMPTION" if issue.issue_reason == "Consumption" else "SALES_ISSUE"
         for item in issue.items:
-            await stock_ledger_service.create_ledger_entry(
+            await stock_movement_service.stock_out(
                 db,
                 product_id=item.product_id,
                 warehouse_id=issue.warehouse_id,
-                storage_location_id=item.storage_location_id,
-                transaction_type_code=transaction_type_code,
                 quantity=Decimal(str(item.quantity)),
-                direction="OUT",
-                unit_id=item.unit_id,
+                storage_location_id=item.storage_location_id,
                 reference_type="GoodsIssue",
                 reference_id=issue.id,
-                remarks=f"Goods Issue #{issue.issue_number} ({issue.issue_reason})",
+                reason=f"Goods Issue #{issue.issue_number} ({issue.issue_reason})",
+                notes=item.remarks or item.notes or issue.remarks or issue.notes,
                 current_user_id=current_user_id,
+                commit=False,
+            )
+
+    async def execute_stock_transfer_atomic(
+        self, db: AsyncSession, transfer: StockTransfer, current_user_id: Optional[uuid.UUID] = None
+    ) -> None:
+        """
+        Executes an atomic StockTransfer (Source OUT + Destination IN) within a single database transaction.
+        Implements deterministic lock ordering across all involved balances to prevent PostgreSQL deadlocks.
+        """
+        # 1. Collect all distinct balance coordinates across source and destination
+        balance_keys = set()
+        for item in transfer.items:
+            s_key = (str(item.product_id), str(transfer.source_warehouse_id), str(transfer.source_location_id or ""))
+            d_key = (str(item.product_id), str(transfer.destination_warehouse_id), str(transfer.destination_location_id or ""))
+            balance_keys.add(s_key)
+            balance_keys.add(d_key)
+
+        # 2. Sort lexicographically to enforce deterministic lock acquisition order
+        sorted_keys = sorted(list(balance_keys))
+
+        # 3. Acquire row-level locks on PostgreSQL StockBalance rows in sorted order
+        for (pid_str, wid_str, lid_str) in sorted_keys:
+            pid = uuid.UUID(pid_str)
+            wid = uuid.UUID(wid_str)
+            lid = uuid.UUID(lid_str) if lid_str else None
+            await stock_balance_repository.get_or_create_for_update(
+                db,
+                product_id=pid,
+                warehouse_id=wid,
+                storage_location_id=lid,
+            )
+
+        # 4. Execute Source OUT movements
+        for item in transfer.items:
+            await stock_movement_service.stock_out(
+                db,
+                product_id=item.product_id,
+                warehouse_id=transfer.source_warehouse_id,
+                quantity=Decimal(str(item.quantity)),
+                storage_location_id=transfer.source_location_id,
+                reference_type="StockTransfer",
+                reference_id=transfer.id,
+                reason=f"Stock Transfer #{transfer.transfer_number} (Source OUT)",
+                notes=item.remarks or item.notes or transfer.remarks or transfer.notes,
+                current_user_id=current_user_id,
+                commit=False,
+            )
+
+        # 5. Execute Destination IN movements
+        for item in transfer.items:
+            await stock_movement_service.stock_in(
+                db,
+                product_id=item.product_id,
+                warehouse_id=transfer.destination_warehouse_id,
+                quantity=Decimal(str(item.quantity)),
+                storage_location_id=transfer.destination_location_id,
+                reference_type="StockTransfer",
+                reference_id=transfer.id,
+                reason=f"Stock Transfer #{transfer.transfer_number} (Destination IN)",
+                notes=item.remarks or item.notes or transfer.remarks or transfer.notes,
+                current_user_id=current_user_id,
+                commit=False,
             )
 
     async def execute_stock_transfer_dispatch(
         self, db: AsyncSession, transfer: StockTransfer, current_user_id: Optional[uuid.UUID] = None
     ) -> None:
         """
-        Executes Stock Transfer Dispatch by creating TRANSFER_OUT ledger entries from source warehouse.
+        Executes Stock Transfer Dispatch by creating STOCK_OUT movements from source warehouse.
         """
         for item in transfer.items:
-            await stock_ledger_service.create_ledger_entry(
+            await stock_movement_service.stock_out(
                 db,
                 product_id=item.product_id,
                 warehouse_id=transfer.source_warehouse_id,
-                storage_location_id=transfer.source_location_id,
-                transaction_type_code="TRANSFER_OUT",
                 quantity=Decimal(str(item.quantity)),
-                direction="OUT",
-                unit_id=item.unit_id,
+                storage_location_id=transfer.source_location_id,
                 reference_type="StockTransfer",
                 reference_id=transfer.id,
-                remarks=f"Stock Transfer Dispatch #{transfer.transfer_number} (Out of source WH)",
+                reason=f"Stock Transfer Dispatch #{transfer.transfer_number} (Out of source WH)",
+                notes=item.remarks or item.notes or transfer.remarks or transfer.notes,
                 current_user_id=current_user_id,
+                commit=False,
             )
 
     async def execute_stock_transfer_receive(
         self, db: AsyncSession, transfer: StockTransfer, current_user_id: Optional[uuid.UUID] = None
     ) -> None:
         """
-        Executes Stock Transfer Completion/Receipt by creating TRANSFER_IN ledger entries at destination warehouse.
+        Executes Stock Transfer Completion/Receipt by creating STOCK_IN movements at destination warehouse.
         """
         for item in transfer.items:
-            await stock_ledger_service.create_ledger_entry(
+            await stock_movement_service.stock_in(
                 db,
                 product_id=item.product_id,
                 warehouse_id=transfer.destination_warehouse_id,
-                storage_location_id=transfer.destination_location_id,
-                transaction_type_code="TRANSFER_IN",
                 quantity=Decimal(str(item.quantity)),
-                direction="IN",
-                unit_id=item.unit_id,
+                storage_location_id=transfer.destination_location_id,
                 reference_type="StockTransfer",
                 reference_id=transfer.id,
-                remarks=f"Stock Transfer Completion #{transfer.transfer_number} (Into dest WH)",
+                reason=f"Stock Transfer Completion #{transfer.transfer_number} (Into dest WH)",
+                notes=item.remarks or item.notes or transfer.remarks or transfer.notes,
                 current_user_id=current_user_id,
+                commit=False,
             )
 
 
 class GoodsReceiptService:
     """
-    Domain service for managing GoodsReceipt documents.
+    Domain service for managing GoodsReceipt documents and posting workflows.
     """
+
     def __init__(self, execution_service: WarehouseExecutionService):
         self.execution_service = execution_service
 
     async def _validate_warehouse_and_items(
         self, db: AsyncSession, warehouse_id: uuid.UUID, items: List[Any]
     ) -> None:
+        if not items:
+            raise ValidationException("Goods receipt must have at least one line item.")
+
         wh = await warehouse_repository.get_by_id(db, warehouse_id)
         if not wh or not wh.is_active:
             raise NotFoundException(f"Warehouse with ID '{warehouse_id}' not found or inactive.")
 
         for item in items:
+            qty = Decimal(str(item.quantity))
+            if qty <= Decimal("0.0"):
+                raise ValidationException("Receipt line quantity must be strictly positive.")
+
             prod = await product_repository.get_by_id(db, item.product_id)
             if not prod:
                 raise NotFoundException(f"Product with ID '{item.product_id}' not found.")
-            if not prod.track_inventory:
-                raise ValidationException(f"Product SKU '{prod.sku}' is not configured for inventory tracking.")
+            if hasattr(prod, "is_active") and not prod.is_active:
+                raise ValidationException(f"Product SKU '{prod.sku}' is inactive.")
             if prod.status == "Archived":
                 raise ValidationException(f"Product SKU '{prod.sku}' is archived and read-only.")
+            if hasattr(prod, "is_stockable") and not prod.is_stockable:
+                raise ValidationException(f"Product SKU '{prod.sku}' is not configured as stockable inventory.")
+            if hasattr(prod, "track_inventory") and not prod.track_inventory:
+                raise ValidationException(f"Product SKU '{prod.sku}' does not track inventory.")
 
             if item.storage_location_id:
                 loc = await storage_location_repository.get_by_id(db, item.storage_location_id)
                 if not loc:
                     raise NotFoundException(f"Storage location with ID '{item.storage_location_id}' not found.")
+                if hasattr(loc, "is_active") and not loc.is_active:
+                    raise ValidationException(f"Storage location '{loc.code}' is inactive.")
                 if loc.warehouse_id != warehouse_id:
                     raise ValidationException("Storage location does not belong to the target warehouse.")
 
@@ -173,6 +249,7 @@ class GoodsReceiptService:
 
         await self._validate_warehouse_and_items(db, obj_in.warehouse_id, obj_in.items)
 
+        remarks_val = obj_in.remarks or obj_in.notes
         receipt = GoodsReceipt(
             receipt_number=obj_in.receipt_number,
             warehouse_id=obj_in.warehouse_id,
@@ -180,10 +257,11 @@ class GoodsReceiptService:
             external_reference=obj_in.external_reference,
             receipt_date=obj_in.receipt_date or datetime.now(timezone.utc),
             status="Draft",
-            remarks=obj_in.remarks,
+            remarks=remarks_val,
             created_by=current_user_id,
         )
         for item in obj_in.items:
+            item_remarks = item.remarks or item.notes
             receipt.items.append(
                 GoodsReceiptItem(
                     product_id=item.product_id,
@@ -191,7 +269,7 @@ class GoodsReceiptService:
                     quantity=item.quantity,
                     unit_id=item.unit_id,
                     unit_cost=item.unit_cost,
-                    remarks=item.remarks,
+                    remarks=item_remarks,
                 )
             )
 
@@ -205,6 +283,7 @@ class GoodsReceiptService:
             entity_type="GoodsReceipt",
             entity_id=receipt.id,
             user_id=current_user_id,
+            new_data={"receipt_number": receipt.receipt_number, "warehouse_id": str(receipt.warehouse_id)},
         )
         return receipt
 
@@ -221,8 +300,8 @@ class GoodsReceiptService:
             receipt.supplier_reference = obj_in.supplier_reference
         if obj_in.external_reference is not None:
             receipt.external_reference = obj_in.external_reference
-        if obj_in.remarks is not None:
-            receipt.remarks = obj_in.remarks
+        if obj_in.remarks is not None or obj_in.notes is not None:
+            receipt.remarks = obj_in.remarks or obj_in.notes
 
         if obj_in.items is not None:
             await self._validate_warehouse_and_items(db, receipt.warehouse_id, obj_in.items)
@@ -235,7 +314,7 @@ class GoodsReceiptService:
                         quantity=item.quantity,
                         unit_id=item.unit_id,
                         unit_cost=item.unit_cost,
-                        remarks=item.remarks,
+                        remarks=item.remarks or item.notes,
                     )
                 )
 
@@ -275,40 +354,62 @@ class GoodsReceiptService:
         )
         return receipt
 
-    async def receive_receipt(
-        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    async def post_receipt(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None, target_status: str = "Posted"
     ) -> GoodsReceipt:
         """
-        Executes and receives a GoodsReceipt document, generating immutable StockLedger IN entries.
+        Atomically posts a GoodsReceipt document:
+        1. Validates document state and business rules.
+        2. Executes STOCK_IN movements for each line item via StockMovementService.
+        3. Updates document status to Posted (or Received).
+        4. Commits all ledger mutations and status changes atomically in a single PostgreSQL transaction.
         """
         receipt = await goods_receipt_repository.get_by_id(db, id)
         if not receipt:
             raise NotFoundException(f"Goods receipt with ID '{id}' not found.")
-        if receipt.status not in ("Draft", "Approved"):
-            raise ValidationException(f"Goods receipt with status '{receipt.status}' cannot be received.")
+        if receipt.status in ("Posted", "Received"):
+            raise ValidationException(f"Goods receipt is already posted. Current status: '{receipt.status}'.")
+        if receipt.status == "Cancelled":
+            raise ValidationException(f"Cannot post goods receipt in terminal status '{receipt.status}'.")
 
-        # Execute stock ledger generation
-        await self.execution_service.execute_goods_receipt(db, receipt, current_user_id=current_user_id)
+        # Full re-validation of warehouse and lines before posting
+        await self._validate_warehouse_and_items(db, receipt.warehouse_id, receipt.items)
 
-        receipt.status = "Received"
-        if not receipt.approved_by:
-            receipt.approved_by = current_user_id
-            receipt.approved_at = datetime.now(timezone.utc)
+        try:
+            # Execute stock IN via StockMovementService under current transaction
+            await self.execution_service.execute_goods_receipt(db, receipt, current_user_id=current_user_id)
 
-        await db.commit()
-        await db.refresh(receipt)
+            now = datetime.now(timezone.utc)
+            receipt.status = target_status
+            if not receipt.approved_by:
+                receipt.approved_by = current_user_id
+                receipt.approved_at = now
+
+            await db.commit()
+            await db.refresh(receipt)
+        except Exception:
+            await db.rollback()
+            raise
+
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+            await redis_manager.delete_pattern("warehouse_summary:*")
+            await redis_manager.delete_pattern("product_stock:*")
+        except Exception:
+            pass
 
         await audit_log_service.log_event(
             db,
-            action="GOODS_RECEIPT_RECEIVE",
+            action="GOODS_RECEIPT_POST",
             entity_type="GoodsReceipt",
             entity_id=receipt.id,
             user_id=current_user_id,
+            new_data={"receipt_number": receipt.receipt_number, "status": receipt.status, "item_count": len(receipt.items)},
         )
 
         try:
             send_warehouse_notification_task.delay(
-                event_type="GOODS_RECEIPT_RECEIVED",
+                event_type="GOODS_RECEIPT_POSTED",
                 payload={"receipt_id": str(receipt.id), "number": receipt.receipt_number},
             )
         except Exception as e:
@@ -316,13 +417,21 @@ class GoodsReceiptService:
 
         return receipt
 
+    async def receive_receipt(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> GoodsReceipt:
+        """
+        Legacy/alias method that delegates to post_receipt with Received status.
+        """
+        return await self.post_receipt(db, id, current_user_id=current_user_id, target_status="Received")
+
     async def cancel_receipt(
         self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> GoodsReceipt:
         receipt = await goods_receipt_repository.get_by_id(db, id)
         if not receipt:
             raise NotFoundException(f"Goods receipt with ID '{id}' not found.")
-        if receipt.status in ("Received", "Cancelled"):
+        if receipt.status in ("Posted", "Received", "Cancelled"):
             raise ValidationException(f"Cannot cancel goods receipt in terminal status '{receipt.status}'.")
 
         receipt.status = "Cancelled"
@@ -337,6 +446,27 @@ class GoodsReceiptService:
             user_id=current_user_id,
         )
         return receipt
+
+    async def delete_receipt(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> None:
+        """
+        Deletes a draft GoodsReceipt. Prohibits deleting posted documents.
+        """
+        receipt = await goods_receipt_repository.get_by_id(db, id)
+        if not receipt:
+            raise NotFoundException(f"Goods receipt with ID '{id}' not found.")
+        if receipt.status != "Draft":
+            raise ValidationException(f"Only Draft goods receipts can be deleted. Current status: '{receipt.status}'.")
+
+        await goods_receipt_repository.delete(db, id=id)
+        await audit_log_service.log_event(
+            db,
+            action="GOODS_RECEIPT_DELETE",
+            entity_type="GoodsReceipt",
+            entity_id=id,
+            user_id=current_user_id,
+        )
 
     async def get_receipts(
         self,
@@ -362,31 +492,45 @@ class GoodsReceiptService:
 
 class GoodsIssueService:
     """
-    Domain service for managing GoodsIssue documents.
+    Domain service for managing GoodsIssue documents and posting workflows.
     """
+
     def __init__(self, execution_service: WarehouseExecutionService):
         self.execution_service = execution_service
 
     async def _validate_warehouse_and_items(
         self, db: AsyncSession, warehouse_id: uuid.UUID, items: List[Any]
     ) -> None:
+        if not items:
+            raise ValidationException("Goods issue must have at least one line item.")
+
         wh = await warehouse_repository.get_by_id(db, warehouse_id)
         if not wh or not wh.is_active:
             raise NotFoundException(f"Warehouse with ID '{warehouse_id}' not found or inactive.")
 
         for item in items:
+            qty = Decimal(str(item.quantity))
+            if qty <= Decimal("0.0"):
+                raise ValidationException("Issue line quantity must be strictly positive.")
+
             prod = await product_repository.get_by_id(db, item.product_id)
             if not prod:
                 raise NotFoundException(f"Product with ID '{item.product_id}' not found.")
-            if not prod.track_inventory:
-                raise ValidationException(f"Product SKU '{prod.sku}' is not configured for inventory tracking.")
+            if hasattr(prod, "is_active") and not prod.is_active:
+                raise ValidationException(f"Product SKU '{prod.sku}' is inactive.")
             if prod.status == "Archived":
                 raise ValidationException(f"Product SKU '{prod.sku}' is archived and read-only.")
+            if hasattr(prod, "is_stockable") and not prod.is_stockable:
+                raise ValidationException(f"Product SKU '{prod.sku}' is not configured as stockable inventory.")
+            if hasattr(prod, "track_inventory") and not prod.track_inventory:
+                raise ValidationException(f"Product SKU '{prod.sku}' does not track inventory.")
 
             if item.storage_location_id:
                 loc = await storage_location_repository.get_by_id(db, item.storage_location_id)
                 if not loc:
                     raise NotFoundException(f"Storage location with ID '{item.storage_location_id}' not found.")
+                if hasattr(loc, "is_active") and not loc.is_active:
+                    raise ValidationException(f"Storage location '{loc.code}' is inactive.")
                 if loc.warehouse_id != warehouse_id:
                     raise ValidationException("Storage location does not belong to the target warehouse.")
 
@@ -398,23 +542,25 @@ class GoodsIssueService:
 
         await self._validate_warehouse_and_items(db, obj_in.warehouse_id, obj_in.items)
 
+        remarks_val = obj_in.remarks or obj_in.notes
         issue = GoodsIssue(
             issue_number=obj_in.issue_number,
             warehouse_id=obj_in.warehouse_id,
             issue_date=obj_in.issue_date or datetime.now(timezone.utc),
             issue_reason=obj_in.issue_reason,
             status="Draft",
-            remarks=obj_in.remarks,
+            remarks=remarks_val,
             created_by=current_user_id,
         )
         for item in obj_in.items:
+            item_remarks = item.remarks or item.notes
             issue.items.append(
                 GoodsIssueItem(
                     product_id=item.product_id,
                     storage_location_id=item.storage_location_id,
                     quantity=item.quantity,
                     unit_id=item.unit_id,
-                    remarks=item.remarks,
+                    remarks=item_remarks,
                 )
             )
 
@@ -428,6 +574,7 @@ class GoodsIssueService:
             entity_type="GoodsIssue",
             entity_id=issue.id,
             user_id=current_user_id,
+            new_data={"issue_number": issue.issue_number, "warehouse_id": str(issue.warehouse_id)},
         )
         return issue
 
@@ -442,8 +589,8 @@ class GoodsIssueService:
 
         if obj_in.issue_reason is not None:
             issue.issue_reason = obj_in.issue_reason
-        if obj_in.remarks is not None:
-            issue.remarks = obj_in.remarks
+        if obj_in.remarks is not None or obj_in.notes is not None:
+            issue.remarks = obj_in.remarks or obj_in.notes
 
         if obj_in.items is not None:
             await self._validate_warehouse_and_items(db, issue.warehouse_id, obj_in.items)
@@ -455,7 +602,7 @@ class GoodsIssueService:
                         storage_location_id=item.storage_location_id,
                         quantity=item.quantity,
                         unit_id=item.unit_id,
-                        remarks=item.remarks,
+                        remarks=item.remarks or item.notes,
                     )
                 )
 
@@ -495,40 +642,62 @@ class GoodsIssueService:
         )
         return issue
 
-    async def issue_issue(
-        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    async def post_issue(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None, target_status: str = "Posted"
     ) -> GoodsIssue:
         """
-        Executes and issues a GoodsIssue document, validating negative stock rules and generating StockLedger OUT entries.
+        Atomically posts a GoodsIssue document:
+        1. Validates document state and items.
+        2. Executes STOCK_OUT movements for each line item via StockMovementService (with negative stock policy enforcement).
+        3. Updates document status to Posted (or Issued).
+        4. Commits all ledger mutations and status changes atomically in a single PostgreSQL transaction.
         """
         issue = await goods_issue_repository.get_by_id(db, id)
         if not issue:
             raise NotFoundException(f"Goods issue with ID '{id}' not found.")
-        if issue.status not in ("Draft", "Approved"):
-            raise ValidationException(f"Goods issue with status '{issue.status}' cannot be issued.")
+        if issue.status in ("Posted", "Issued"):
+            raise ValidationException(f"Goods issue is already posted. Current status: '{issue.status}'.")
+        if issue.status == "Cancelled":
+            raise ValidationException(f"Cannot post goods issue in terminal status '{issue.status}'.")
 
-        # Execute stock ledger generation with negative stock checks
-        await self.execution_service.execute_goods_issue(db, issue, current_user_id=current_user_id)
+        # Full re-validation of warehouse and lines before posting
+        await self._validate_warehouse_and_items(db, issue.warehouse_id, issue.items)
 
-        issue.status = "Issued"
-        if not issue.approved_by:
-            issue.approved_by = current_user_id
-            issue.approved_at = datetime.now(timezone.utc)
+        try:
+            # Execute stock OUT via StockMovementService under current transaction
+            await self.execution_service.execute_goods_issue(db, issue, current_user_id=current_user_id)
 
-        await db.commit()
-        await db.refresh(issue)
+            now = datetime.now(timezone.utc)
+            issue.status = target_status
+            if not issue.approved_by:
+                issue.approved_by = current_user_id
+                issue.approved_at = now
+
+            await db.commit()
+            await db.refresh(issue)
+        except Exception:
+            await db.rollback()
+            raise
+
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+            await redis_manager.delete_pattern("warehouse_summary:*")
+            await redis_manager.delete_pattern("product_stock:*")
+        except Exception:
+            pass
 
         await audit_log_service.log_event(
             db,
-            action="GOODS_ISSUE_EXECUTE",
+            action="GOODS_ISSUE_POST",
             entity_type="GoodsIssue",
             entity_id=issue.id,
             user_id=current_user_id,
+            new_data={"issue_number": issue.issue_number, "status": issue.status, "item_count": len(issue.items)},
         )
 
         try:
             send_warehouse_notification_task.delay(
-                event_type="GOODS_ISSUE_ISSUED",
+                event_type="GOODS_ISSUE_POSTED",
                 payload={"issue_id": str(issue.id), "number": issue.issue_number},
             )
         except Exception as e:
@@ -536,13 +705,21 @@ class GoodsIssueService:
 
         return issue
 
+    async def issue_issue(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> GoodsIssue:
+        """
+        Legacy/alias method that delegates to post_issue with Issued status.
+        """
+        return await self.post_issue(db, id, current_user_id=current_user_id, target_status="Issued")
+
     async def cancel_issue(
         self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> GoodsIssue:
         issue = await goods_issue_repository.get_by_id(db, id)
         if not issue:
             raise NotFoundException(f"Goods issue with ID '{id}' not found.")
-        if issue.status in ("Issued", "Cancelled"):
+        if issue.status in ("Posted", "Issued", "Cancelled"):
             raise ValidationException(f"Cannot cancel goods issue in terminal status '{issue.status}'.")
 
         issue.status = "Cancelled"
@@ -557,6 +734,27 @@ class GoodsIssueService:
             user_id=current_user_id,
         )
         return issue
+
+    async def delete_issue(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> None:
+        """
+        Deletes a draft GoodsIssue. Prohibits deleting posted documents.
+        """
+        issue = await goods_issue_repository.get_by_id(db, id)
+        if not issue:
+            raise NotFoundException(f"Goods issue with ID '{id}' not found.")
+        if issue.status != "Draft":
+            raise ValidationException(f"Only Draft goods issues can be deleted. Current status: '{issue.status}'.")
+
+        await goods_issue_repository.delete(db, id=id)
+        await audit_log_service.log_event(
+            db,
+            action="GOODS_ISSUE_DELETE",
+            entity_type="GoodsIssue",
+            entity_id=id,
+            user_id=current_user_id,
+        )
 
     async def get_issues(
         self,
@@ -583,15 +781,19 @@ class GoodsIssueService:
 
 class StockTransferService:
     """
-    Domain service for managing StockTransfer documents across warehouses and locations.
+    Domain service for managing StockTransfer documents and posting workflows.
     """
+
     def __init__(self, execution_service: WarehouseExecutionService):
         self.execution_service = execution_service
 
     async def _validate_transfer_details(
         self, db: AsyncSession, source_wh_id: uuid.UUID, dest_wh_id: uuid.UUID, source_loc_id: Optional[uuid.UUID], dest_loc_id: Optional[uuid.UUID], items: List[Any]
     ) -> None:
-        if source_wh_id == dest_wh_id and (source_loc_id is None or source_loc_id == dest_loc_id):
+        if not items:
+            raise ValidationException("Stock transfer must have at least one line item.")
+
+        if source_wh_id == dest_wh_id and source_loc_id == dest_loc_id:
             raise ValidationException("Source warehouse and location must not be identical to destination warehouse and location.")
 
         s_wh = await warehouse_repository.get_by_id(db, source_wh_id)
@@ -606,6 +808,8 @@ class StockTransferService:
             s_loc = await storage_location_repository.get_by_id(db, source_loc_id)
             if not s_loc:
                 raise NotFoundException(f"Source storage location with ID '{source_loc_id}' not found.")
+            if hasattr(s_loc, "is_active") and not s_loc.is_active:
+                raise ValidationException(f"Source storage location '{s_loc.code}' is inactive.")
             if s_loc.warehouse_id != source_wh_id:
                 raise ValidationException("Source storage location does not belong to source warehouse.")
 
@@ -613,17 +817,27 @@ class StockTransferService:
             d_loc = await storage_location_repository.get_by_id(db, dest_loc_id)
             if not d_loc:
                 raise NotFoundException(f"Destination storage location with ID '{dest_loc_id}' not found.")
+            if hasattr(d_loc, "is_active") and not d_loc.is_active:
+                raise ValidationException(f"Destination storage location '{d_loc.code}' is inactive.")
             if d_loc.warehouse_id != dest_wh_id:
                 raise ValidationException("Destination storage location does not belong to destination warehouse.")
 
         for item in items:
+            qty = Decimal(str(item.quantity))
+            if qty <= Decimal("0.0"):
+                raise ValidationException("Transfer line quantity must be strictly positive.")
+
             prod = await product_repository.get_by_id(db, item.product_id)
             if not prod:
                 raise NotFoundException(f"Product with ID '{item.product_id}' not found.")
-            if not prod.track_inventory:
-                raise ValidationException(f"Product SKU '{prod.sku}' is not configured for inventory tracking.")
+            if hasattr(prod, "is_active") and not prod.is_active:
+                raise ValidationException(f"Product SKU '{prod.sku}' is inactive.")
             if prod.status == "Archived":
                 raise ValidationException(f"Product SKU '{prod.sku}' is archived and read-only.")
+            if hasattr(prod, "is_stockable") and not prod.is_stockable:
+                raise ValidationException(f"Product SKU '{prod.sku}' is not configured as stockable inventory.")
+            if hasattr(prod, "track_inventory") and not prod.track_inventory:
+                raise ValidationException(f"Product SKU '{prod.sku}' does not track inventory.")
 
     async def create_transfer(
         self, db: AsyncSession, obj_in: StockTransferCreate, current_user_id: Optional[uuid.UUID] = None
@@ -635,6 +849,7 @@ class StockTransferService:
             db, obj_in.source_warehouse_id, obj_in.destination_warehouse_id, obj_in.source_location_id, obj_in.destination_location_id, obj_in.items
         )
 
+        remarks_val = obj_in.remarks or obj_in.notes
         transfer = StockTransfer(
             transfer_number=obj_in.transfer_number,
             source_warehouse_id=obj_in.source_warehouse_id,
@@ -643,16 +858,17 @@ class StockTransferService:
             destination_location_id=obj_in.destination_location_id,
             transfer_date=obj_in.transfer_date or datetime.now(timezone.utc),
             status="Draft",
-            remarks=obj_in.remarks,
+            remarks=remarks_val,
             created_by=current_user_id,
         )
         for item in obj_in.items:
+            item_remarks = item.remarks or item.notes
             transfer.items.append(
                 StockTransferItem(
                     product_id=item.product_id,
                     quantity=item.quantity,
                     unit_id=item.unit_id,
-                    remarks=item.remarks,
+                    remarks=item_remarks,
                 )
             )
 
@@ -666,6 +882,7 @@ class StockTransferService:
             entity_type="StockTransfer",
             entity_id=transfer.id,
             user_id=current_user_id,
+            new_data={"transfer_number": transfer.transfer_number, "source_wh": str(transfer.source_warehouse_id), "dest_wh": str(transfer.destination_warehouse_id)},
         )
         return transfer
 
@@ -682,8 +899,8 @@ class StockTransferService:
             transfer.source_location_id = obj_in.source_location_id
         if obj_in.destination_location_id is not None:
             transfer.destination_location_id = obj_in.destination_location_id
-        if obj_in.remarks is not None:
-            transfer.remarks = obj_in.remarks
+        if obj_in.remarks is not None or obj_in.notes is not None:
+            transfer.remarks = obj_in.remarks or obj_in.notes
 
         if obj_in.items is not None:
             await self._validate_transfer_details(
@@ -696,7 +913,7 @@ class StockTransferService:
                         product_id=item.product_id,
                         quantity=item.quantity,
                         unit_id=item.unit_id,
-                        remarks=item.remarks,
+                        remarks=item.remarks or item.notes,
                     )
                 )
 
@@ -735,17 +952,87 @@ class StockTransferService:
         )
         return transfer
 
+    async def post_transfer(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> StockTransfer:
+        """
+        Atomically posts a StockTransfer document:
+        1. Validates document state and rules.
+        2. Implements deterministic deadlock-free lock ordering across all balances.
+        3. Executes Source STOCK_OUT and Destination STOCK_IN movements via StockMovementService.
+        4. Updates document status to Posted.
+        5. Commits all mutations atomically in a single PostgreSQL transaction.
+        """
+        transfer = await stock_transfer_repository.get_by_id(db, id)
+        if not transfer:
+            raise NotFoundException(f"Stock transfer with ID '{id}' not found.")
+        if transfer.status in ("Posted", "Completed", "In Transit"):
+            raise ValidationException(f"Stock transfer is already posted or in progress. Current status: '{transfer.status}'.")
+        if transfer.status == "Cancelled":
+            raise ValidationException(f"Cannot post stock transfer in terminal status '{transfer.status}'.")
+
+        # Full re-validation of transfer details
+        await self._validate_transfer_details(
+            db, transfer.source_warehouse_id, transfer.destination_warehouse_id, transfer.source_location_id, transfer.destination_location_id, transfer.items
+        )
+
+        try:
+            # Atomic transfer execution with deterministic lock acquisition
+            await self.execution_service.execute_stock_transfer_atomic(db, transfer, current_user_id=current_user_id)
+
+            now = datetime.now(timezone.utc)
+            transfer.status = "Posted"
+            if not transfer.approved_by:
+                transfer.approved_by = current_user_id
+            transfer.completed_by = current_user_id
+
+            await db.commit()
+            await db.refresh(transfer)
+        except Exception:
+            await db.rollback()
+            raise
+
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+            await redis_manager.delete_pattern("warehouse_summary:*")
+            await redis_manager.delete_pattern("product_stock:*")
+        except Exception:
+            pass
+
+        await audit_log_service.log_event(
+            db,
+            action="STOCK_TRANSFER_POST",
+            entity_type="StockTransfer",
+            entity_id=transfer.id,
+            user_id=current_user_id,
+            new_data={"transfer_number": transfer.transfer_number, "status": transfer.status, "item_count": len(transfer.items)},
+        )
+
+        try:
+            send_warehouse_notification_task.delay(
+                event_type="STOCK_TRANSFER_POSTED",
+                payload={"transfer_id": str(transfer.id), "number": transfer.transfer_number},
+            )
+        except Exception as e:
+            logger.warning(f"Failed to dispatch warehouse notification task: {e}")
+
+        return transfer
+
     async def dispatch_transfer(
         self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> StockTransfer:
         """
-        Dispatches a StockTransfer proposal, creating TRANSFER_OUT stock ledger entries at source warehouse.
+        Dispatches a StockTransfer proposal (two-phase workflow), creating STOCK_OUT movements at source warehouse.
         """
         transfer = await stock_transfer_repository.get_by_id(db, id)
         if not transfer:
             raise NotFoundException(f"Stock transfer with ID '{id}' not found.")
         if transfer.status not in ("Draft", "Approved"):
             raise ValidationException(f"Stock transfer with status '{transfer.status}' cannot be dispatched.")
+
+        await self._validate_transfer_details(
+            db, transfer.source_warehouse_id, transfer.destination_warehouse_id, transfer.source_location_id, transfer.destination_location_id, transfer.items
+        )
 
         # Execute dispatch (OUT from source WH)
         await self.execution_service.execute_stock_transfer_dispatch(db, transfer, current_user_id=current_user_id)
@@ -756,6 +1043,13 @@ class StockTransferService:
 
         await db.commit()
         await db.refresh(transfer)
+
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+            await redis_manager.delete_pattern("warehouse_summary:*")
+            await redis_manager.delete_pattern("product_stock:*")
+        except Exception:
+            pass
 
         await audit_log_service.log_event(
             db,
@@ -779,7 +1073,7 @@ class StockTransferService:
         self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> StockTransfer:
         """
-        Completes/receives an 'In Transit' StockTransfer, creating TRANSFER_IN stock ledger entries at destination warehouse.
+        Completes/receives an 'In Transit' StockTransfer (two-phase workflow), creating STOCK_IN movements at destination warehouse.
         """
         transfer = await stock_transfer_repository.get_by_id(db, id)
         if not transfer:
@@ -795,6 +1089,13 @@ class StockTransferService:
 
         await db.commit()
         await db.refresh(transfer)
+
+        try:
+            await redis_manager.delete_pattern("stock_balance:*")
+            await redis_manager.delete_pattern("warehouse_summary:*")
+            await redis_manager.delete_pattern("product_stock:*")
+        except Exception:
+            pass
 
         await audit_log_service.log_event(
             db,
@@ -820,10 +1121,9 @@ class StockTransferService:
         transfer = await stock_transfer_repository.get_by_id(db, id)
         if not transfer:
             raise NotFoundException(f"Stock transfer with ID '{id}' not found.")
-        if transfer.status in ("Completed", "Cancelled"):
+        if transfer.status in ("Posted", "Completed", "Cancelled"):
             raise ValidationException(f"Cannot cancel stock transfer in terminal status '{transfer.status}'.")
 
-        # Note: If cancelled while In Transit, in a production system an offsetting reversal would be created.
         transfer.status = "Cancelled"
         await db.commit()
         await db.refresh(transfer)
@@ -836,6 +1136,27 @@ class StockTransferService:
             user_id=current_user_id,
         )
         return transfer
+
+    async def delete_transfer(
+        self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> None:
+        """
+        Deletes a draft StockTransfer. Prohibits deleting posted or in-transit documents.
+        """
+        transfer = await stock_transfer_repository.get_by_id(db, id)
+        if not transfer:
+            raise NotFoundException(f"Stock transfer with ID '{id}' not found.")
+        if transfer.status != "Draft":
+            raise ValidationException(f"Only Draft stock transfers can be deleted. Current status: '{transfer.status}'.")
+
+        await stock_transfer_repository.delete(db, id=id)
+        await audit_log_service.log_event(
+            db,
+            action="STOCK_TRANSFER_DELETE",
+            entity_type="StockTransfer",
+            entity_id=id,
+            user_id=current_user_id,
+        )
 
     async def get_transfers(
         self,

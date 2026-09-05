@@ -190,62 +190,70 @@ async def test_goods_issue_lifecycle_and_negative_stock_validation():
             base_unit_id=uom.id,
             track_inventory=True,
             allow_negative_stock=False,
+            is_stockable=True,
             status="Active",
         )
         session.add(prod)
         await session.commit()
+        await session.refresh(prod)
+
+        wh_id = wh.id
+        prod_id = prod.id
+        uom_id = uom.id
 
         # Seed initial stock of 50.00
         await stock_ledger_service.create_ledger_entry(
             session,
-            product_id=prod.id,
-            warehouse_id=wh.id,
+            product_id=prod_id,
+            warehouse_id=wh_id,
             storage_location_id=None,
             transaction_type_code="OPENING_STOCK",
             quantity=Decimal("50.0000"),
             direction="IN",
-            unit_id=uom.id,
+            unit_id=uom_id,
         )
 
         # Attempt to issue 100.00 (exceeds stock of 50.00)
         excess_issue_in = GoodsIssueCreate(
             issue_number=f"GI-ERR-{uuid.uuid4().hex[:6]}",
-            warehouse_id=wh.id,
+            warehouse_id=wh_id,
             issue_reason="Consumption",
             items=[
                 GoodsIssueItemCreate(
-                    product_id=prod.id,
+                    product_id=prod_id,
                     quantity=Decimal("100.0000"),
                 )
             ],
         )
 
         excess_issue = await goods_issue_service.create_issue(session, excess_issue_in)
+        excess_issue_id = excess_issue.id
         with pytest.raises(ValidationException):
-            await goods_issue_service.issue_issue(session, excess_issue.id)
+            await goods_issue_service.issue_issue(session, excess_issue_id)
 
         # Issue valid quantity of 30.00
         valid_issue_in = GoodsIssueCreate(
             issue_number=f"GI-OK-{uuid.uuid4().hex[:6]}",
-            warehouse_id=wh.id,
+            warehouse_id=wh_id,
             issue_reason="Internal",
             items=[
                 GoodsIssueItemCreate(
-                    product_id=prod.id,
+                    product_id=prod_id,
                     quantity=Decimal("30.0000"),
                 )
             ],
         )
 
         valid_issue = await goods_issue_service.create_issue(session, valid_issue_in)
-        issued = await goods_issue_service.issue_issue(session, valid_issue.id)
+        valid_issue_id = valid_issue.id
+        issued = await goods_issue_service.issue_issue(session, valid_issue_id)
         assert issued.status == "Issued"
 
         # Verify StockLedger OUT entry and running balance (50 - 30 = 20)
         ledger_entries = (
             await session.execute(
                 select(StockLedger).where(
-                    StockLedger.reference_type == "GoodsIssue", StockLedger.reference_id == valid_issue.id
+                    StockLedger.reference_type == "GoodsIssue", StockLedger.reference_id == valid_issue_id
                 )
             )
         ).scalars().all()

@@ -5,6 +5,35 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.2] - 2026-09-05
+
+### Milestone Warehouse Operations
+
+#### Added
+- **Warehouse Operational Business Documents (`app/models/goods_receipt.py`, `app/models/goods_issue.py`, `app/models/stock_transfer.py`)**:
+  - `GoodsReceipt` & `GoodsReceiptItem`: Inbound stock receipt documents and lines with validation for active/stockable items, warehouse location ownership, and status lifecycles (`Draft` $\rightarrow$ `Posted`).
+  - `GoodsIssue` & `GoodsIssueItem`: Outbound stock issue/consumption documents with negative-stock policy validation and atomic multi-line posting.
+  - `StockTransfer` & `StockTransferItem`: Inter-warehouse and intra-warehouse transfers with source-to-destination location validation and single-transaction execution.
+  - Backward compatibility aliases: `notes` $\leftrightarrow$ `remarks`, `received_by` $\leftrightarrow$ `approved_by`, `transferred_by` $\leftrightarrow$ `completed_by`.
+- **Authoritative Stock Engine Integration (`app/services/warehouse_operations_services.py`, `app/services/stock_engine_services.py`)**:
+  - `GoodsReceiptService.post_receipt`: Atomically delegates to `StockMovementService.stock_in()` for each line.
+  - `GoodsIssueService.post_issue`: Atomically delegates to `StockMovementService.stock_out()` for each line, enforcing row-level locking and negative-stock rules.
+  - `StockTransferService.post_transfer`: Executes Source `STOCK_OUT` and Destination `STOCK_IN` atomically within a single PostgreSQL transaction.
+  - Extended `StockMovementService` with `commit: bool = True` parameter to support atomic multi-line warehouse document posting with single commit / rollback.
+- **Deadlock-Free Transfer Concurrency**:
+  - Implemented deterministic lexicographical lock ordering on `(product_id, warehouse_id, storage_location_id)` balance keys prior to executing transfers to eliminate database deadlocks under high concurrency.
+- **REST API Routers & Dual Path Compatibility (`app/api/v1/api.py`, `app/api/v1/endpoints/`)**:
+  - Mounted canonical `/api/v1/warehouse/receipts`, `/api/v1/warehouse/issues`, `/api/v1/warehouse/transfers` with dedicated `/{id}/post` and `/{id}/cancel` endpoints alongside backward-compatible `/api/v1/inventory/goods-*` endpoints.
+- **Granular RBAC Security (`app/db/seed_rbac.py`)**:
+  - Added permissions: `inventory.receipt.post`, `inventory.receipt.delete`, `inventory.issue.post`, `inventory.issue.delete`, `inventory.transfer.post`, `inventory.transfer.delete` mapped to `Super Admin` and `Inventory Manager` roles.
+- **Audit Logging & Telemetry**:
+  - Integrated `AuditLogService` across all creation, update, approval, posting, cancellation, and deletion lifecycle transitions for Goods Receipts, Goods Issues, and Stock Transfers.
+- **Comprehensive Test Suite (`tests/test_warehouse_operations_v062.py`, `tests/test_warehouse_operations.py`)**:
+  - Complete coverage for CRUD, multi-line atomic rollbacks on forced line failure, deterministic concurrent reverse-transfers, posting idempotency, RBAC, and dual API routes.
+- **Architecture Documentation & ADR**:
+  - `docs/inventory/warehouse-operations.md`: Domain specification for v0.6.2 warehouse operations.
+  - `docs/adr/ADR-0025-warehouse-operations.md`: Architecture Decision Record for Milestone v0.6.2.
+
 ## [v0.6.1] - 2026-09-05
 
 ### Milestone Stock Ledger & Authoritative Stock Balances

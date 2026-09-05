@@ -39,7 +39,7 @@ async def create_goods_issue(
 )
 async def list_goods_issues(
     warehouse_id: Optional[uuid.UUID] = Query(None, description="Filter by warehouse ID"),
-    status: Optional[str] = Query(None, description="Filter by document status: Draft, Issued, Cancelled"),
+    status: Optional[str] = Query(None, description="Filter by document status: Draft, Posted, Issued, Cancelled"),
     issue_reason: Optional[str] = Query(None, description="Filter by reason: Consumption, Internal, Damage, Sample, Adjustment, Other"),
     start_date: Optional[datetime] = Query(None, description="Filter by start issue date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end issue date"),
@@ -73,6 +73,11 @@ async def get_goods_issue(
     response_model=GoodsIssueResponse,
     summary="Update a Draft Goods Issue",
 )
+@router.patch(
+    "/{id}",
+    response_model=GoodsIssueResponse,
+    summary="Partially update a Draft Goods Issue",
+)
 async def update_goods_issue(
     id: uuid.UUID,
     obj_in: GoodsIssueUpdate,
@@ -80,6 +85,19 @@ async def update_goods_issue(
     current_user: User = Depends(has_permission("inventory.issue.update")),
 ) -> Any:
     return await goods_issue_service.update_issue(db, id, obj_in, current_user_id=current_user.id)
+
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a Draft Goods Issue document",
+)
+async def delete_goods_issue(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.issue.delete")),
+) -> None:
+    await goods_issue_service.delete_issue(db, id, current_user_id=current_user.id)
 
 
 @router.post(
@@ -93,6 +111,19 @@ async def approve_goods_issue(
     current_user: User = Depends(has_permission("inventory.issue.approve")),
 ) -> Any:
     return await goods_issue_service.approve_issue(db, id, current_user_id=current_user.id)
+
+
+@router.post(
+    "/{id}/post",
+    response_model=GoodsIssueResponse,
+    summary="Post Goods Issue and generate Stock Ledger OUT entries",
+)
+async def post_goods_issue(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.issue.post")),
+) -> Any:
+    return await goods_issue_service.post_issue(db, id, current_user_id=current_user.id)
 
 
 @router.post(
@@ -119,3 +150,4 @@ async def cancel_goods_issue(
     current_user: User = Depends(has_permission("inventory.issue.cancel")),
 ) -> Any:
     return await goods_issue_service.cancel_issue(db, id, current_user_id=current_user.id)
+

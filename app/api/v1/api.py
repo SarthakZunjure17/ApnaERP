@@ -208,8 +208,11 @@ api_router.include_router(stock_balance.router, prefix="/inventory/balances", ta
 
 # Warehouse Operations Engine Routers
 api_router.include_router(goods_receipt.router, prefix="/inventory/goods-receipts", tags=["Goods Receipt Note (GRN)"])
+api_router.include_router(goods_receipt.router, prefix="/warehouse/receipts", tags=["Goods Receipt Note (GRN)"])
 api_router.include_router(goods_issue.router, prefix="/inventory/goods-issues", tags=["Goods Issue Note (GIN)"])
+api_router.include_router(goods_issue.router, prefix="/warehouse/issues", tags=["Goods Issue Note (GIN)"])
 api_router.include_router(stock_transfer.router, prefix="/inventory/stock-transfers", tags=["Inter-Warehouse Stock Transfers"])
+api_router.include_router(stock_transfer.router, prefix="/warehouse/transfers", tags=["Inter-Warehouse Stock Transfers"])
 
 # Inventory Advanced Domain Completion Routers
 api_router.include_router(batches.router, prefix="/inventory/batches", tags=["Batch Management"])

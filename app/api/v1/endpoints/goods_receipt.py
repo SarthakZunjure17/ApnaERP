@@ -39,7 +39,7 @@ async def create_goods_receipt(
 )
 async def list_goods_receipts(
     warehouse_id: Optional[uuid.UUID] = Query(None, description="Filter by warehouse ID"),
-    status: Optional[str] = Query(None, description="Filter by document status: Draft, Received, Cancelled"),
+    status: Optional[str] = Query(None, description="Filter by document status: Draft, Posted, Received, Cancelled"),
     start_date: Optional[datetime] = Query(None, description="Filter by start receipt date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end receipt date"),
     search: Optional[str] = Query(None, description="Search term for receipt number or reference"),
@@ -72,6 +72,11 @@ async def get_goods_receipt(
     response_model=GoodsReceiptResponse,
     summary="Update a Draft Goods Receipt",
 )
+@router.patch(
+    "/{id}",
+    response_model=GoodsReceiptResponse,
+    summary="Partially update a Draft Goods Receipt",
+)
 async def update_goods_receipt(
     id: uuid.UUID,
     obj_in: GoodsReceiptUpdate,
@@ -79,6 +84,19 @@ async def update_goods_receipt(
     current_user: User = Depends(has_permission("inventory.receipt.update")),
 ) -> Any:
     return await goods_receipt_service.update_receipt(db, id, obj_in, current_user_id=current_user.id)
+
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a Draft Goods Receipt document",
+)
+async def delete_goods_receipt(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.receipt.delete")),
+) -> None:
+    await goods_receipt_service.delete_receipt(db, id, current_user_id=current_user.id)
 
 
 @router.post(
@@ -92,6 +110,19 @@ async def approve_goods_receipt(
     current_user: User = Depends(has_permission("inventory.receipt.approve")),
 ) -> Any:
     return await goods_receipt_service.approve_receipt(db, id, current_user_id=current_user.id)
+
+
+@router.post(
+    "/{id}/post",
+    response_model=GoodsReceiptResponse,
+    summary="Post Goods Receipt and generate Stock Ledger IN entries",
+)
+async def post_goods_receipt(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.receipt.post")),
+) -> Any:
+    return await goods_receipt_service.post_receipt(db, id, current_user_id=current_user.id)
 
 
 @router.post(
@@ -118,3 +149,4 @@ async def cancel_goods_receipt(
     current_user: User = Depends(has_permission("inventory.receipt.cancel")),
 ) -> Any:
     return await goods_receipt_service.cancel_receipt(db, id, current_user_id=current_user.id)
+

@@ -40,7 +40,7 @@ async def create_stock_transfer(
 async def list_stock_transfers(
     source_warehouse_id: Optional[uuid.UUID] = Query(None, description="Filter by source warehouse ID"),
     destination_warehouse_id: Optional[uuid.UUID] = Query(None, description="Filter by destination warehouse ID"),
-    status: Optional[str] = Query(None, description="Filter by document status: Draft, In Transit, Completed, Cancelled"),
+    status: Optional[str] = Query(None, description="Filter by document status: Draft, Posted, In Transit, Completed, Cancelled"),
     start_date: Optional[datetime] = Query(None, description="Filter by start transfer date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end transfer date"),
     search: Optional[str] = Query(None, description="Search term for transfer number"),
@@ -81,6 +81,11 @@ async def get_stock_transfer(
     response_model=StockTransferResponse,
     summary="Update a Draft Stock Transfer",
 )
+@router.patch(
+    "/{id}",
+    response_model=StockTransferResponse,
+    summary="Partially update a Draft Stock Transfer",
+)
 async def update_stock_transfer(
     id: uuid.UUID,
     obj_in: StockTransferUpdate,
@@ -88,6 +93,19 @@ async def update_stock_transfer(
     current_user: User = Depends(has_permission("inventory.transfer.update")),
 ) -> Any:
     return await stock_transfer_service.update_transfer(db, id, obj_in, current_user_id=current_user.id)
+
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a Draft Stock Transfer document",
+)
+async def delete_stock_transfer(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.transfer.delete")),
+) -> None:
+    await stock_transfer_service.delete_transfer(db, id, current_user_id=current_user.id)
 
 
 @router.post(
@@ -101,6 +119,19 @@ async def approve_stock_transfer(
     current_user: User = Depends(has_permission("inventory.transfer.approve")),
 ) -> Any:
     return await stock_transfer_service.approve_transfer(db, id, current_user_id=current_user.id)
+
+
+@router.post(
+    "/{id}/post",
+    response_model=StockTransferResponse,
+    summary="Atomically post Stock Transfer (Source OUT + Destination IN)",
+)
+async def post_stock_transfer(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.transfer.post")),
+) -> Any:
+    return await stock_transfer_service.post_transfer(db, id, current_user_id=current_user.id)
 
 
 @router.post(
@@ -153,3 +184,4 @@ async def cancel_stock_transfer(
     current_user: User = Depends(has_permission("inventory.transfer.cancel")),
 ) -> Any:
     return await stock_transfer_service.cancel_transfer(db, id, current_user_id=current_user.id)
+

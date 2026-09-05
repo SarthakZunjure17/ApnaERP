@@ -103,6 +103,22 @@ class StockTransfer(Base, UUIDMixin, TimestampMixin):
         "StockTransferItem", back_populates="stock_transfer", cascade="all, delete-orphan", lazy="selectin"
     )
 
+    @property
+    def notes(self) -> Optional[str]:
+        return self.remarks
+
+    @notes.setter
+    def notes(self, val: Optional[str]):
+        self.remarks = val
+
+    @property
+    def transferred_by(self) -> Optional[uuid.UUID]:
+        return self.completed_by or self.approved_by
+
+    @transferred_by.setter
+    def transferred_by(self, val: Optional[uuid.UUID]):
+        self.approved_by = val
+
     def __repr__(self) -> str:
         return f"<StockTransfer(id={self.id}, number='{self.transfer_number}', status='{self.status}')>"
 
@@ -149,6 +165,14 @@ class StockTransferItem(Base, UUIDMixin):
     stock_transfer: Mapped["StockTransfer"] = relationship("StockTransfer", back_populates="items")
     product: Mapped["Product"] = relationship("Product", lazy="selectin")
     unit: Mapped[Optional["UnitOfMeasure"]] = relationship("UnitOfMeasure", lazy="selectin")
+
+    @property
+    def notes(self) -> Optional[str]:
+        return self.remarks
+
+    @notes.setter
+    def notes(self, val: Optional[str]):
+        self.remarks = val
 
     def __repr__(self) -> str:
         return f"<StockTransferItem(id={self.id}, product_id={self.product_id}, qty={self.quantity})>"

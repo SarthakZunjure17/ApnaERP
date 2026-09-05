@@ -81,6 +81,22 @@ class GoodsIssue(Base, UUIDMixin, TimestampMixin):
         "GoodsIssueItem", back_populates="goods_issue", cascade="all, delete-orphan", lazy="selectin"
     )
 
+    @property
+    def notes(self) -> Optional[str]:
+        return self.remarks
+
+    @notes.setter
+    def notes(self, val: Optional[str]):
+        self.remarks = val
+
+    @property
+    def issued_by(self) -> Optional[uuid.UUID]:
+        return self.approved_by
+
+    @issued_by.setter
+    def issued_by(self, val: Optional[uuid.UUID]):
+        self.approved_by = val
+
     def __repr__(self) -> str:
         return f"<GoodsIssue(id={self.id}, number='{self.issue_number}', status='{self.status}')>"
 
@@ -135,6 +151,14 @@ class GoodsIssueItem(Base, UUIDMixin):
     product: Mapped["Product"] = relationship("Product", lazy="selectin")
     storage_location: Mapped[Optional["StorageLocation"]] = relationship("StorageLocation", lazy="selectin")
     unit: Mapped[Optional["UnitOfMeasure"]] = relationship("UnitOfMeasure", lazy="selectin")
+
+    @property
+    def notes(self) -> Optional[str]:
+        return self.remarks
+
+    @notes.setter
+    def notes(self, val: Optional[str]):
+        self.remarks = val
 
     def __repr__(self) -> str:
         return f"<GoodsIssueItem(id={self.id}, product_id={self.product_id}, qty={self.quantity})>"
