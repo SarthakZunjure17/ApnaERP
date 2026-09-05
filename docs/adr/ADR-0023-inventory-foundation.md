@@ -1,34 +1,38 @@
-# ADR-0023: Inventory Foundation & Product Master Catalog
+# ADR-0023: Inventory Foundation & Product Master Catalog (v0.6.0)
 
 ## Status
 Accepted
 
 ## Context
-As ApnaERP expands into physical enterprise operations, establishing the Inventory domain is critical. Milestone `v0.6.0` establishes the foundational primitives and master data structures required before stock ledger transactions, inventory movements, batch tracking, or procurement can be built.
+As ApnaERP scales into full enterprise operations, establishing the Inventory domain is critical. Milestone `v0.6.0` establishes the canonical foundational primitives and master data structures required before stock ledger transactions, inventory movements, batch tracking, or procurement can be built.
 
-The foundation requires tracking:
-1. Product Categories (supporting infinite parent-child hierarchy trees).
-2. Units of Measure (with precision, conversion base unit definitions, and categorization).
-3. Brands (manufacturer / brand management).
-4. Warehouses (physical storage facilities with contact details).
-5. Storage Locations (racks, shelves, bins, zones, cold storage nested within warehouses).
-6. Product Master Records (SKU, Barcode, Product Type, Inventory flags, UOM references, Default Warehouse link, and lifecycle status).
-7. Custom Product Attributes (Extensible key-value definitions with typed values).
-8. Product Documents (Attaching uploaded specifications, compliance certificates, manuals, and images).
+The foundation establishes canonical master data for:
+1. Product Master Catalog (SKU, Barcode, Model Number, Product Type, Inventory flags `is_stockable`, `is_sellable`, `is_purchasable`, UOM references, Default Warehouse link, stock thresholds, lead times, pricing, flexible metadata, and lifecycle status).
+2. Product Categories (supporting infinite parent-child hierarchy trees with circular reference prevention and child node querying).
+3. Units of Measure (with precision boundaries 0-6, conversion base unit definitions, categorization, and unique codes).
+4. Brands (manufacturer and brand cataloging).
+5. Warehouses (multi-facility architecture with types `MAIN`, `DISTRIBUTION`, `RETAIL`, `VIRTUAL`, `TRANSIT`, structured address fields, operating timezone, and facility managers).
+6. Storage Locations (hierarchical racks, shelves, bins, zones, and cold storage with composite uniqueness per facility).
+7. Multi-Warehouse Stocking Configurations (`ProductWarehouse` mapping items to facilities with specific reorder points, reorder quantities, min/max thresholds, safety stocks, and preferred location consistency).
+8. Inventory Policies (`InventoryPolicy` establishing valuation methods FIFO/LIFO/Weighted Average/Standard, costing methods, negative stock permissions, replenishment strategies, and reservation behaviors).
+9. Custom Product Attributes (Extensible key-value definitions with typed values).
+10. Product Documents (Attaching uploaded specifications, compliance certificates, manuals, and images).
 
 ## Decision
 We implemented the Inventory Foundation following Clean Architecture, Domain Driven Design (DDD), Repository Pattern, and SOLID principles:
 
-1. **Domain Models & Entities**:
-   - Built 9 dedicated ORM models (`ProductCategory`, `UnitOfMeasure`, `Brand`, `Warehouse`, `StorageLocation`, `Product`, `ProductAttribute`, `ProductAttributeValue`, `ProductDocument`).
-   - Integrated `ProductCategory` and `StorageLocation` with self-referential parent-child relationships for infinite hierarchical tree rendering.
-   - Enforced uniqueness constraints on Category Code, UOM Name/Symbol, Brand Name, Warehouse Code, Storage Location Code per Warehouse, Product SKU, Product Barcode, and Attribute Code.
+1. **Additive Entity Evolution & Persistence**:
+   - Evolved existing models (`Product`, `ProductCategory`, `UnitOfMeasure`, `Warehouse`, `StorageLocation`, `Brand`, `ProductAttribute`, `ProductDocument`) additively with canonical fields and backward-compatible aliases.
+   - Introduced dedicated ORM models `ProductWarehouse` and `InventoryPolicy` with composite unique constraints and cascading foreign keys.
+   - Preserved all existing table structures and column names to ensure strict zero-regression compatibility with Procurement, Sales, and Accounting domains.
 
 2. **Domain Logic & Validation**:
    - Implemented strict circular reference validation for Category and Storage Location hierarchy updates.
    - Storage Location parent-child links require both nodes to belong to the same `warehouse_id`.
-   - Product status state machine (`Draft` -> `Active` -> `Discontinued` -> `Archived`).
-   - `Archived` products are immutable (read-only) and reject modification requests.
+   - `ProductWarehouse` requires `preferred_location_id` to belong strictly to the configured `warehouse_id`.
+   - Reorder threshold sanity validations (`minimum_stock <= maximum_stock`, non-negative quantities).
+   - Safe deactivation guards preventing hard-deletes of referenced products, categories, or warehouses.
+   - Product status state machine (`Draft` &rarr; `Active` &rarr; `Discontinued` &rarr; `Archived`) where `Archived` products are immutable (read-only).
 
 3. **Performance & Infrastructure**:
    - Redis caching for hierarchical tree structures (`category:tree`, `location:tree`) and entity lookup invalidations on mutation events.
@@ -36,13 +40,14 @@ We implemented the Inventory Foundation following Clean Architecture, Domain Dri
    - Audit event logging integrated into all mutation operations.
 
 4. **Security & RBAC**:
-   - Seeded 24 granular permissions (`inventory.category.*`, `inventory.unit.*`, `inventory.brand.*`, `inventory.warehouse.*`, `inventory.location.*`, `inventory.product.*`, `inventory.attribute.*`, `inventory.document.*`).
+   - Seeded granular permissions (`inventory.product.*`, `inventory.product_warehouse.*`, `inventory.policy.*`, `inventory.category.*`, `inventory.unit.*`, `inventory.uom.*`, `inventory.brand.*`, `inventory.warehouse.*`, `inventory.location.*`, `inventory.attribute.*`, `inventory.document.*`).
    - Assigned permissions to `Super Admin` and `Inventory Manager` roles.
 
 ## Consequences
 - **Positive**:
   - Provides a standardized, extensible Product Master catalog for the entire ERP system.
-  - Hierarchical tree structures allow flexible multi-level categorization and warehouse layout modeling.
+  - Multi-warehouse stocking parameters allow localized supply chain optimization per facility.
+  - Canonical inventory policies provide clear rules for downstream Stock Ledger and Valuation modules.
   - Strict status immutability guarantees data integrity for archived products.
 - **Negative**:
   - Requires cache invalidation management across hierarchical tree updates.

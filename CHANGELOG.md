@@ -5,6 +5,37 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0] - 2026-08-08
+
+### Milestone Inventory Foundation & Master Data
+
+#### Added
+- **Multi-Warehouse & Policy ORM Models (`app/models/product_warehouse.py`, `app/models/inventory_policy.py`)**:
+  - `ProductWarehouse`: Per-warehouse stocking configurations, reorder levels, reorder quantities, minimum/maximum thresholds, safety stock buffers, and preferred storage location consistency.
+  - `InventoryPolicy`: Global and facility-specific valuation methods (`FIFO`, `LIFO`, `WEIGHTED_AVERAGE`, `STANDARD`), costing strategies (`STANDARD`, `ACTUAL`, `MOVING_AVERAGE`), negative stock policy rules, reorder strategies (`MIN_MAX`, `FIXED_ORDER_QTY`, `PERIODIC`), and reservation behaviors.
+- **Additive Product & Warehouse Master Model Enhancements (`app/models/product.py`, `app/models/unit_of_measure.py`, `app/models/warehouse.py`, `app/models/storage_location.py`)**:
+  - `Product`: Added `model_number`, `is_active`, `is_stockable`, `is_sellable`, `is_purchasable`, `reorder_level`, `reorder_quantity`, `minimum_stock`, `maximum_stock`, `lead_time_days`, `default_unit_price`, `metadata_json`, and alias properties.
+  - `UnitOfMeasure`: Added unique `code` column, aliases `uom_type` and `decimal_precision`.
+  - `Warehouse`: Added `warehouse_type`, `description`, structured address fields (`address_line_1`, `address_line_2`, `city`, `state`, `country`, `postal_code`), operating `timezone`, and `manager_employee_id`.
+  - `StorageLocation`: Added `description`, composite unique constraint `(warehouse_id, code)`, and `parent_location_id` alias.
+- **Alembic Database Migration (`alembic/versions/f1a2b3c4d5e6_phase_v060_inventory_foundation_enhancements.py`)**:
+  - Complete schema upgrade script for new tables `product_warehouses` and `inventory_policies` and additive columns across master tables.
+- **Pydantic Schemas (`app/schemas/inventory.py`)**:
+  - Type-safe schemas with validation bounds for `ProductWarehouse`, `InventoryPolicy`, and enhanced `Product`, `Warehouse`, `StorageLocation`, `UnitOfMeasure`, and `ProductCategory`.
+- **Async Repositories Layer (`app/repositories/inventory_repos.py`)**:
+  - `ProductWarehouseRepository`, `InventoryPolicyRepository`, and enhanced query methods across all inventory repositories.
+- **Domain Services Layer (`app/services/inventory_services.py`)**:
+  - `ProductWarehouseService`, `InventoryPolicyService`, enhanced `ProductService`, `WarehouseService`, `StorageLocationService`, `CategoryService`, and `UnitOfMeasureService` with business validations, circular reference guards, safe deactivations, and audit logging.
+- **RBAC Permissions (`app/db/seed_rbac.py`)**:
+  - Seeded permissions (`inventory.product_warehouse.*`, `inventory.policy.*`, `inventory.uom.*`) and assigned to `Super Admin` and `Inventory Manager`.
+- **REST API Endpoints (`app/api/v1/endpoints/product_warehouse.py`, `product.py`, `category.py`, `warehouse.py`, `storage_location.py`, `unit_of_measure.py`)**:
+  - New endpoints: `/api/v1/product-warehouses`, `/api/v1/inventory/policies`, `/api/v1/products/search`, `/api/v1/products/{id}/warehouses`, `/api/v1/categories/{id}/children`, `/api/v1/warehouses/{id}/locations`, `/api/v1/warehouses/{id}/products`.
+- **Comprehensive Pytest Suite (`tests/test_inventory_foundation.py`)**:
+  - End-to-end integration tests covering all master data workflows, tree resolutions, multi-warehouse parameters, inventory policies, and RBAC authorization with 100% pass rate.
+- **Documentation & Architecture Decision Record (`docs/`)**:
+  - `docs/inventory/inventory-foundation.md`: Comprehensive domain overview and API reference.
+  - `docs/adr/ADR-0023-inventory-foundation.md`: Architecture Decision Record for Milestone v0.6.0.
+
 ## [v1.3.0] - 2026-08-07 — Production Ready
 
 ### Milestone Enterprise Integrations & Production Readiness — Complete Platform Release

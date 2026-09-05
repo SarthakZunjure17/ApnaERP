@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db, has_permission
+from app.api.deps import get_db, has_permission
 from app.models.user import User
 from app.schemas.inventory import (
     ProductCategoryCreate,
@@ -46,6 +46,16 @@ async def get_category(
     return await category_service.get_category(db, id)
 
 
+@router.get("/{id}/children", response_model=List[ProductCategoryResponse], status_code=status.HTTP_200_OK)
+async def get_category_children(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.category.read")),
+):
+    """Retrieve immediate children of a product category."""
+    return await category_service.get_children(db, id)
+
+
 @router.post("", response_model=ProductCategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category_in: ProductCategoryCreate,
@@ -67,12 +77,22 @@ async def update_category(
     return await category_service.update_category(db, id, obj_in=category_in, current_user_id=current_user.id)
 
 
+@router.patch("/{id}", response_model=ProductCategoryResponse, status_code=status.HTTP_200_OK)
+async def patch_category(
+    id: uuid.UUID,
+    category_in: ProductCategoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.category.update")),
+):
+    """Partially update an existing product category."""
+    return await category_service.update_category(db, id, obj_in=category_in, current_user_id=current_user.id)
+
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_permission("inventory.category.delete")),
 ):
-    """Delete a product category."""
+    """Delete or safely deactivate a product category."""
     await category_service.delete_category(db, id, current_user_id=current_user.id)
-

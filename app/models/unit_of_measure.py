@@ -13,6 +13,13 @@ class UnitOfMeasure(Base, UUIDMixin, TimestampMixin):
     """
     __tablename__ = "unit_of_measures"
 
+    code: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        unique=True,
+        index=True,
+        nullable=True,
+        comment="Unique UOM code identifier (e.g. PCS, KG, LTR, MTR, BOX)",
+    )
     name: Mapped[str] = mapped_column(
         String(100),
         unique=True,
@@ -31,7 +38,7 @@ class UnitOfMeasure(Base, UUIDMixin, TimestampMixin):
         String(50),
         nullable=False,
         index=True,
-        comment="Measurement category: Weight, Volume, Length, Count, Time",
+        comment="Measurement category: Weight, Volume, Length, Count, Time, Unit, Other",
     )
     precision: Mapped[int] = mapped_column(
         Integer,
@@ -52,5 +59,13 @@ class UnitOfMeasure(Base, UUIDMixin, TimestampMixin):
         comment="Active status flag",
     )
 
+    @property
+    def uom_type(self) -> str:
+        return self.category
+
+    @property
+    def decimal_precision(self) -> int:
+        return self.precision
+
     def __repr__(self) -> str:
-        return f"<UnitOfMeasure(name='{self.name}', symbol='{self.symbol}', category='{self.category}')>"
+        return f"<UnitOfMeasure(code='{self.code or self.symbol}', name='{self.name}', symbol='{self.symbol}')>"

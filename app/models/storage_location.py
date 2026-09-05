@@ -1,6 +1,6 @@
 from typing import List, Optional
 import uuid
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,9 @@ class StorageLocation(Base, UUIDMixin, TimestampMixin):
     Supports infinite location hierarchy per warehouse.
     """
     __tablename__ = "storage_locations"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_warehouse_location_code"),
+    )
 
     warehouse_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -41,12 +44,17 @@ class StorageLocation(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         comment="Display name of the location",
     )
+    description: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Storage location description or notes",
+    )
     location_type: Mapped[str] = mapped_column(
         String(50),
         default="Bin",
         nullable=False,
         index=True,
-        comment="Location type: Shelf, Rack, Bin, Floor, Cold Storage, Quarantine, Receiving, Dispatch",
+        comment="Location type: Storage, Receiving, Shipping, Quarantine, Returns, Damaged, Shelf, Rack, Bin, Floor, Cold Storage",
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -74,6 +82,10 @@ class StorageLocation(Base, UUIDMixin, TimestampMixin):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+
+    @property
+    def parent_location_id(self) -> Optional[uuid.UUID]:
+        return self.parent_id
 
     def __repr__(self) -> str:
         return f"<StorageLocation(code='{self.code}', name='{self.name}', type='{self.location_type}')>"

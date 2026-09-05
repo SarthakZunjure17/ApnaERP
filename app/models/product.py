@@ -1,6 +1,7 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import uuid
-from sqlalchemy import Boolean, ForeignKey, Numeric, String
+from decimal import Decimal
+from sqlalchemy import Boolean, ForeignKey, Integer, JSON, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,6 +12,7 @@ from app.db.mixins import TimestampMixin, UUIDMixin
 class Product(Base, UUIDMixin, TimestampMixin):
     """
     Product ORM model representing product items in the Product Master catalog.
+    Canonical inventory entity managing stockable items, services, and assemblies.
     """
     __tablename__ = "products"
 
@@ -38,6 +40,12 @@ class Product(Base, UUIDMixin, TimestampMixin):
         String(500),
         nullable=True,
         comment="Product detailed description",
+    )
+    model_number: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        comment="Model number or manufacturer part identifier",
     )
     category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -79,11 +87,39 @@ class Product(Base, UUIDMixin, TimestampMixin):
         index=True,
         comment="Product type: Inventory, Service, Consumable, Digital, Asset",
     )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        index=True,
+        comment="Flag indicating if product is active and usable",
+    )
+    is_stockable: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        index=True,
+        comment="Flag indicating if item is physically tracked in inventory",
+    )
+    is_sellable: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        index=True,
+        comment="Flag indicating if item can be ordered on sales orders",
+    )
+    is_purchasable: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+        index=True,
+        comment="Flag indicating if item can be ordered on purchase orders",
+    )
     track_inventory: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
         nullable=False,
-        comment="Flag indicating if inventory stock levels are tracked",
+        comment="Legacy flag indicating if inventory stock levels are tracked",
     )
     allow_negative_stock: Mapped[bool] = mapped_column(
         Boolean,
@@ -96,6 +132,37 @@ class Product(Base, UUIDMixin, TimestampMixin):
         ForeignKey("warehouses.id", ondelete="SET NULL"),
         nullable=True,
         comment="Foreign key referencing default warehouse for stocking",
+    )
+    reorder_level: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 4),
+        nullable=True,
+        comment="Global minimum stock reorder point threshold",
+    )
+    reorder_quantity: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 4),
+        nullable=True,
+        comment="Standard suggested reorder batch quantity",
+    )
+    minimum_stock: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 4),
+        nullable=True,
+        comment="Absolute minimum safety buffer threshold",
+    )
+    maximum_stock: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 4),
+        nullable=True,
+        comment="Maximum storage capacity ceiling threshold",
+    )
+    lead_time_days: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Standard procurement lead time from suppliers in days",
+    )
+    default_unit_price: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(18, 4),
+        nullable=True,
+        comment="Default base sales price per unit",
     )
     weight: Mapped[Optional[float]] = mapped_column(
         Numeric(10, 3),
@@ -127,6 +194,11 @@ class Product(Base, UUIDMixin, TimestampMixin):
         ForeignKey("files.id", ondelete="SET NULL"),
         nullable=True,
         comment="Foreign key referencing primary product thumbnail image file",
+    )
+    metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Flexible JSON metadata attributes",
     )
     status: Mapped[str] = mapped_column(
         String(30),
@@ -177,6 +249,20 @@ class Product(Base, UUIDMixin, TimestampMixin):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    warehouse_configs: Mapped[List["ProductWarehouse"]] = relationship(
+        "ProductWarehouse",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    @property
+    def base_uom_id(self) -> uuid.UUID:
+        return self.base_unit_id
+
+    @property
+    def base_uom(self) -> "UnitOfMeasure":
+        return self.base_unit
 
     def __repr__(self) -> str:
         return f"<Product(sku='{self.sku}', name='{self.name}', status='{self.status}')>"

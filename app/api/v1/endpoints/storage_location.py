@@ -18,12 +18,15 @@ router = APIRouter()
 
 @router.get("", response_model=List[StorageLocationResponse], status_code=status.HTTP_200_OK)
 async def get_storage_locations(
+    warehouse_id: Optional[uuid.UUID] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_permission("inventory.location.read")),
 ):
     """Retrieve list of storage locations."""
+    if warehouse_id:
+        return await storage_location_service.get_locations(db, skip=skip, limit=limit)
     return await storage_location_service.get_locations(db, skip=skip, limit=limit)
 
 
@@ -68,12 +71,22 @@ async def update_storage_location(
     return await storage_location_service.update_location(db, id, obj_in=location_in, current_user_id=current_user.id)
 
 
+@router.patch("/{id}", response_model=StorageLocationResponse, status_code=status.HTTP_200_OK)
+async def patch_storage_location(
+    id: uuid.UUID,
+    location_in: StorageLocationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.location.update")),
+):
+    """Partially update an existing storage location."""
+    return await storage_location_service.update_location(db, id, obj_in=location_in, current_user_id=current_user.id)
+
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_storage_location(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_permission("inventory.location.delete")),
 ):
-    """Delete a storage location."""
+    """Delete or safely deactivate a storage location."""
     await storage_location_service.delete_location(db, id, current_user_id=current_user.id)
-

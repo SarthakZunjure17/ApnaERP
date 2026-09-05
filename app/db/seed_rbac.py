@@ -193,6 +193,11 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Update Unit of Measure", "code": "inventory.unit.update", "description": "Permission to update units of measure", "module_name": "inventory"},
     {"name": "Delete Unit of Measure", "code": "inventory.unit.delete", "description": "Permission to delete units of measure", "module_name": "inventory"},
 
+    {"name": "Create UOM", "code": "inventory.uom.create", "description": "Permission to create units of measure", "module_name": "inventory"},
+    {"name": "Read UOM", "code": "inventory.uom.read", "description": "Permission to view units of measure", "module_name": "inventory"},
+    {"name": "Update UOM", "code": "inventory.uom.update", "description": "Permission to update units of measure", "module_name": "inventory"},
+    {"name": "Delete UOM", "code": "inventory.uom.delete", "description": "Permission to delete units of measure", "module_name": "inventory"},
+
     {"name": "Create Brand", "code": "inventory.brand.create", "description": "Permission to create product brands", "module_name": "inventory"},
     {"name": "Read Brand", "code": "inventory.brand.read", "description": "Permission to view product brands", "module_name": "inventory"},
     {"name": "Update Brand", "code": "inventory.brand.update", "description": "Permission to update product brands", "module_name": "inventory"},
@@ -212,6 +217,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Product", "code": "inventory.product.read", "description": "Permission to view products in product master", "module_name": "inventory"},
     {"name": "Update Product", "code": "inventory.product.update", "description": "Permission to update products in product master", "module_name": "inventory"},
     {"name": "Delete Product", "code": "inventory.product.delete", "description": "Permission to delete products in product master", "module_name": "inventory"},
+
+    {"name": "Create Product Warehouse Configuration", "code": "inventory.product_warehouse.create", "description": "Permission to configure product warehouse parameters", "module_name": "inventory"},
+    {"name": "Read Product Warehouse Configuration", "code": "inventory.product_warehouse.read", "description": "Permission to view product warehouse configurations", "module_name": "inventory"},
+    {"name": "Update Product Warehouse Configuration", "code": "inventory.product_warehouse.update", "description": "Permission to update product warehouse parameters", "module_name": "inventory"},
+    {"name": "Delete Product Warehouse Configuration", "code": "inventory.product_warehouse.delete", "description": "Permission to delete product warehouse parameters", "module_name": "inventory"},
+
+    {"name": "Read Inventory Policy", "code": "inventory.policy.read", "description": "Permission to view inventory policies", "module_name": "inventory"},
+    {"name": "Update Inventory Policy", "code": "inventory.policy.update", "description": "Permission to configure inventory policies", "module_name": "inventory"},
 
     {"name": "Create Product Attribute", "code": "inventory.attribute.create", "description": "Permission to create product attributes", "module_name": "inventory"},
     {"name": "Read Product Attribute", "code": "inventory.attribute.read", "description": "Permission to view product attributes", "module_name": "inventory"},

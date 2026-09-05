@@ -1,13 +1,15 @@
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import uuid
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.brand import Brand
+from app.models.inventory_policy import InventoryPolicy
 from app.models.product import Product
 from app.models.product_attribute import ProductAttribute, ProductAttributeValue
 from app.models.product_category import ProductCategory
 from app.models.product_document import ProductDocument
+from app.models.product_warehouse import ProductWarehouse
 from app.models.storage_location import StorageLocation
 from app.models.unit_of_measure import UnitOfMeasure
 from app.models.warehouse import Warehouse
@@ -15,12 +17,16 @@ from app.repositories.base_repository import BaseRepository
 from app.schemas.inventory import (
     BrandCreate,
     BrandUpdate,
+    InventoryPolicyCreate,
+    InventoryPolicyUpdate,
     ProductAttributeCreate,
     ProductAttributeUpdate,
     ProductCategoryCreate,
     ProductCategoryUpdate,
     ProductCreate,
     ProductUpdate,
+    ProductWarehouseCreate,
+    ProductWarehouseUpdate,
     StorageLocationCreate,
     StorageLocationUpdate,
     UnitOfMeasureCreate,
@@ -49,10 +55,26 @@ class ProductCategoryRepository(BaseRepository[ProductCategory, ProductCategoryC
         res = await db.execute(stmt)
         return list(res.scalars().all())
 
+    async def get_children(self, db: AsyncSession, parent_id: uuid.UUID) -> List[ProductCategory]:
+        stmt = select(ProductCategory).where(ProductCategory.parent_id == parent_id)
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
 
 class UnitOfMeasureRepository(BaseRepository[UnitOfMeasure, UnitOfMeasureCreate, UnitOfMeasureUpdate]):
     def __init__(self):
         super().__init__(UnitOfMeasure)
+
+    async def get_by_code(self, db: AsyncSession, code: str) -> Optional[UnitOfMeasure]:
+        stmt = select(UnitOfMeasure).where(
+            or_(
+                UnitOfMeasure.code == code,
+                UnitOfMeasure.code == code.upper(),
+                UnitOfMeasure.symbol == code,
+            )
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
 
     async def get_by_name(self, db: AsyncSession, name: str) -> Optional[UnitOfMeasure]:
         stmt = select(UnitOfMeasure).where(UnitOfMeasure.name == name)
@@ -84,12 +106,19 @@ class WarehouseRepository(BaseRepository[Warehouse, WarehouseCreate, WarehouseUp
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
 
+    async def get_active_warehouses(self, db: AsyncSession) -> List[Warehouse]:
+        stmt = select(Warehouse).where(Warehouse.is_active == True)
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
 
 class StorageLocationRepository(BaseRepository[StorageLocation, StorageLocationCreate, StorageLocationUpdate]):
     def __init__(self):
         super().__init__(StorageLocation)
 
-    async def get_by_warehouse_and_code(self, db: AsyncSession, warehouse_id: uuid.UUID, code: str) -> Optional[StorageLocation]:
+    async def get_by_warehouse_and_code(
+        self, db: AsyncSession, warehouse_id: uuid.UUID, code: str
+    ) -> Optional[StorageLocation]:
         stmt = select(StorageLocation).where(
             StorageLocation.warehouse_id == warehouse_id,
             StorageLocation.code == code,
@@ -102,6 +131,23 @@ class StorageLocationRepository(BaseRepository[StorageLocation, StorageLocationC
             StorageLocation.warehouse_id == warehouse_id,
             StorageLocation.parent_id.is_(None),
         )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def list_by_warehouse(
+        self, db: AsyncSession, warehouse_id: uuid.UUID, skip: int = 0, limit: int = 100
+    ) -> List[StorageLocation]:
+        stmt = (
+            select(StorageLocation)
+            .where(StorageLocation.warehouse_id == warehouse_id)
+            .offset(skip)
+            .limit(limit)
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_children(self, db: AsyncSession, parent_id: uuid.UUID) -> List[StorageLocation]:
+        stmt = select(StorageLocation).where(StorageLocation.parent_id == parent_id)
         res = await db.execute(stmt)
         return list(res.scalars().all())
 
@@ -128,44 +174,120 @@ class ProductRepository(BaseRepository[Product, ProductCreate, ProductUpdate]):
         category_id: Optional[uuid.UUID] = None,
         brand_id: Optional[uuid.UUID] = None,
         warehouse_id: Optional[uuid.UUID] = None,
+        product_type: Optional[str] = None,
         status: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        is_stockable: Optional[bool] = None,
+        is_sellable: Optional[bool] = None,
+        is_purchasable: Optional[bool] = None,
         track_inventory: Optional[bool] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[List[Product], int]:
-        stmt = select(Product)
+        filters = []
 
         if category_id:
-            stmt = stmt.where(Product.category_id == category_id)
+            filters.append(Product.category_id == category_id)
         if brand_id:
-            stmt = stmt.where(Product.brand_id == brand_id)
+            filters.append(Product.brand_id == brand_id)
         if warehouse_id:
-            stmt = stmt.where(Product.default_warehouse_id == warehouse_id)
+            filters.append(Product.default_warehouse_id == warehouse_id)
+        if product_type:
+            filters.append(Product.product_type == product_type)
         if status:
-            stmt = stmt.where(Product.status == status)
-        if track_inventory is not None:
-            stmt = stmt.where(Product.track_inventory == track_inventory)
+            filters.append(Product.status == status)
+        if is_active is not None:
+            filters.append(Product.is_active == is_active)
+        if is_stockable is not None:
+            filters.append(Product.is_stockable == is_stockable)
+        elif track_inventory is not None:
+            filters.append(Product.track_inventory == track_inventory)
+        if is_sellable is not None:
+            filters.append(Product.is_sellable == is_sellable)
+        if is_purchasable is not None:
+            filters.append(Product.is_purchasable == is_purchasable)
 
         if search_term:
             term = f"%{search_term}%"
-            stmt = stmt.where(
+            filters.append(
                 or_(
                     Product.sku.ilike(term),
                     Product.barcode.ilike(term),
                     Product.name.ilike(term),
                     Product.description.ilike(term),
+                    Product.model_number.ilike(term),
                 )
             )
 
-        # Count total
-        count_stmt = select(Product.id).select_from(stmt.subquery())
+        # Count query
+        count_stmt = select(func.count(Product.id))
+        if filters:
+            count_stmt = count_stmt.where(*filters)
         count_res = await db.execute(count_stmt)
-        total = len(count_res.scalars().all())
+        total = count_res.scalar_one() or 0
 
+        # Items query
+        stmt = select(Product)
+        if filters:
+            stmt = stmt.where(*filters)
         stmt = stmt.offset(skip).limit(limit)
         res = await db.execute(stmt)
         items = list(res.scalars().all())
         return items, total
+
+
+class ProductWarehouseRepository(BaseRepository[ProductWarehouse, ProductWarehouseCreate, ProductWarehouseUpdate]):
+    def __init__(self):
+        super().__init__(ProductWarehouse)
+
+    async def get_by_product_and_warehouse(
+        self, db: AsyncSession, product_id: uuid.UUID, warehouse_id: uuid.UUID
+    ) -> Optional[ProductWarehouse]:
+        stmt = select(ProductWarehouse).where(
+            ProductWarehouse.product_id == product_id,
+            ProductWarehouse.warehouse_id == warehouse_id,
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def list_by_product(
+        self, db: AsyncSession, product_id: uuid.UUID, skip: int = 0, limit: int = 100
+    ) -> List[ProductWarehouse]:
+        stmt = (
+            select(ProductWarehouse)
+            .where(ProductWarehouse.product_id == product_id)
+            .offset(skip)
+            .limit(limit)
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def list_by_warehouse(
+        self, db: AsyncSession, warehouse_id: uuid.UUID, skip: int = 0, limit: int = 100
+    ) -> List[ProductWarehouse]:
+        stmt = (
+            select(ProductWarehouse)
+            .where(ProductWarehouse.warehouse_id == warehouse_id)
+            .offset(skip)
+            .limit(limit)
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
+
+class InventoryPolicyRepository(BaseRepository[InventoryPolicy, InventoryPolicyCreate, InventoryPolicyUpdate]):
+    def __init__(self):
+        super().__init__(InventoryPolicy)
+
+    async def get_by_warehouse_id(self, db: AsyncSession, warehouse_id: uuid.UUID) -> Optional[InventoryPolicy]:
+        stmt = select(InventoryPolicy).where(InventoryPolicy.warehouse_id == warehouse_id)
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_global_policy(self, db: AsyncSession) -> Optional[InventoryPolicy]:
+        stmt = select(InventoryPolicy).where(InventoryPolicy.warehouse_id.is_(None))
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
 
 
 class ProductAttributeRepository(BaseRepository[ProductAttribute, ProductAttributeCreate, ProductAttributeUpdate]):
@@ -266,6 +388,8 @@ brand_repository = BrandRepository()
 warehouse_repository = WarehouseRepository()
 storage_location_repository = StorageLocationRepository()
 product_repository = ProductRepository()
+product_warehouse_repository = ProductWarehouseRepository()
+inventory_policy_repository = InventoryPolicyRepository()
 product_attribute_repository = ProductAttributeRepository()
 product_attribute_value_repository = ProductAttributeValueRepository()
 product_document_repository = ProductDocumentRepository()

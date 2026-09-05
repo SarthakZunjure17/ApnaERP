@@ -26,6 +26,16 @@ async def get_units_of_measure(
     return await unit_of_measure_service.get_units(db, skip=skip, limit=limit)
 
 
+@router.get("/code/{code}", response_model=UnitOfMeasureResponse, status_code=status.HTTP_200_OK)
+async def get_unit_of_measure_by_code(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.unit.read")),
+):
+    """Retrieve unit of measure by code/symbol."""
+    return await unit_of_measure_service.get_unit_by_code(db, code)
+
+
 @router.get("/{id}", response_model=UnitOfMeasureResponse, status_code=status.HTTP_200_OK)
 async def get_unit_of_measure(
     id: uuid.UUID,
@@ -57,12 +67,22 @@ async def update_unit_of_measure(
     return await unit_of_measure_service.update_unit(db, id, obj_in=unit_in, current_user_id=current_user.id)
 
 
+@router.patch("/{id}", response_model=UnitOfMeasureResponse, status_code=status.HTTP_200_OK)
+async def patch_unit_of_measure(
+    id: uuid.UUID,
+    unit_in: UnitOfMeasureUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(has_permission("inventory.unit.update")),
+):
+    """Partially update an existing unit of measure."""
+    return await unit_of_measure_service.update_unit(db, id, obj_in=unit_in, current_user_id=current_user.id)
+
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_unit_of_measure(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(has_permission("inventory.unit.delete")),
 ):
-    """Delete a unit of measure."""
+    """Delete or safely deactivate a unit of measure."""
     await unit_of_measure_service.delete_unit(db, id, current_user_id=current_user.id)
-

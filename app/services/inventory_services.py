@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import redis_manager
@@ -14,10 +15,12 @@ from app.repositories.file import file_repository
 from app.repositories.inventory_repos import (
     brand_repository,
     category_repository,
+    inventory_policy_repository,
     product_attribute_repository,
     product_attribute_value_repository,
     product_document_repository,
     product_repository,
+    product_warehouse_repository,
     storage_location_repository,
     unit_of_measure_repository,
     warehouse_repository,
@@ -25,6 +28,8 @@ from app.repositories.inventory_repos import (
 from app.schemas.inventory import (
     BrandCreate,
     BrandUpdate,
+    InventoryPolicyCreate,
+    InventoryPolicyUpdate,
     ProductAttributeCreate,
     ProductAttributeUpdate,
     ProductAttributeValueCreate,
@@ -34,6 +39,8 @@ from app.schemas.inventory import (
     ProductDocumentCreate,
     ProductStatusEnum,
     ProductUpdate,
+    ProductWarehouseCreate,
+    ProductWarehouseUpdate,
     StorageLocationCreate,
     StorageLocationUpdate,
     UnitOfMeasureCreate,
@@ -76,6 +83,10 @@ class CategoryService:
     async def get_categories(self, db: AsyncSession, skip: int = 0, limit: int = 100):
         return await category_repository.get_all(db, skip=skip, limit=limit)
 
+    async def get_children(self, db: AsyncSession, parent_id: uuid.UUID):
+        await self.get_category(db, parent_id)
+        return await category_repository.get_children(db, parent_id)
+
     async def update_category(
         self, db: AsyncSession, id: uuid.UUID, *, obj_in: ProductCategoryUpdate, current_user_id: Optional[uuid.UUID] = None
     ):
@@ -86,7 +97,7 @@ class CategoryService:
             if existing:
                 raise DuplicateResourceException(f"Category code '{obj_in.code}' already exists.")
 
-        if obj_in.parent_id:
+        if obj_in.parent_id is not None:
             if obj_in.parent_id == id:
                 raise ValidationException("Category cannot be its own parent.")
             parent = await category_repository.get_by_id(db, obj_in.parent_id)
@@ -109,6 +120,23 @@ class CategoryService:
 
     async def delete_category(self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None):
         cat = await self.get_category(db, id)
+        
+        # Check if products reference this category
+        from app.models.product import Product
+        stmt = select(Product.id).where(Product.category_id == id).limit(1)
+        res = await db.execute(stmt)
+        if res.scalar_one_or_none():
+            # Perform safe deactivation
+            cat.is_active = False
+            db.add(cat)
+            await db.commit()
+            await db.refresh(cat)
+            await audit_log_service.log_event(
+                db, action="CATEGORY_DEACTIVATE", entity_type="ProductCategory", entity_id=id, user_id=current_user_id
+            )
+            await redis_manager.delete_pattern("category:*")
+            return True
+
         res = await category_repository.delete(db, id=id)
         await audit_log_service.log_event(
             db, action="CATEGORY_DELETE", entity_type="ProductCategory", entity_id=id, user_id=current_user_id
@@ -125,7 +153,6 @@ class CategoryService:
                 pass
 
         categories = await category_repository.get_all(db, limit=1000)
-        cat_dict = {cat.id: cat for cat in categories}
         children_map: Dict[Optional[uuid.UUID], List[Any]] = {}
 
         for cat in categories:
@@ -153,12 +180,21 @@ class UnitOfMeasureService:
     async def create_unit(
         self, db: AsyncSession, *, obj_in: UnitOfMeasureCreate, current_user_id: Optional[uuid.UUID] = None
     ):
+        if obj_in.code:
+            existing_code = await unit_of_measure_repository.get_by_code(db, obj_in.code)
+            if existing_code:
+                raise DuplicateResourceException(f"Unit code '{obj_in.code}' already exists.")
+
         existing_name = await unit_of_measure_repository.get_by_name(db, obj_in.name)
         if existing_name:
             raise DuplicateResourceException(f"Unit name '{obj_in.name}' already exists.")
+        
         existing_symbol = await unit_of_measure_repository.get_by_symbol(db, obj_in.symbol)
         if existing_symbol:
             raise DuplicateResourceException(f"Unit symbol '{obj_in.symbol}' already exists.")
+
+        if obj_in.precision < 0 or obj_in.precision > 6:
+            raise ValidationException("Decimal precision must be between 0 and 6.")
 
         unit = await unit_of_measure_repository.create(db, obj_in=obj_in)
         await audit_log_service.log_event(
@@ -172,6 +208,12 @@ class UnitOfMeasureService:
             raise NotFoundException(f"UnitOfMeasure ID '{id}' not found.")
         return unit
 
+    async def get_unit_by_code(self, db: AsyncSession, code: str):
+        unit = await unit_of_measure_repository.get_by_code(db, code)
+        if not unit:
+            raise NotFoundException(f"UnitOfMeasure code '{code}' not found.")
+        return unit
+
     async def get_units(self, db: AsyncSession, skip: int = 0, limit: int = 100):
         return await unit_of_measure_repository.get_all(db, skip=skip, limit=limit)
 
@@ -180,14 +222,23 @@ class UnitOfMeasureService:
     ):
         unit = await self.get_unit(db, id)
 
+        if obj_in.code and obj_in.code != unit.code:
+            existing = await unit_of_measure_repository.get_by_code(db, obj_in.code)
+            if existing and existing.id != id:
+                raise DuplicateResourceException(f"Unit code '{obj_in.code}' already exists.")
+
         if obj_in.name and obj_in.name != unit.name:
             existing = await unit_of_measure_repository.get_by_name(db, obj_in.name)
-            if existing:
+            if existing and existing.id != id:
                 raise DuplicateResourceException(f"Unit name '{obj_in.name}' already exists.")
+
         if obj_in.symbol and obj_in.symbol != unit.symbol:
             existing = await unit_of_measure_repository.get_by_symbol(db, obj_in.symbol)
-            if existing:
+            if existing and existing.id != id:
                 raise DuplicateResourceException(f"Unit symbol '{obj_in.symbol}' already exists.")
+
+        if obj_in.precision is not None and (obj_in.precision < 0 or obj_in.precision > 6):
+            raise ValidationException("Decimal precision must be between 0 and 6.")
 
         updated_unit = await unit_of_measure_repository.update(db, db_obj=unit, obj_in=obj_in)
         await audit_log_service.log_event(
@@ -196,7 +247,29 @@ class UnitOfMeasureService:
         return updated_unit
 
     async def delete_unit(self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None):
-        await self.get_unit(db, id)
+        unit = await self.get_unit(db, id)
+        
+        # Check if products reference this unit
+        from app.models.product import Product
+        stmt = select(Product.id).where(
+            or_(
+                Product.base_unit_id == id,
+                Product.purchase_unit_id == id,
+                Product.sales_unit_id == id,
+            )
+        ).limit(1)
+        res = await db.execute(stmt)
+        if res.scalar_one_or_none():
+            # Perform safe deactivation
+            unit.is_active = False
+            db.add(unit)
+            await db.commit()
+            await db.refresh(unit)
+            await audit_log_service.log_event(
+                db, action="UNIT_DEACTIVATE", entity_type="UnitOfMeasure", entity_id=id, user_id=current_user_id
+            )
+            return True
+
         res = await unit_of_measure_repository.delete(db, id=id)
         await audit_log_service.log_event(
             db, action="UNIT_DELETE", entity_type="UnitOfMeasure", entity_id=id, user_id=current_user_id
@@ -260,6 +333,13 @@ class WarehouseService:
         if existing:
             raise DuplicateResourceException(f"Warehouse code '{obj_in.code}' already exists.")
 
+        if obj_in.manager_employee_id:
+            from app.models.employee import Employee
+            stmt = select(Employee).where(Employee.id == obj_in.manager_employee_id)
+            res = await db.execute(stmt)
+            if not res.scalar_one_or_none():
+                raise NotFoundException(f"Manager Employee ID '{obj_in.manager_employee_id}' not found.")
+
         wh = await warehouse_repository.create(db, obj_in=obj_in)
         await audit_log_service.log_event(
             db, action="WAREHOUSE_CREATE", entity_type="Warehouse", entity_id=wh.id, user_id=current_user_id
@@ -280,6 +360,12 @@ class WarehouseService:
             raise NotFoundException(f"Warehouse ID '{id}' not found.")
         return wh
 
+    async def get_warehouse_by_code(self, db: AsyncSession, code: str):
+        wh = await warehouse_repository.get_by_code(db, code)
+        if not wh:
+            raise NotFoundException(f"Warehouse code '{code}' not found.")
+        return wh
+
     async def get_warehouses(self, db: AsyncSession, skip: int = 0, limit: int = 100):
         return await warehouse_repository.get_all(db, skip=skip, limit=limit)
 
@@ -290,8 +376,15 @@ class WarehouseService:
 
         if obj_in.code and obj_in.code != wh.code:
             existing = await warehouse_repository.get_by_code(db, obj_in.code)
-            if existing:
+            if existing and existing.id != id:
                 raise DuplicateResourceException(f"Warehouse code '{obj_in.code}' already exists.")
+
+        if obj_in.manager_employee_id:
+            from app.models.employee import Employee
+            stmt = select(Employee).where(Employee.id == obj_in.manager_employee_id)
+            res = await db.execute(stmt)
+            if not res.scalar_one_or_none():
+                raise NotFoundException(f"Manager Employee ID '{obj_in.manager_employee_id}' not found.")
 
         updated_wh = await warehouse_repository.update(db, db_obj=wh, obj_in=obj_in)
         await audit_log_service.log_event(
@@ -308,13 +401,37 @@ class WarehouseService:
         return updated_wh
 
     async def delete_warehouse(self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None):
-        await self.get_warehouse(db, id)
+        wh = await self.get_warehouse(db, id)
+        
+        # Check if locations or product configs reference this warehouse
+        locs = await storage_location_repository.list_by_warehouse(db, warehouse_id=id, limit=1)
+        configs = await product_warehouse_repository.list_by_warehouse(db, warehouse_id=id, limit=1)
+        if locs or configs:
+            # Safe deactivation
+            wh.is_active = False
+            db.add(wh)
+            await db.commit()
+            await db.refresh(wh)
+            await audit_log_service.log_event(
+                db, action="WAREHOUSE_DEACTIVATE", entity_type="Warehouse", entity_id=id, user_id=current_user_id
+            )
+            await redis_manager.delete_pattern("warehouse:*")
+            return True
+
         res = await warehouse_repository.delete(db, id=id)
         await audit_log_service.log_event(
             db, action="WAREHOUSE_DELETE", entity_type="Warehouse", entity_id=id, user_id=current_user_id
         )
         await redis_manager.delete_pattern("warehouse:*")
         return res
+
+    async def get_locations(self, db: AsyncSession, warehouse_id: uuid.UUID, skip: int = 0, limit: int = 100):
+        await self.get_warehouse(db, warehouse_id)
+        return await storage_location_repository.list_by_warehouse(db, warehouse_id=warehouse_id, skip=skip, limit=limit)
+
+    async def get_products(self, db: AsyncSession, warehouse_id: uuid.UUID, skip: int = 0, limit: int = 100):
+        await self.get_warehouse(db, warehouse_id)
+        return await product_warehouse_repository.list_by_warehouse(db, warehouse_id=warehouse_id, skip=skip, limit=limit)
 
 
 class StorageLocationService:
@@ -324,6 +441,8 @@ class StorageLocationService:
         wh = await warehouse_repository.get_by_id(db, obj_in.warehouse_id)
         if not wh:
             raise NotFoundException(f"Warehouse ID '{obj_in.warehouse_id}' not found.")
+        if not wh.is_active:
+            raise ValidationException(f"Cannot create storage location in inactive Warehouse ID '{obj_in.warehouse_id}'.")
 
         existing = await storage_location_repository.get_by_warehouse_and_code(
             db, obj_in.warehouse_id, obj_in.code
@@ -366,13 +485,15 @@ class StorageLocationService:
             wh = await warehouse_repository.get_by_id(db, obj_in.warehouse_id)
             if not wh:
                 raise NotFoundException(f"Warehouse ID '{obj_in.warehouse_id}' not found.")
+            if not wh.is_active:
+                raise ValidationException(f"Target Warehouse ID '{obj_in.warehouse_id}' is inactive.")
 
         if obj_in.code and obj_in.code != loc.code:
             existing = await storage_location_repository.get_by_warehouse_and_code(db, wh_id, obj_in.code)
-            if existing:
+            if existing and existing.id != id:
                 raise DuplicateResourceException(f"StorageLocation code '{obj_in.code}' already exists in warehouse.")
 
-        if obj_in.parent_id:
+        if obj_in.parent_id is not None:
             if obj_in.parent_id == id:
                 raise ValidationException("StorageLocation cannot be its own parent.")
             parent = await storage_location_repository.get_by_id(db, obj_in.parent_id)
@@ -395,7 +516,21 @@ class StorageLocationService:
         return updated_loc
 
     async def delete_location(self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None):
-        await self.get_location(db, id)
+        loc = await self.get_location(db, id)
+        
+        # Check if sub-locations exist
+        children = await storage_location_repository.get_children(db, id)
+        if children:
+            loc.is_active = False
+            db.add(loc)
+            await db.commit()
+            await db.refresh(loc)
+            await audit_log_service.log_event(
+                db, action="STORAGE_LOCATION_DEACTIVATE", entity_type="StorageLocation", entity_id=id, user_id=current_user_id
+            )
+            await redis_manager.delete_pattern("location:*")
+            return True
+
         res = await storage_location_repository.delete(db, id=id)
         await audit_log_service.log_event(
             db, action="STORAGE_LOCATION_DELETE", entity_type="StorageLocation", entity_id=id, user_id=current_user_id
@@ -417,8 +552,10 @@ class StorageLocationService:
                 "id": str(l.id),
                 "warehouse_id": str(l.warehouse_id),
                 "parent_id": str(l.parent_id) if l.parent_id else None,
+                "parent_location_id": str(l.parent_id) if l.parent_id else None,
                 "code": l.code,
                 "name": l.name,
+                "description": l.description,
                 "location_type": l.location_type,
                 "is_active": l.is_active,
                 "children": [build_node(c) for c in children_map.get(l.id, [])],
@@ -426,6 +563,172 @@ class StorageLocationService:
 
         roots = children_map.get(None, [])
         return [build_node(r) for r in roots]
+
+
+class ProductWarehouseService:
+    async def create_product_warehouse(
+        self, db: AsyncSession, *, obj_in: ProductWarehouseCreate, current_user_id: Optional[uuid.UUID] = None
+    ):
+        prod = await product_repository.get_by_id(db, obj_in.product_id)
+        if not prod:
+            raise NotFoundException(f"Product ID '{obj_in.product_id}' not found.")
+        if not (prod.is_stockable or prod.track_inventory):
+            raise ValidationException("Product must be stockable to assign warehouse configuration.")
+
+        wh = await warehouse_repository.get_by_id(db, obj_in.warehouse_id)
+        if not wh:
+            raise NotFoundException(f"Warehouse ID '{obj_in.warehouse_id}' not found.")
+        if not wh.is_active:
+            raise ValidationException(f"Warehouse ID '{obj_in.warehouse_id}' is inactive.")
+
+        existing = await product_warehouse_repository.get_by_product_and_warehouse(
+            db, obj_in.product_id, obj_in.warehouse_id
+        )
+        if existing:
+            raise DuplicateResourceException(
+                f"ProductWarehouse configuration already exists for Product ID '{obj_in.product_id}' and Warehouse ID '{obj_in.warehouse_id}'."
+            )
+
+        if obj_in.preferred_location_id:
+            loc = await storage_location_repository.get_by_id(db, obj_in.preferred_location_id)
+            if not loc:
+                raise NotFoundException(f"Preferred StorageLocation ID '{obj_in.preferred_location_id}' not found.")
+            if loc.warehouse_id != obj_in.warehouse_id:
+                raise ValidationException("Preferred storage location must belong to the specified warehouse.")
+
+        # Validate non-negative quantities
+        for field, val in [
+            ("reorder_level", obj_in.reorder_level),
+            ("reorder_quantity", obj_in.reorder_quantity),
+            ("minimum_stock", obj_in.minimum_stock),
+            ("maximum_stock", obj_in.maximum_stock),
+            ("safety_stock", obj_in.safety_stock),
+        ]:
+            if val is not None and val < 0:
+                raise ValidationException(f"{field} cannot be negative.")
+
+        if obj_in.minimum_stock is not None and obj_in.maximum_stock is not None:
+            if obj_in.minimum_stock > obj_in.maximum_stock:
+                raise ValidationException("minimum_stock cannot be greater than maximum_stock.")
+
+        pw = await product_warehouse_repository.create(db, obj_in=obj_in)
+        await audit_log_service.log_event(
+            db,
+            action="PRODUCT_WAREHOUSE_CREATE",
+            entity_type="ProductWarehouse",
+            entity_id=pw.id,
+            user_id=current_user_id,
+        )
+        return pw
+
+    async def get_product_warehouse(self, db: AsyncSession, id: uuid.UUID):
+        pw = await product_warehouse_repository.get_by_id(db, id)
+        if not pw:
+            raise NotFoundException(f"ProductWarehouse ID '{id}' not found.")
+        return pw
+
+    async def get_by_product_and_warehouse(self, db: AsyncSession, product_id: uuid.UUID, warehouse_id: uuid.UUID):
+        pw = await product_warehouse_repository.get_by_product_and_warehouse(db, product_id, warehouse_id)
+        if not pw:
+            raise NotFoundException(f"ProductWarehouse config for Product '{product_id}' and Warehouse '{warehouse_id}' not found.")
+        return pw
+
+    async def list_product_warehouses(self, db: AsyncSession, skip: int = 0, limit: int = 100):
+        return await product_warehouse_repository.get_all(db, skip=skip, limit=limit)
+
+    async def list_by_product(self, db: AsyncSession, product_id: uuid.UUID, skip: int = 0, limit: int = 100):
+        return await product_warehouse_repository.list_by_product(db, product_id=product_id, skip=skip, limit=limit)
+
+    async def list_by_warehouse(self, db: AsyncSession, warehouse_id: uuid.UUID, skip: int = 0, limit: int = 100):
+        return await product_warehouse_repository.list_by_warehouse(db, warehouse_id=warehouse_id, skip=skip, limit=limit)
+
+    async def update_product_warehouse(
+        self, db: AsyncSession, id: uuid.UUID, *, obj_in: ProductWarehouseUpdate, current_user_id: Optional[uuid.UUID] = None
+    ):
+        pw = await self.get_product_warehouse(db, id)
+
+        if obj_in.preferred_location_id:
+            loc = await storage_location_repository.get_by_id(db, obj_in.preferred_location_id)
+            if not loc:
+                raise NotFoundException(f"Preferred StorageLocation ID '{obj_in.preferred_location_id}' not found.")
+            if loc.warehouse_id != pw.warehouse_id:
+                raise ValidationException("Preferred storage location must belong to the same warehouse.")
+
+        # Validate non-negative quantities
+        for field, val in [
+            ("reorder_level", obj_in.reorder_level),
+            ("reorder_quantity", obj_in.reorder_quantity),
+            ("minimum_stock", obj_in.minimum_stock),
+            ("maximum_stock", obj_in.maximum_stock),
+            ("safety_stock", obj_in.safety_stock),
+        ]:
+            if val is not None and val < 0:
+                raise ValidationException(f"{field} cannot be negative.")
+
+        min_s = obj_in.minimum_stock if obj_in.minimum_stock is not None else pw.minimum_stock
+        max_s = obj_in.maximum_stock if obj_in.maximum_stock is not None else pw.maximum_stock
+        if min_s is not None and max_s is not None and min_s > max_s:
+            raise ValidationException("minimum_stock cannot be greater than maximum_stock.")
+
+        updated_pw = await product_warehouse_repository.update(db, db_obj=pw, obj_in=obj_in)
+        await audit_log_service.log_event(
+            db,
+            action="PRODUCT_WAREHOUSE_UPDATE",
+            entity_type="ProductWarehouse",
+            entity_id=id,
+            user_id=current_user_id,
+        )
+        return updated_pw
+
+    async def delete_product_warehouse(self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None):
+        await self.get_product_warehouse(db, id)
+        res = await product_warehouse_repository.delete(db, id=id)
+        await audit_log_service.log_event(
+            db,
+            action="PRODUCT_WAREHOUSE_DELETE",
+            entity_type="ProductWarehouse",
+            entity_id=id,
+            user_id=current_user_id,
+        )
+        return res
+
+
+class InventoryPolicyService:
+    async def create_or_update_policy(
+        self, db: AsyncSession, *, obj_in: InventoryPolicyCreate, current_user_id: Optional[uuid.UUID] = None
+    ):
+        if obj_in.warehouse_id:
+            wh = await warehouse_repository.get_by_id(db, obj_in.warehouse_id)
+            if not wh:
+                raise NotFoundException(f"Warehouse ID '{obj_in.warehouse_id}' not found.")
+            existing = await inventory_policy_repository.get_by_warehouse_id(db, obj_in.warehouse_id)
+        else:
+            existing = await inventory_policy_repository.get_global_policy(db)
+
+        if existing:
+            update_data = InventoryPolicyUpdate(**obj_in.model_dump(exclude_unset=True))
+            policy = await inventory_policy_repository.update(db, db_obj=existing, obj_in=update_data)
+            await audit_log_service.log_event(
+                db, action="INVENTORY_POLICY_UPDATE", entity_type="InventoryPolicy", entity_id=policy.id, user_id=current_user_id
+            )
+            return policy
+        else:
+            policy = await inventory_policy_repository.create(db, obj_in=obj_in)
+            await audit_log_service.log_event(
+                db, action="INVENTORY_POLICY_CREATE", entity_type="InventoryPolicy", entity_id=policy.id, user_id=current_user_id
+            )
+            return policy
+
+    async def get_policy(self, db: AsyncSession, warehouse_id: Optional[uuid.UUID] = None):
+        if warehouse_id:
+            policy = await inventory_policy_repository.get_by_warehouse_id(db, warehouse_id)
+            if policy:
+                return policy
+        # Fallback to global policy
+        return await inventory_policy_repository.get_global_policy(db)
+
+    async def list_policies(self, db: AsyncSession, skip: int = 0, limit: int = 100):
+        return await inventory_policy_repository.get_all(db, skip=skip, limit=limit)
 
 
 class ProductService:
@@ -444,10 +747,24 @@ class ProductService:
         cat = await category_repository.get_by_id(db, obj_in.category_id)
         if not cat:
             raise NotFoundException(f"ProductCategory ID '{obj_in.category_id}' not found.")
+        if not cat.is_active:
+            raise ValidationException(f"Referenced ProductCategory '{cat.name}' is inactive.")
 
         unit = await unit_of_measure_repository.get_by_id(db, obj_in.base_unit_id)
         if not unit:
             raise NotFoundException(f"Base UnitOfMeasure ID '{obj_in.base_unit_id}' not found.")
+        if not unit.is_active:
+            raise ValidationException(f"Referenced base UnitOfMeasure '{unit.name}' is inactive.")
+
+        if obj_in.purchase_unit_id:
+            p_unit = await unit_of_measure_repository.get_by_id(db, obj_in.purchase_unit_id)
+            if not p_unit:
+                raise NotFoundException(f"Purchase UnitOfMeasure ID '{obj_in.purchase_unit_id}' not found.")
+
+        if obj_in.sales_unit_id:
+            s_unit = await unit_of_measure_repository.get_by_id(db, obj_in.sales_unit_id)
+            if not s_unit:
+                raise NotFoundException(f"Sales UnitOfMeasure ID '{obj_in.sales_unit_id}' not found.")
 
         if obj_in.brand_id:
             brand = await brand_repository.get_by_id(db, obj_in.brand_id)
@@ -458,6 +775,13 @@ class ProductService:
             wh = await warehouse_repository.get_by_id(db, obj_in.default_warehouse_id)
             if not wh:
                 raise NotFoundException(f"Default Warehouse ID '{obj_in.default_warehouse_id}' not found.")
+            if not wh.is_active:
+                raise ValidationException(f"Referenced default Warehouse '{wh.name}' is inactive.")
+
+        # Threshold validation
+        if obj_in.minimum_stock is not None and obj_in.maximum_stock is not None:
+            if obj_in.minimum_stock > obj_in.maximum_stock:
+                raise ValidationException("minimum_stock cannot be greater than maximum_stock.")
 
         prod_data = obj_in.model_dump(exclude={"attributes"})
         product = await product_repository.create(db, obj_in=prod_data)
@@ -483,10 +807,17 @@ class ProductService:
             raise NotFoundException(f"Product ID '{id}' not found.")
         return prod
 
+    async def get_product_by_sku(self, db: AsyncSession, sku: str):
+        prod = await product_repository.get_by_sku(db, sku)
+        if not prod:
+            raise NotFoundException(f"Product SKU '{sku}' not found.")
+        return prod
+
     async def get_product_detail(self, db: AsyncSession, id: uuid.UUID) -> Dict[str, Any]:
         prod = await self.get_product(db, id)
         attrs = await product_attribute_value_repository.get_by_product_id(db, id)
         docs = await product_document_repository.get_by_product_id(db, id)
+        configs = await product_warehouse_repository.list_by_product(db, id)
 
         attr_responses = []
         for a in attrs:
@@ -514,36 +845,70 @@ class ProductService:
                 "created_at": d.created_at,
             })
 
+        config_responses = []
+        for c in configs:
+            config_responses.append({
+                "id": str(c.id),
+                "product_id": str(c.product_id),
+                "warehouse_id": str(c.warehouse_id),
+                "warehouse_code": c.warehouse.code if c.warehouse else None,
+                "warehouse_name": c.warehouse.name if c.warehouse else None,
+                "preferred_location_id": str(c.preferred_location_id) if c.preferred_location_id else None,
+                "preferred_location_code": c.preferred_location.code if c.preferred_location else None,
+                "reorder_level": c.reorder_level,
+                "reorder_quantity": c.reorder_quantity,
+                "minimum_stock": c.minimum_stock,
+                "maximum_stock": c.maximum_stock,
+                "safety_stock": c.safety_stock,
+                "is_active": c.is_active,
+                "created_at": c.created_at,
+                "updated_at": c.updated_at,
+            })
+
         return {
             "id": prod.id,
             "sku": prod.sku,
             "barcode": prod.barcode,
             "name": prod.name,
             "description": prod.description,
+            "model_number": prod.model_number,
             "category_id": prod.category_id,
             "category_name": prod.category.name if prod.category else None,
             "brand_id": prod.brand_id,
             "brand_name": prod.brand.name if prod.brand else None,
             "base_unit_id": prod.base_unit_id,
+            "base_uom_id": prod.base_unit_id,
             "base_unit_name": prod.base_unit.name if prod.base_unit else None,
             "purchase_unit_id": prod.purchase_unit_id,
             "sales_unit_id": prod.sales_unit_id,
             "product_type": prod.product_type,
+            "is_active": prod.is_active,
+            "is_stockable": prod.is_stockable,
+            "is_sellable": prod.is_sellable,
+            "is_purchasable": prod.is_purchasable,
             "track_inventory": prod.track_inventory,
             "allow_negative_stock": prod.allow_negative_stock,
             "default_warehouse_id": prod.default_warehouse_id,
             "default_warehouse_name": prod.default_warehouse.name if prod.default_warehouse else None,
+            "reorder_level": prod.reorder_level,
+            "reorder_quantity": prod.reorder_quantity,
+            "minimum_stock": prod.minimum_stock,
+            "maximum_stock": prod.maximum_stock,
+            "lead_time_days": prod.lead_time_days,
+            "default_unit_price": prod.default_unit_price,
             "weight": prod.weight,
             "height": prod.height,
             "width": prod.width,
             "length": prod.length,
             "volume": prod.volume,
             "image_file_id": prod.image_file_id,
+            "metadata_json": prod.metadata_json,
             "status": prod.status,
             "created_at": prod.created_at,
             "updated_at": prod.updated_at,
             "attributes": attr_responses,
             "documents": doc_responses,
+            "warehouse_configs": config_responses,
         }
 
     async def get_products(
@@ -554,7 +919,12 @@ class ProductService:
         category_id: Optional[uuid.UUID] = None,
         brand_id: Optional[uuid.UUID] = None,
         warehouse_id: Optional[uuid.UUID] = None,
+        product_type: Optional[str] = None,
         status: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        is_stockable: Optional[bool] = None,
+        is_sellable: Optional[bool] = None,
+        is_purchasable: Optional[bool] = None,
         track_inventory: Optional[bool] = None,
         skip: int = 0,
         limit: int = 100,
@@ -565,7 +935,12 @@ class ProductService:
             category_id=category_id,
             brand_id=brand_id,
             warehouse_id=warehouse_id,
+            product_type=product_type,
             status=status,
+            is_active=is_active,
+            is_stockable=is_stockable,
+            is_sellable=is_sellable,
+            is_purchasable=is_purchasable,
             track_inventory=track_inventory,
             skip=skip,
             limit=limit,
@@ -579,25 +954,38 @@ class ProductService:
                 "barcode": prod.barcode,
                 "name": prod.name,
                 "description": prod.description,
+                "model_number": prod.model_number,
                 "category_id": prod.category_id,
                 "category_name": prod.category.name if prod.category else None,
                 "brand_id": prod.brand_id,
                 "brand_name": prod.brand.name if prod.brand else None,
                 "base_unit_id": prod.base_unit_id,
+                "base_uom_id": prod.base_unit_id,
                 "base_unit_name": prod.base_unit.name if prod.base_unit else None,
                 "purchase_unit_id": prod.purchase_unit_id,
                 "sales_unit_id": prod.sales_unit_id,
                 "product_type": prod.product_type,
+                "is_active": prod.is_active,
+                "is_stockable": prod.is_stockable,
+                "is_sellable": prod.is_sellable,
+                "is_purchasable": prod.is_purchasable,
                 "track_inventory": prod.track_inventory,
                 "allow_negative_stock": prod.allow_negative_stock,
                 "default_warehouse_id": prod.default_warehouse_id,
                 "default_warehouse_name": prod.default_warehouse.name if prod.default_warehouse else None,
+                "reorder_level": prod.reorder_level,
+                "reorder_quantity": prod.reorder_quantity,
+                "minimum_stock": prod.minimum_stock,
+                "maximum_stock": prod.maximum_stock,
+                "lead_time_days": prod.lead_time_days,
+                "default_unit_price": prod.default_unit_price,
                 "weight": prod.weight,
                 "height": prod.height,
                 "width": prod.width,
                 "length": prod.length,
                 "volume": prod.volume,
                 "image_file_id": prod.image_file_id,
+                "metadata_json": prod.metadata_json,
                 "status": prod.status,
                 "created_at": prod.created_at,
                 "updated_at": prod.updated_at,
@@ -610,28 +998,37 @@ class ProductService:
     ):
         prod = await self.get_product(db, id)
 
-        if prod.status == ProductStatusEnum.ARCHIVED:
+        if prod.status == ProductStatusEnum.ARCHIVED and obj_in.status != ProductStatusEnum.ACTIVE:
             raise ValidationException("Archived products are read-only and cannot be modified.")
 
         if obj_in.sku and obj_in.sku != prod.sku:
             existing = await product_repository.get_by_sku(db, obj_in.sku)
-            if existing:
+            if existing and existing.id != id:
                 raise DuplicateResourceException(f"Product SKU '{obj_in.sku}' already exists.")
 
         if obj_in.barcode and obj_in.barcode != prod.barcode:
             existing = await product_repository.get_by_barcode(db, obj_in.barcode)
-            if existing:
+            if existing and existing.id != id:
                 raise DuplicateResourceException(f"Product Barcode '{obj_in.barcode}' already exists.")
 
         if obj_in.category_id and obj_in.category_id != prod.category_id:
             cat = await category_repository.get_by_id(db, obj_in.category_id)
             if not cat:
                 raise NotFoundException(f"ProductCategory ID '{obj_in.category_id}' not found.")
+            if not cat.is_active:
+                raise ValidationException(f"Referenced ProductCategory '{cat.name}' is inactive.")
 
         if obj_in.base_unit_id and obj_in.base_unit_id != prod.base_unit_id:
             unit = await unit_of_measure_repository.get_by_id(db, obj_in.base_unit_id)
             if not unit:
                 raise NotFoundException(f"Base UnitOfMeasure ID '{obj_in.base_unit_id}' not found.")
+            if not unit.is_active:
+                raise ValidationException(f"Referenced base UnitOfMeasure '{unit.name}' is inactive.")
+
+        min_s = obj_in.minimum_stock if obj_in.minimum_stock is not None else prod.minimum_stock
+        max_s = obj_in.maximum_stock if obj_in.maximum_stock is not None else prod.maximum_stock
+        if min_s is not None and max_s is not None and min_s > max_s:
+            raise ValidationException("minimum_stock cannot be greater than maximum_stock.")
 
         updated_prod = await product_repository.update(db, db_obj=prod, obj_in=obj_in)
 
@@ -650,7 +1047,31 @@ class ProductService:
         return await self.get_product_detail(db, id)
 
     async def delete_product(self, db: AsyncSession, id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None):
-        await self.get_product(db, id)
+        prod = await self.get_product(db, id)
+        
+        # Check if product is referenced by PO, SO, or product-warehouses
+        from app.models.purchase_order import PurchaseOrderItem
+        from app.models.sales_order import SalesOrderItem
+        po_stmt = select(PurchaseOrderItem.id).where(PurchaseOrderItem.product_id == id).limit(1)
+        so_stmt = select(SalesOrderItem.id).where(SalesOrderItem.product_id == id).limit(1)
+        
+        po_res = await db.execute(po_stmt)
+        so_res = await db.execute(so_stmt)
+        configs = await product_warehouse_repository.list_by_product(db, id, limit=1)
+
+        if po_res.scalar_one_or_none() or so_res.scalar_one_or_none() or configs:
+            # Safe deactivation
+            prod.is_active = False
+            prod.status = ProductStatusEnum.ARCHIVED.value
+            db.add(prod)
+            await db.commit()
+            await db.refresh(prod)
+            await audit_log_service.log_event(
+                db, action="PRODUCT_DEACTIVATE", entity_type="Product", entity_id=id, user_id=current_user_id
+            )
+            await redis_manager.delete_pattern("product:*")
+            return True
+
         res = await product_repository.delete(db, id=id)
         await audit_log_service.log_event(
             db, action="PRODUCT_DELETE", entity_type="Product", entity_id=id, user_id=current_user_id
@@ -811,6 +1232,8 @@ unit_of_measure_service = UnitOfMeasureService()
 brand_service = BrandService()
 warehouse_service = WarehouseService()
 storage_location_service = StorageLocationService()
+product_warehouse_service = ProductWarehouseService()
+inventory_policy_service = InventoryPolicyService()
 product_service = ProductService()
 product_attribute_service = ProductAttributeService()
 product_document_service = ProductDocumentService()

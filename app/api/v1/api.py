@@ -80,6 +80,7 @@ from app.api.v1.endpoints import (
     product,
     product_attribute,
     product_document,
+    product_warehouse,
     purchase_orders,
     purchase_requisitions,
     purchase_returns,
@@ -182,6 +183,10 @@ api_router.include_router(storage_location.router, prefix="/locations", tags=["S
 api_router.include_router(storage_location.router, prefix="/storage-locations", tags=["Storage Locations"])
 api_router.include_router(product.router, prefix="/inventory/products", tags=["Products"])
 api_router.include_router(product.router, prefix="/products", tags=["Products"])
+api_router.include_router(product_warehouse.router, prefix="/inventory/product-warehouses", tags=["Product Warehouses"])
+api_router.include_router(product_warehouse.router, prefix="/product-warehouses", tags=["Product Warehouses"])
+api_router.include_router(product_warehouse.policy_router, prefix="/inventory/policies", tags=["Inventory Policies"])
+api_router.include_router(product_warehouse.policy_router, prefix="/policies", tags=["Inventory Policies"])
 api_router.include_router(product_attribute.router, prefix="/inventory/attributes", tags=["Product Attributes"])
 api_router.include_router(product_attribute.router, prefix="/product-attributes", tags=["Product Attributes"])
 api_router.include_router(product_document.router, tags=["Product Documents"])

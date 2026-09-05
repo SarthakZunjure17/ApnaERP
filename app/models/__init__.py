@@ -42,6 +42,8 @@ from app.models.brand import Brand
 from app.models.warehouse import Warehouse
 from app.models.storage_location import StorageLocation
 from app.models.product import Product
+from app.models.product_warehouse import ProductWarehouse
+from app.models.inventory_policy import InventoryPolicy
 from app.models.product_attribute import ProductAttribute, ProductAttributeValue
 from app.models.product_document import ProductDocument
 from app.models.inventory_transaction_type import InventoryTransactionType
@@ -171,6 +173,8 @@ __all__ = [
     "Warehouse",
     "StorageLocation",
     "Product",
+    "ProductWarehouse",
+    "InventoryPolicy",
     "ProductAttribute",
     "ProductAttributeValue",
     "ProductDocument",
