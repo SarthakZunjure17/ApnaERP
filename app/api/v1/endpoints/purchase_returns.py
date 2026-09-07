@@ -11,6 +11,7 @@ from app.schemas.procurement import (
     PaginatedPurchaseReturnResponse,
     PurchaseReturnCreate,
     PurchaseReturnResponse,
+    PurchaseReturnUpdate,
 )
 from app.services.purchase_return_services import purchase_return_service
 
@@ -53,6 +54,16 @@ async def get_return(
     return await purchase_return_service.get_return(db, return_id)
 
 
+@router.patch("/{return_id}", response_model=PurchaseReturnResponse)
+async def update_return(
+    return_id: uuid.UUID,
+    obj_in: PurchaseReturnUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.purchase_return.update")),
+):
+    return await purchase_return_service.update_return(db, return_id, obj_in, current_user_id=current_user.id)
+
+
 @router.post("/{return_id}/approve", response_model=PurchaseReturnResponse)
 async def approve_return(
     return_id: uuid.UUID,
@@ -63,9 +74,20 @@ async def approve_return(
 
 
 @router.post("/{return_id}/process", response_model=PurchaseReturnResponse)
+@router.post("/{return_id}/post", response_model=PurchaseReturnResponse)
 async def process_return(
     return_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("procurement.purchase_return.approve")),
+    current_user: User = Depends(require_permission("procurement.purchase_return.post")),
 ):
     return await purchase_return_service.process_return(db, return_id, current_user_id=current_user.id)
+
+
+@router.post("/{return_id}/cancel", response_model=PurchaseReturnResponse)
+async def cancel_return(
+    return_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.purchase_return.cancel")),
+):
+    return await purchase_return_service.cancel_return(db, return_id, current_user_id=current_user.id)
+

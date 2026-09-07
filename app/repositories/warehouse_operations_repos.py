@@ -32,6 +32,21 @@ class GoodsReceiptRepository(BaseRepository[GoodsReceipt, GoodsReceiptCreate, Go
         )
         return (result.scalar() or 0) > 0
 
+    async def get_max_number_suffix(self, db: AsyncSession, prefix: str) -> int:
+        stmt = select(GoodsReceipt.receipt_number).where(GoodsReceipt.receipt_number.like(f"{prefix}%"))
+        result = await db.execute(stmt)
+        numbers = result.scalars().all()
+        max_val = 0
+        for num in numbers:
+            try:
+                suffix = int(num.split("-")[-1])
+                if suffix > max_val:
+                    max_val = suffix
+            except (ValueError, IndexError):
+                continue
+        return max_val
+
+
     async def get_goods_receipts_paginated(
         self,
         db: AsyncSession,

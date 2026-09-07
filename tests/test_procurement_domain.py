@@ -231,7 +231,6 @@ async def test_rfq_and_comparison_matrix():
         assert matrix.comparison_items[0]["total_amount"] == 2200.0
 
 
-@pytest.mark.skip(reason="Deferred to v0.7.3 Logistics & Receiving")
 @pytest.mark.asyncio
 async def test_purchase_order_goods_receipt_integration():
     async with AsyncSessionLocal() as session:
@@ -291,13 +290,13 @@ async def test_purchase_order_goods_receipt_integration():
         assert updated_po.items[0].status == "Fully Received"
 
 
-@pytest.mark.skip(reason="Deferred to v0.7.3 Logistics & Receiving")
 @pytest.mark.asyncio
 async def test_purchase_return_stock_reversal():
     async with AsyncSessionLocal() as session:
         admin_user = await get_test_admin_user(session)
         product, warehouse = await setup_test_inventory(session)
         product_id = product["id"] if isinstance(product, dict) else product.id
+
 
         # Setup PO and receive stock first
         sup_in = SupplierCreate(code=f"SUP-{uuid.uuid4().hex[:6]}", name="Vortex Tech Supplies")

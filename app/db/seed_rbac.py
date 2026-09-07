@@ -381,7 +381,14 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
 
     {"name": "Create Purchase Return", "code": "procurement.purchase_return.create", "description": "Permission to create purchase returns", "module_name": "procurement"},
     {"name": "Read Purchase Return", "code": "procurement.purchase_return.read", "description": "Permission to view purchase returns", "module_name": "procurement"},
-    {"name": "Approve Purchase Return", "code": "procurement.purchase_return.approve", "description": "Permission to approve and process purchase returns", "module_name": "procurement"},
+    {"name": "Update Purchase Return", "code": "procurement.purchase_return.update", "description": "Permission to update draft purchase returns", "module_name": "procurement"},
+    {"name": "Approve Purchase Return", "code": "procurement.purchase_return.approve", "description": "Permission to approve purchase returns", "module_name": "procurement"},
+    {"name": "Post Purchase Return", "code": "procurement.purchase_return.post", "description": "Permission to post purchase returns and reverse stock", "module_name": "procurement"},
+    {"name": "Cancel Purchase Return", "code": "procurement.purchase_return.cancel", "description": "Permission to cancel purchase returns", "module_name": "procurement"},
+
+    {"name": "Read Receiving", "code": "procurement.receiving.read", "description": "Permission to view purchase receipts and receiving history", "module_name": "procurement"},
+    {"name": "Create Receiving", "code": "procurement.receiving.create", "description": "Permission to initiate purchase order receiving", "module_name": "procurement"},
+    {"name": "Post Receiving", "code": "procurement.receiving.post", "description": "Permission to post goods receipts and increment physical stock", "module_name": "procurement"},
 
     {"name": "Read Procurement Analytics", "code": "procurement.analytics.read", "description": "Permission to view procurement analytics and dashboard", "module_name": "procurement"},
     {"name": "Read Procurement Reports", "code": "procurement.reports.read", "description": "Permission to view procurement reports", "module_name": "procurement"},

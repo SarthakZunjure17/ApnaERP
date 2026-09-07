@@ -5,7 +5,40 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.3] - 2026-09-07
+
+### Milestone Logistics & Receiving
+
+#### Added
+- **Purchase Order Goods Receiving (`app/services/purchase_order_services.py`, `app/schemas/procurement.py`, `app/api/v1/endpoints/purchase_orders.py`)**:
+  - `receive_goods` domain workflow connecting approved/dispatched `PurchaseOrder`s to canonical Inventory `GoodsReceipt` generation and `StockMovementService.stock_in` physical mutation.
+  - Multi-line, partial, and full receiving support with automatic `PurchaseOrderItem.received_quantity` counter increment and `PurchaseOrder.status` transition (`Partially Received` $\rightarrow$ `Fully Received`).
+  - Strict over-receiving prevention enforcing $\text{received\_quantity} \le (\text{ordered\_quantity} - \text{already\_received} + \text{returned\_quantity})$.
+  - Database row-level locking (`SELECT ... FOR UPDATE` via `purchase_order_repository.get_for_update`) to prevent concurrency races across simultaneous receipt requests.
+  - Full compatibility with batch-tracked items (creating/updating `Batch` records) and serial-tracked items (registering `SerialNumber` records as `Available` at destination warehouse and storage location).
+  - Multi-line transactional atomicity: all stock movements, ledger insertions, PO item counter updates, PO status transitions, and audit records commit or roll back together.
+  - PO GoodsReceipt history retrieval endpoint (`GET /api/v1/purchase-orders/{id}/receipts`).
+- **Purchase Returns & Stock Reversal Subsystem (`app/models/purchase_return.py`, `app/repositories/procurement_repos.py`, `app/services/purchase_return_services.py`, `app/schemas/procurement.py`, `app/api/v1/endpoints/purchase_returns.py`)**:
+  - `PurchaseReturn` and `PurchaseReturnItem` management with database-safe sequence numbering (`PRTN-YYYY-XXXXX`).
+  - Strict return validation ensuring returned items belong to the source PO, have non-zero quantities, and never exceed net received stock ($\text{return\_quantity} \le \text{received\_quantity} - \text{returned\_quantity}$).
+  - Stock reversal execution via canonical `StockMovementService.stock_out` (updating `StockBalance` and inserting immutable `StockLedger` entries with `direction="OUT"` and `reference_type="PurchaseReturn"`).
+  - PO item returned counter tracking (`PurchaseOrderItem.returned_quantity`).
+  - Full return lifecycle support (`Draft` $\rightarrow$ `Approved` $\rightarrow$ `Processed` / `Cancelled`).
+  - Dedicated return API endpoints (`GET/POST /api/v1/purchase-returns`, `PATCH /api/v1/purchase-returns/{id}`, `POST .../post`, `POST .../cancel`).
+- **RBAC Security & Audit Logging (`app/db/seed_rbac.py`, `app/services/purchase_order_services.py`, `app/services/purchase_return_services.py`)**:
+  - Seeded granular permissions: `procurement.receiving.read`, `procurement.receiving.create`, `procurement.receiving.post`, `procurement.purchase_return.read`, `procurement.purchase_return.create`, `procurement.purchase_return.update`, `procurement.purchase_return.approve`, `procurement.purchase_return.post`, `procurement.purchase_return.cancel`.
+  - Canonical `AuditLog` integration recording `PURCHASE_RECEIPT_CREATE`, `PURCHASE_RECEIPT_POST`, `PURCHASE_ORDER_PARTIAL_RECEIVE`, `PURCHASE_ORDER_FULLY_RECEIVED`, `PURCHASE_RETURN_CREATE`, `PURCHASE_RETURN_POST`, `PURCHASE_RETURN_CANCEL`.
+- **Domain Boundaries & Invariants**:
+  - Zero direct stock mutation: all physical mutations strictly routed through canonical `StockMovementService`.
+  - Finance boundary preserved: receiving and returns generate zero supplier invoices, zero AP entries, and zero GL journal entries.
+  - Analytics boundary preserved: spend analytics and dashboards deferred to `v0.7.4`.
+- **Comprehensive Automated Test Suite (`tests/test_procurement_receiving_v073.py`)**:
+  - 10 comprehensive test suites covering all 46 milestone requirements: full receipts, partial/sequential receipts, multi-line atomicity, over-receiving guards, batch receiving, serial tracking, purchase return creation, return posting and stock reversal, concurrency row-locking, RBAC, and audit logging.
+- **Documentation**:
+  - `docs/procurement/logistics-and-receiving.md`: Complete architectural specification for v0.7.3.
+
 ## [v0.7.2] - 2026-09-07
+
 
 ### Milestone Commercial Purchasing
 

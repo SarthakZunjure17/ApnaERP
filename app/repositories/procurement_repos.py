@@ -630,6 +630,20 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder, PurchaseOrderCreate,
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
 
+    async def get_for_update(self, db: AsyncSession, po_id: uuid.UUID) -> Optional[PurchaseOrder]:
+        stmt = (
+            select(PurchaseOrder)
+            .options(
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.warehouse),
+                selectinload(PurchaseOrder.supplier),
+            )
+            .where(PurchaseOrder.id == po_id)
+            .with_for_update()
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_max_number_suffix(self, db: AsyncSession, prefix: str = "PO-") -> int:
         stmt = select(PurchaseOrder.po_number).where(PurchaseOrder.po_number.like(f"{prefix}%"))
         res = await db.execute(stmt)
@@ -692,32 +706,103 @@ class PurchaseReturnRepository(BaseRepository[PurchaseReturn, PurchaseReturnCrea
     def __init__(self):
         super().__init__(PurchaseReturn)
 
+    async def get_by_id(self, db: AsyncSession, id: uuid.UUID) -> Optional[PurchaseReturn]:
+        stmt = (
+            select(PurchaseReturn)
+            .options(
+                selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.product),
+                selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.po_item),
+                selectinload(PurchaseReturn.supplier),
+                selectinload(PurchaseReturn.warehouse),
+                selectinload(PurchaseReturn.purchase_order),
+            )
+            .where(PurchaseReturn.id == id)
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_for_update(self, db: AsyncSession, id: uuid.UUID) -> Optional[PurchaseReturn]:
+        stmt = (
+            select(PurchaseReturn)
+            .options(
+                selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.product),
+                selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.po_item),
+                selectinload(PurchaseReturn.supplier),
+                selectinload(PurchaseReturn.warehouse),
+                selectinload(PurchaseReturn.purchase_order),
+            )
+            .where(PurchaseReturn.id == id)
+            .with_for_update()
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, return_number: str) -> Optional[PurchaseReturn]:
         stmt = (
             select(PurchaseReturn)
-            .options(selectinload(PurchaseReturn.items))
+            .options(
+                selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.product),
+                selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.po_item),
+                selectinload(PurchaseReturn.supplier),
+                selectinload(PurchaseReturn.warehouse),
+                selectinload(PurchaseReturn.purchase_order),
+            )
             .where(PurchaseReturn.return_number == return_number)
         )
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def get_max_number_suffix(self, db: AsyncSession, prefix: str = "PRTN-") -> int:
+        stmt = select(PurchaseReturn.return_number).where(PurchaseReturn.return_number.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def get_multi_paginated(
         self,
         db: AsyncSession,
         supplier_id: Optional[uuid.UUID] = None,
         purchase_order_id: Optional[uuid.UUID] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        product_id: Optional[uuid.UUID] = None,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[PurchaseReturn], int]:
-        stmt = select(PurchaseReturn).options(selectinload(PurchaseReturn.items))
+        stmt = select(PurchaseReturn).options(
+            selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.product),
+            selectinload(PurchaseReturn.items).selectinload(PurchaseReturnItem.po_item),
+            selectinload(PurchaseReturn.supplier),
+            selectinload(PurchaseReturn.warehouse),
+            selectinload(PurchaseReturn.purchase_order),
+        )
 
         if supplier_id:
             stmt = stmt.where(PurchaseReturn.supplier_id == supplier_id)
         if purchase_order_id:
             stmt = stmt.where(PurchaseReturn.purchase_order_id == purchase_order_id)
+        if warehouse_id:
+            stmt = stmt.where(PurchaseReturn.warehouse_id == warehouse_id)
+        if product_id:
+            stmt = stmt.where(PurchaseReturn.items.any(PurchaseReturnItem.product_id == product_id))
         if status:
             stmt = stmt.where(PurchaseReturn.status == status)
+        if search:
+            stmt = stmt.where(
+                or_(
+                    PurchaseReturn.return_number.ilike(f"%{search}%"),
+                    PurchaseReturn.remarks.ilike(f"%{search}%"),
+                    PurchaseReturn.supplier_return_ref.ilike(f"%{search}%"),
+                )
+            )
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_res = await db.execute(count_stmt)

@@ -586,12 +586,34 @@ class PaginatedPurchaseOrderResponse(BaseModel):
     pages: int
 
 
+# --- Purchase Order Receiving ---
+class PurchaseOrderReceiveItem(BaseModel):
+    po_item_id: uuid.UUID
+    quantity: Decimal = Field(..., gt=0)
+    storage_location_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
+    batch_number: Optional[str] = None
+    expiry_date: Optional[datetime] = None
+    manufacturing_date: Optional[datetime] = None
+    serial_numbers: Optional[List[str]] = None
+    remarks: Optional[str] = None
+
+
+class PurchaseOrderReceiveCreate(BaseModel):
+    supplier_reference: Optional[str] = None
+    remarks: Optional[str] = None
+    items: List[PurchaseOrderReceiveItem]
+
+
 # --- Purchase Returns ---
 class PurchaseReturnItemCreate(BaseModel):
     po_item_id: uuid.UUID
     product_id: uuid.UUID
     return_quantity: Decimal = Field(..., gt=0)
     unit_price: Decimal = Field(..., ge=0)
+    storage_location_id: Optional[uuid.UUID] = None
+    batch_id: Optional[uuid.UUID] = None
+    serial_numbers: Optional[List[str]] = None
     reason: Optional[str] = None
 
 
@@ -619,6 +641,13 @@ class PurchaseReturnCreate(BaseModel):
     supplier_return_ref: Optional[str] = None
     remarks: Optional[str] = None
     items: List[PurchaseReturnItemCreate]
+
+
+class PurchaseReturnUpdate(BaseModel):
+    reason_code: Optional[str] = None
+    supplier_return_ref: Optional[str] = None
+    remarks: Optional[str] = None
+    items: Optional[List[PurchaseReturnItemCreate]] = None
 
 
 class PurchaseReturnResponse(BaseModel):

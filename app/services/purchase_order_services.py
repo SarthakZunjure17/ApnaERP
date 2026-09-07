@@ -4,7 +4,9 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.domain_events import domain_event_publisher
 from app.core.redis import redis_manager
@@ -12,10 +14,13 @@ from app.exceptions.base import (
     NotFoundException,
     ValidationException,
 )
+from app.models.goods_receipt import GoodsReceipt, GoodsReceiptItem
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderItem
 from app.models.user import User
 from app.repositories.inventory_repos import product_repository, warehouse_repository
+from app.repositories.warehouse_operations_repos import goods_receipt_repository
 from app.repositories.procurement_repos import (
+
     purchase_order_repository,
     supplier_quotation_repository,
     supplier_repository,
@@ -25,10 +30,13 @@ from app.schemas.procurement import (
     PurchaseOrderAmend,
     PurchaseOrderCreate,
     PurchaseOrderFromQuotationCreate,
+    PurchaseOrderReceiveCreate,
+    PurchaseOrderReceiveItem,
     PurchaseOrderUpdate,
 )
 from app.services.approval_engine import ApprovalEngineService
 from app.services.audit_log import audit_log_service
+from app.services.warehouse_operations_services import warehouse_execution_service
 
 logger = logging.getLogger("app.services.purchase_order")
 
@@ -735,6 +743,233 @@ class PurchaseOrderService:
             skip=skip,
             limit=limit,
         )
+
+    async def receive_goods(
+        self,
+        db: AsyncSession,
+        po_id: uuid.UUID,
+        receiving_items: List[Any],
+        supplier_ref: Optional[str] = None,
+        remarks: Optional[str] = None,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> GoodsReceipt:
+        """
+        Receives physical stock against an Approved, Dispatched, or Partially Received Purchase Order.
+        Atomically executes StockMovementService.stock_in via WarehouseExecutionService, updates PO item received quantities,
+        updates PO status (Partially Received / Fully Received), posts the GoodsReceipt, and writes audit events in a single transaction.
+        """
+        if not receiving_items:
+            raise ValidationException("At least one line item is required for receiving.")
+
+        # 1. Row-lock PurchaseOrder and its items to prevent concurrent over-receiving
+        po = await purchase_order_repository.get_for_update(db, po_id)
+        if not po:
+            raise NotFoundException(f"Purchase Order with ID '{po_id}' not found.")
+
+        # 2. Status Validation
+        if po.status not in ("Approved", "Dispatched", "Partially Received"):
+            raise ValidationException(
+                f"Cannot receive goods for Purchase Order in '{po.status}' status. PO must be Approved, Dispatched, or Partially Received."
+            )
+
+        # 3. Validate Supplier
+        supplier = await supplier_repository.get_by_id(db, po.supplier_id)
+        if not supplier:
+            raise NotFoundException(f"Supplier with ID '{po.supplier_id}' not found.")
+        if hasattr(supplier, "is_active") and not supplier.is_active:
+            raise ValidationException("Cannot receive goods from an inactive supplier.")
+        if supplier.status in ("Blacklisted", "Inactive"):
+            raise ValidationException(f"Cannot receive goods from a {supplier.status.lower()} supplier.")
+
+        target_wh_id = po.items[0].warehouse_id if po.items else None
+
+        receipt_items: List[GoodsReceiptItem] = []
+        year = datetime.now(timezone.utc).year
+        gr_count = await goods_receipt_repository.get_max_number_suffix(db, prefix=f"GRN-{year}-") + 1
+        gr_number = f"GRN-{year}-{gr_count:05d}"
+
+
+        # 4. Validate Each Line Item
+        for rec_item in receiving_items:
+            if hasattr(rec_item, "po_item_id"):
+                po_item_id = rec_item.po_item_id
+                raw_qty = rec_item.quantity
+                storage_loc_id = rec_item.storage_location_id
+                batch_id = rec_item.batch_id
+                batch_num = rec_item.batch_number
+                exp_date = rec_item.expiry_date
+                mfg_date = rec_item.manufacturing_date
+                serials = rec_item.serial_numbers
+                item_remarks = rec_item.remarks
+            else:
+                po_item_id = uuid.UUID(str(rec_item["po_item_id"])) if not isinstance(rec_item["po_item_id"], uuid.UUID) else rec_item["po_item_id"]
+                raw_qty = rec_item["quantity"]
+                storage_loc_id = uuid.UUID(str(rec_item["storage_location_id"])) if rec_item.get("storage_location_id") and not isinstance(rec_item.get("storage_location_id"), uuid.UUID) else rec_item.get("storage_location_id")
+                batch_id = uuid.UUID(str(rec_item["batch_id"])) if rec_item.get("batch_id") and not isinstance(rec_item.get("batch_id"), uuid.UUID) else rec_item.get("batch_id")
+                batch_num = rec_item.get("batch_number")
+                exp_date = rec_item.get("expiry_date")
+                mfg_date = rec_item.get("manufacturing_date")
+                serials = rec_item.get("serial_numbers")
+                item_remarks = rec_item.get("remarks")
+
+            qty = Decimal(str(raw_qty))
+            if qty <= Decimal("0.0"):
+                raise ValidationException("Received quantity must be strictly greater than zero.")
+
+            po_item = next((item for item in po.items if item.id == po_item_id), None)
+            if not po_item:
+                raise NotFoundException(f"PO Item with ID '{po_item_id}' not found in PO #{po.po_number}.")
+
+            # Over-receiving Validation: remaining = ordered_qty - received_qty + returned_qty
+            ordered_qty = Decimal(str(po_item.quantity))
+            already_received = Decimal(str(po_item.received_quantity))
+            returned_qty = Decimal(str(po_item.returned_quantity))
+            remaining_qty = ordered_qty - already_received + returned_qty
+
+            if qty > remaining_qty:
+                raise ValidationException(
+                    f"Received quantity ({qty}) exceeds remaining order quantity ({remaining_qty}) for PO line item."
+                )
+
+            # Product Validation
+            product = await product_repository.get_by_id(db, po_item.product_id)
+            if not product:
+                raise NotFoundException(f"Product with ID '{po_item.product_id}' not found.")
+            if hasattr(product, "is_active") and not product.is_active:
+                raise ValidationException(f"Product SKU '{product.sku}' is inactive.")
+
+            # Batch validation if product is batch tracked
+            if getattr(product, "is_batch_tracked", False):
+                if not batch_id and not batch_num:
+                    raise ValidationException(f"Product SKU '{product.sku}' is batch-tracked; batch information is required.")
+
+            # Serial validation if product is serial tracked
+            if getattr(product, "is_serial_tracked", False):
+                if not serials:
+                    raise ValidationException(f"Product SKU '{product.sku}' is serial-tracked; serial numbers are required.")
+                if len(serials) != int(qty):
+                    raise ValidationException(f"Serial count ({len(serials)}) does not match received quantity ({qty}).")
+                if len(set(serials)) != len(serials):
+                    raise ValidationException("Duplicate serial numbers provided in receiving list.")
+
+            receipt_items.append(
+                GoodsReceiptItem(
+                    product_id=product.id,
+                    storage_location_id=storage_loc_id,
+                    quantity=float(qty),
+                    unit_id=product.base_unit_id,
+                    unit_cost=float(po_item.unit_price),
+                    batch_id=batch_id,
+                    batch_number=batch_num,
+                    expiry_date=exp_date,
+                    manufacturing_date=mfg_date,
+                    serial_numbers=list(serials) if serials else None,
+                    remarks=item_remarks or f"Received against PO #{po.po_number}",
+                )
+            )
+
+        now = datetime.now(timezone.utc)
+        receipt = GoodsReceipt(
+            receipt_number=gr_number,
+            warehouse_id=target_wh_id,
+            supplier_reference=supplier_ref,
+            external_reference=po.po_number,
+            receipt_date=now,
+            status="Draft",
+            remarks=remarks or f"Goods Receipt against Purchase Order #{po.po_number}",
+            created_by=current_user_id,
+            approved_by=current_user_id,
+            approved_at=now,
+            items=receipt_items,
+        )
+        db.add(receipt)
+        await db.flush()
+
+        # 5. Execute stock IN via WarehouseExecutionService (which uses StockMovementService.stock_in with commit=False)
+        await warehouse_execution_service.execute_goods_receipt(db, receipt, current_user_id=current_user_id)
+
+        # 6. Update PO Item Quantities and Statuses
+        for rec_item in receiving_items:
+            if hasattr(rec_item, "po_item_id"):
+                po_item_id = rec_item.po_item_id
+                raw_qty = rec_item.quantity
+            else:
+                po_item_id = uuid.UUID(str(rec_item["po_item_id"])) if not isinstance(rec_item["po_item_id"], uuid.UUID) else rec_item["po_item_id"]
+                raw_qty = rec_item["quantity"]
+            qty = Decimal(str(raw_qty))
+            po_item = next(item for item in po.items if item.id == po_item_id)
+            po_item.received_quantity += qty
+            if po_item.received_quantity >= po_item.quantity:
+                po_item.status = "Fully Received"
+            elif po_item.received_quantity > Decimal("0.0"):
+                po_item.status = "Partially Received"
+
+        # 7. Update PO Header Status
+        all_fully_received = all(item.received_quantity >= item.quantity for item in po.items)
+        old_po_status = po.status
+        if all_fully_received:
+            po.status = "Fully Received"
+        else:
+            po.status = "Partially Received"
+
+        receipt.status = "Received"
+        await db.commit()
+        await db.refresh(receipt)
+        await db.refresh(po)
+
+        # 8. Audit Logging
+        await audit_log_service.log_event(
+            db,
+            action="PURCHASE_RECEIPT_CREATE",
+            entity_type="GoodsReceipt",
+            entity_id=receipt.id,
+            user_id=current_user_id,
+            new_data={"receipt_number": receipt.receipt_number, "po_number": po.po_number, "item_count": len(receipt.items)},
+        )
+        await audit_log_service.log_event(
+            db,
+            action="PURCHASE_RECEIPT_POST",
+            entity_type="GoodsReceipt",
+            entity_id=receipt.id,
+            user_id=current_user_id,
+            new_data={"receipt_number": receipt.receipt_number, "status": "Received"},
+        )
+        po_action = "PURCHASE_ORDER_FULLY_RECEIVED" if po.status == "Fully Received" else "PURCHASE_ORDER_PARTIAL_RECEIVE"
+        await audit_log_service.log_event(
+            db,
+            action=po_action,
+            entity_type="PurchaseOrder",
+            entity_id=po.id,
+            user_id=current_user_id,
+            previous_data={"status": old_po_status},
+            new_data={"status": po.status, "po_number": po.po_number},
+        )
+
+        domain_event_publisher.publish(
+            "GoodsReceived",
+            {
+                "receipt_id": str(receipt.id),
+                "receipt_number": receipt.receipt_number,
+                "po_id": str(po.id),
+                "po_number": po.po_number,
+                "status": po.status,
+            },
+        )
+
+        await redis_manager.delete_pattern("po:*")
+        await redis_manager.delete_pattern("stock_balance:*")
+        return receipt
+
+    async def get_po_receipts(self, db: AsyncSession, po_id: uuid.UUID) -> List[GoodsReceipt]:
+        po = await self.get_order(db, po_id)
+        stmt = (
+            select(GoodsReceipt)
+            .options(selectinload(GoodsReceipt.items).selectinload(GoodsReceiptItem.product))
+            .where(GoodsReceipt.external_reference == po.po_number)
+            .order_by(GoodsReceipt.created_at.desc())
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
 
 
 purchase_order_service = PurchaseOrderService()

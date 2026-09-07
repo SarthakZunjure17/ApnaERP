@@ -12,12 +12,15 @@ from app.schemas.procurement import (
     PurchaseOrderAmend,
     PurchaseOrderCreate,
     PurchaseOrderFromQuotationCreate,
+    PurchaseOrderReceiveCreate,
     PurchaseOrderResponse,
     PurchaseOrderUpdate,
 )
+from app.schemas.warehouse_operations import GoodsReceiptResponse
 from app.services.purchase_order_services import purchase_order_service
 
 router = APIRouter()
+
 
 
 @router.post("", response_model=PurchaseOrderResponse, status_code=status.HTTP_201_CREATED)
@@ -161,3 +164,31 @@ async def reopen_order(
     current_user: User = Depends(require_permission("procurement.purchase_order.update")),
 ):
     return await purchase_order_service.reopen_order(db, po_id, current_user_id=current_user.id)
+
+
+@router.post("/{po_id}/receive", response_model=GoodsReceiptResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{po_id}/receipts", response_model=GoodsReceiptResponse, status_code=status.HTTP_201_CREATED)
+async def receive_goods(
+    po_id: uuid.UUID,
+    obj_in: PurchaseOrderReceiveCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.receiving.create")),
+):
+    return await purchase_order_service.receive_goods(
+        db,
+        po_id=po_id,
+        receiving_items=obj_in.items,
+        supplier_ref=obj_in.supplier_reference,
+        remarks=obj_in.remarks,
+        current_user_id=current_user.id,
+    )
+
+
+@router.get("/{po_id}/receipts", response_model=List[GoodsReceiptResponse])
+async def get_po_receipts(
+    po_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.receiving.read")),
+):
+    return await purchase_order_service.get_po_receipts(db, po_id)
+

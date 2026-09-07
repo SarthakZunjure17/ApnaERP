@@ -240,7 +240,10 @@ api_router.include_router(purchase_orders.router, prefix="/purchase-orders", tag
 api_router.include_router(purchase_orders.router, prefix="/procurement/purchase-orders", tags=["Purchase Orders"])
 api_router.include_router(purchase_orders.router, prefix="/procurement/orders", tags=["Purchase Orders & Receiving"])
 api_router.include_router(purchase_returns.router, prefix="/procurement/returns", tags=["Purchase Returns & Stock Reversals"])
+api_router.include_router(purchase_returns.router, prefix="/purchase-returns", tags=["Purchase Returns & Stock Reversals"])
+api_router.include_router(purchase_returns.router, prefix="/procurement/purchase-returns", tags=["Purchase Returns & Stock Reversals"])
 api_router.include_router(procurement_reports.router, prefix="/procurement/reports", tags=["Procurement Reports"])
+
 api_router.include_router(procurement_analytics.router, prefix="/procurement/analytics", tags=["Procurement Analytics"])
 api_router.include_router(procurement_search.router, prefix="/procurement/search", tags=["Global Procurement Search"])
 api_router.include_router(procurement_import_export.router, prefix="/procurement/import-export", tags=["Procurement Import Export"])
