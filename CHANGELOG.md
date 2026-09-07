@@ -5,6 +5,31 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.2] - 2026-09-07
+
+### Milestone Commercial Purchasing
+
+#### Added
+- **Canonical Purchase Order Engine (`app/models/purchase_order.py`, `app/repositories/procurement_repos.py`, `app/services/purchase_order_services.py`, `app/schemas/procurement.py`, `app/api/v1/endpoints/purchase_orders.py`)**:
+  - `PurchaseOrder` and `PurchaseOrderItem` models with database-safe sequence numbering (`PO-YYYY-XXXXX`), full validation (active suppliers, non-blacklisted suppliers, active products, active warehouses, $\text{quantity} > 0$, $\text{unit\_price} \ge 0$, and valid tax/discount rates).
+  - Multi-path creation: Automated generation from awarded `SupplierQuotation` (`/from-quotation/{quotation_id}`) with strict duplicate prevention and manual creation where needed.
+  - Lifecycle state machine: `Draft` $\rightarrow$ `Submitted` $\rightarrow$ `Approved` / `Rejected` $\rightarrow$ `Dispatched` $\rightarrow$ `Cancelled` / `Closed`.
+  - Canonical approval integration: Triggers platform `ApprovalEngineService.start_workflow(...)` using workflow code `WF_PURCHASE_ORDER`.
+  - Controlled amendment and revision management: Prohibits direct modification of approved orders, requiring controlled revision increment (`revision_number` $N \to N+1$), approval reset to `Draft`, history retention, and re-approval.
+  - Commercial dispatch tracking: Transmits confirmed order to supplier (`Approved` $\rightarrow$ `Dispatched`) without physical stock movement.
+  - Commercial cancellation: Supports cancellation of draft, submitted, and approved/dispatched orders prior to physical goods receipt.
+- **RBAC Security & Audit Logging (`app/db/seed_rbac.py`, `app/services/purchase_order_services.py`)**:
+  - Seeded granular permissions: `procurement.purchase_order.create`, `procurement.purchase_order.read`, `procurement.purchase_order.update`, `procurement.purchase_order.submit`, `procurement.purchase_order.approve`, `procurement.purchase_order.amend`, `procurement.purchase_order.cancel`, `procurement.purchase_order.dispatch`.
+  - Canonical `AuditLog` integration recording all PO lifecycle events (`PURCHASE_ORDER_CREATE`, `PURCHASE_ORDER_UPDATE`, `PURCHASE_ORDER_SUBMIT`, `PURCHASE_ORDER_APPROVE`, `PURCHASE_ORDER_REJECT`, `PURCHASE_ORDER_AMEND`, `PURCHASE_ORDER_DISPATCH`, `PURCHASE_ORDER_CANCEL`).
+- **Domain Boundaries & Invariants**:
+  - Zero Inventory Mutation guarantee: Creating, submitting, approving, amending, dispatching, and cancelling POs creates zero `StockLedger` entries, zero `StockBalance` changes, zero `GoodsReceipt` records, and zero physical stock movements.
+  - Physical goods receiving and inspection deferred exclusively to `v0.7.3`.
+  - Finance boundary preserved: No supplier invoices, AP entries, or GL journal postings.
+- **Comprehensive Automated Test Suite (`tests/test_procurement_purchase_orders_v072.py`)**:
+  - 13 test suites covering all 34 milestone requirements including CRUD, quotation conversion, pricing, approval engine, amendments, dispatch, cancellation, safe numbering, concurrency, RBAC, audit logging, and inventory invariants.
+- **Documentation**:
+  - `docs/procurement/commercial-purchasing.md`: Complete architectural and domain specification for v0.7.2.
+
 ## [v0.7.1] - 2026-09-07
 
 ### Milestone Procurement Sourcing & Requisitions

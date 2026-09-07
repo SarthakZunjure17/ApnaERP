@@ -372,8 +372,11 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Create Purchase Order", "code": "procurement.purchase_order.create", "description": "Permission to create purchase orders", "module_name": "procurement"},
     {"name": "Read Purchase Order", "code": "procurement.purchase_order.read", "description": "Permission to view purchase orders", "module_name": "procurement"},
     {"name": "Update Purchase Order", "code": "procurement.purchase_order.update", "description": "Permission to update purchase orders", "module_name": "procurement"},
+    {"name": "Submit Purchase Order", "code": "procurement.purchase_order.submit", "description": "Permission to submit purchase orders for approval", "module_name": "procurement"},
     {"name": "Approve Purchase Order", "code": "procurement.purchase_order.approve", "description": "Permission to approve purchase orders", "module_name": "procurement"},
+    {"name": "Amend Purchase Order", "code": "procurement.purchase_order.amend", "description": "Permission to amend approved purchase orders", "module_name": "procurement"},
     {"name": "Cancel Purchase Order", "code": "procurement.purchase_order.cancel", "description": "Permission to cancel purchase orders", "module_name": "procurement"},
+    {"name": "Dispatch Purchase Order", "code": "procurement.purchase_order.dispatch", "description": "Permission to dispatch purchase orders to suppliers", "module_name": "procurement"},
     {"name": "Close Purchase Order", "code": "procurement.purchase_order.close", "description": "Permission to close purchase orders", "module_name": "procurement"},
 
     {"name": "Create Purchase Return", "code": "procurement.purchase_return.create", "description": "Permission to create purchase returns", "module_name": "procurement"},

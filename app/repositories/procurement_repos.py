@@ -583,14 +583,65 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder, PurchaseOrderCreate,
     def __init__(self):
         super().__init__(PurchaseOrder)
 
+    async def get_by_id(self, db: AsyncSession, id: uuid.UUID) -> Optional[PurchaseOrder]:
+        stmt = (
+            select(PurchaseOrder)
+            .options(
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.warehouse),
+                selectinload(PurchaseOrder.supplier),
+            )
+            .where(PurchaseOrder.id == id)
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, po_number: str) -> Optional[PurchaseOrder]:
         stmt = (
             select(PurchaseOrder)
-            .options(selectinload(PurchaseOrder.items))
+            .options(
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.warehouse),
+                selectinload(PurchaseOrder.supplier),
+            )
             .where(PurchaseOrder.po_number == po_number)
         )
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def get_by_origin(
+        self, db: AsyncSession, origin_type: str, origin_document_id: uuid.UUID
+    ) -> Optional[PurchaseOrder]:
+        stmt = (
+            select(PurchaseOrder)
+            .options(
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+                selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.warehouse),
+                selectinload(PurchaseOrder.supplier),
+            )
+            .where(
+                and_(
+                    PurchaseOrder.origin_type == origin_type,
+                    PurchaseOrder.origin_document_id == origin_document_id,
+                    PurchaseOrder.status != "Cancelled",
+                )
+            )
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_max_number_suffix(self, db: AsyncSession, prefix: str = "PO-") -> int:
+        stmt = select(PurchaseOrder.po_number).where(PurchaseOrder.po_number.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def get_multi_paginated(
         self,
@@ -598,11 +649,17 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder, PurchaseOrderCreate,
         supplier_id: Optional[uuid.UUID] = None,
         status: Optional[str] = None,
         origin_type: Optional[str] = None,
+        warehouse_id: Optional[uuid.UUID] = None,
+        product_id: Optional[uuid.UUID] = None,
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[PurchaseOrder], int]:
-        stmt = select(PurchaseOrder).options(selectinload(PurchaseOrder.items))
+        stmt = select(PurchaseOrder).options(
+            selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+            selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.warehouse),
+            selectinload(PurchaseOrder.supplier),
+        )
 
         if supplier_id:
             stmt = stmt.where(PurchaseOrder.supplier_id == supplier_id)
@@ -610,8 +667,17 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder, PurchaseOrderCreate,
             stmt = stmt.where(PurchaseOrder.status == status)
         if origin_type:
             stmt = stmt.where(PurchaseOrder.origin_type == origin_type)
+        if warehouse_id:
+            stmt = stmt.where(PurchaseOrder.items.any(PurchaseOrderItem.warehouse_id == warehouse_id))
+        if product_id:
+            stmt = stmt.where(PurchaseOrder.items.any(PurchaseOrderItem.product_id == product_id))
         if search:
-            stmt = stmt.where(PurchaseOrder.po_number.ilike(f"%{search}%"))
+            stmt = stmt.where(
+                or_(
+                    PurchaseOrder.po_number.ilike(f"%{search}%"),
+                    PurchaseOrder.notes.ilike(f"%{search}%"),
+                )
+            )
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_res = await db.execute(count_stmt)

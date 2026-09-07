@@ -236,6 +236,8 @@ api_router.include_router(rfqs.router, prefix="/rfqs", tags=["Requests For Quota
 api_router.include_router(rfqs.router, prefix="/procurement/rfqs", tags=["Requests For Quotations (RFQ)"])
 api_router.include_router(supplier_quotations.router, prefix="/supplier-quotations", tags=["Supplier Quotations"])
 api_router.include_router(supplier_quotations.router, prefix="/procurement/quotations", tags=["Supplier Quotations"])
+api_router.include_router(purchase_orders.router, prefix="/purchase-orders", tags=["Purchase Orders"])
+api_router.include_router(purchase_orders.router, prefix="/procurement/purchase-orders", tags=["Purchase Orders"])
 api_router.include_router(purchase_orders.router, prefix="/procurement/orders", tags=["Purchase Orders & Receiving"])
 api_router.include_router(purchase_returns.router, prefix="/procurement/returns", tags=["Purchase Returns & Stock Reversals"])
 api_router.include_router(procurement_reports.router, prefix="/procurement/reports", tags=["Procurement Reports"])

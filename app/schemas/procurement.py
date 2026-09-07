@@ -519,8 +519,30 @@ class PurchaseOrderCreate(BaseModel):
 
 
 class PurchaseOrderUpdate(BaseModel):
+    supplier_id: Optional[uuid.UUID] = None
+    order_date: Optional[datetime] = None
     expected_delivery_date: Optional[datetime] = None
     payment_terms: Optional[str] = None
+    currency: Optional[str] = None
+    shipping_address: Optional[str] = None
+    billing_address: Optional[str] = None
+    notes: Optional[str] = None
+    items: Optional[List[PurchaseOrderItemCreate]] = None
+
+
+class PurchaseOrderAmend(BaseModel):
+    expected_delivery_date: Optional[datetime] = None
+    payment_terms: Optional[str] = None
+    shipping_address: Optional[str] = None
+    billing_address: Optional[str] = None
+    notes: Optional[str] = None
+    amendment_reason: Optional[str] = None
+    items: Optional[List[PurchaseOrderItemCreate]] = None
+
+
+class PurchaseOrderFromQuotationCreate(BaseModel):
+    warehouse_id: uuid.UUID
+    expected_delivery_date: Optional[datetime] = None
     shipping_address: Optional[str] = None
     billing_address: Optional[str] = None
     notes: Optional[str] = None

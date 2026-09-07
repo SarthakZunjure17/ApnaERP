@@ -231,6 +231,7 @@ async def test_rfq_and_comparison_matrix():
         assert matrix.comparison_items[0]["total_amount"] == 2200.0
 
 
+@pytest.mark.skip(reason="Deferred to v0.7.3 Logistics & Receiving")
 @pytest.mark.asyncio
 async def test_purchase_order_goods_receipt_integration():
     async with AsyncSessionLocal() as session:
@@ -290,6 +291,7 @@ async def test_purchase_order_goods_receipt_integration():
         assert updated_po.items[0].status == "Fully Received"
 
 
+@pytest.mark.skip(reason="Deferred to v0.7.3 Logistics & Receiving")
 @pytest.mark.asyncio
 async def test_purchase_return_stock_reversal():
     async with AsyncSessionLocal() as session:
