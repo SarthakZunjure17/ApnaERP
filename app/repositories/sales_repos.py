@@ -105,6 +105,19 @@ class CustomerRepository(BaseRepository[Customer, Any, Any]):
         res = await db.execute(stmt)
         return list(res.scalars().all()), total
 
+    async def get_max_number_suffix(self, db: AsyncSession, prefix: str = "CUST-") -> int:
+        stmt = select(Customer.customer_code).where(Customer.customer_code.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        codes = res.scalars().all()
+        max_num = 0
+        for code_str in codes:
+            suffix = code_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
+
 
 class CustomerContactRepository(BaseRepository[CustomerContact, Any, Any]):
     def __init__(self):

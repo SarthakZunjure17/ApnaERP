@@ -440,10 +440,12 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Opportunity", "code": "crm.opportunity.read", "description": "Permission to view opportunities", "module_name": "crm"},
     {"name": "Update Opportunity", "code": "crm.opportunity.update", "description": "Permission to update opportunities", "module_name": "crm"},
     {"name": "Delete Opportunity", "code": "crm.opportunity.delete", "description": "Permission to delete opportunities", "module_name": "crm"},
+    {"name": "Stage Opportunity", "code": "crm.opportunity.stage", "description": "Permission to advance/change opportunity pipeline stage", "module_name": "crm"},
 
     {"name": "Create Activity", "code": "crm.activity.create", "description": "Permission to log activities", "module_name": "crm"},
     {"name": "Read Activity", "code": "crm.activity.read", "description": "Permission to view activities", "module_name": "crm"},
     {"name": "Update Activity", "code": "crm.activity.update", "description": "Permission to update activities", "module_name": "crm"},
+    {"name": "Delete Activity", "code": "crm.activity.delete", "description": "Permission to delete activities", "module_name": "crm"},
 
     {"name": "Create Meeting", "code": "crm.meeting.create", "description": "Permission to schedule meetings", "module_name": "crm"},
     {"name": "Read Meeting", "code": "crm.meeting.read", "description": "Permission to view meetings", "module_name": "crm"},
@@ -582,6 +584,7 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Sales Representative", "description": "Operational sales, quotations, and order creation privileges"},
     {"name": "Sales Viewer", "description": "Read-only access to sales records"},
     {"name": "CRM Manager", "description": "Lead acquisition, sales pipeline, and campaign management privileges"},
+    {"name": "CRM Viewer", "description": "Read-only access to CRM records"},
     {"name": "Finance Manager", "description": "General Ledger, posting rules, taxes, and fiscal management privileges"},
     {"name": "Chief Accountant", "description": "Accounting journal entry, posting, and period locking privileges"},
     {"name": "Employee", "description": "Basic employee access privileges"},
@@ -646,6 +649,8 @@ async def seed_rbac_data(db: AsyncSession) -> None:
     sales_manager_role = created_roles.get("Sales Manager")
     sales_rep_role = created_roles.get("Sales Representative")
     sales_viewer_role = created_roles.get("Sales Viewer")
+    crm_manager_role = created_roles.get("CRM Manager")
+    crm_viewer_role = created_roles.get("CRM Viewer")
     finance_manager_role = created_roles.get("Finance Manager")
     chief_accountant_role = created_roles.get("Chief Accountant")
 
@@ -693,16 +698,34 @@ async def seed_rbac_data(db: AsyncSession) -> None:
                 "sales.delivery.create", "sales.delivery.read", "sales.delivery.update",
                 "sales.return.create", "sales.return.read",
                 "sales.pricing.read",
+                "crm.lead.create", "crm.lead.read", "crm.lead.update", "crm.lead.convert",
+                "crm.opportunity.create", "crm.opportunity.read", "crm.opportunity.update", "crm.opportunity.stage",
+                "crm.activity.create", "crm.activity.read", "crm.activity.update", "crm.activity.delete",
+                "crm.meeting.create", "crm.meeting.read", "crm.meeting.update",
+                "crm.task.create", "crm.task.read", "crm.task.update",
+                "crm.search.read",
             ]
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=sales_rep_role.id, permission_id=perm_obj.id
             )
         if sales_viewer_role and (
-            perm_code.startswith("sales.") and perm_code.endswith(".read")
+            (perm_code.startswith("sales.") and perm_code.endswith(".read"))
+            or (perm_code.startswith("crm.") and (perm_code.endswith(".read") or perm_code.endswith(".search")))
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=sales_viewer_role.id, permission_id=perm_obj.id
+            )
+        if crm_manager_role and (perm_code.startswith("crm.") or perm_code == "sales.customer.read"):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=crm_manager_role.id, permission_id=perm_obj.id
+            )
+        if crm_viewer_role and (
+            (perm_code.startswith("crm.") and (perm_code.endswith(".read") or perm_code.endswith(".search")))
+            or perm_code == "sales.customer.read"
+        ):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=crm_viewer_role.id, permission_id=perm_obj.id
             )
         if (finance_manager_role or chief_accountant_role) and perm_code.startswith("finance."):
             if finance_manager_role:

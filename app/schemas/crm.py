@@ -54,7 +54,7 @@ class LeadNoteCreate(BaseModel):
 class LeadNoteResponse(BaseModel):
     id: uuid.UUID
     lead_id: uuid.UUID
-    author_id: Optional[uuid.UUID]
+    author_id: Optional[uuid.UUID] = None
     content: str
     is_private: bool
     is_pinned: bool
@@ -70,7 +70,7 @@ class LeadBase(BaseModel):
     title: Optional[str] = Field(None, max_length=100)
     email: Optional[EmailStr] = None
     phone: Optional[str] = Field(None, max_length=50)
-    status: str = Field("New", max_length=50)
+    status: str = Field("NEW", max_length=50)
     source_id: Optional[uuid.UUID] = None
     assigned_to_id: Optional[uuid.UUID] = None
     estimated_value: Decimal = Field(Decimal("0.00"), ge=0)
@@ -78,6 +78,7 @@ class LeadBase(BaseModel):
 
 class LeadCreate(LeadBase):
     tag_ids: Optional[List[uuid.UUID]] = None
+    notes: Optional[str] = None
 
 
 class LeadUpdate(BaseModel):
@@ -140,7 +141,8 @@ class OpportunityBase(BaseModel):
     title: str = Field(..., max_length=255)
     customer_id: Optional[uuid.UUID] = None
     lead_id: Optional[uuid.UUID] = None
-    stage_id: uuid.UUID
+    stage_id: Optional[uuid.UUID] = None
+    stage_code: Optional[str] = None
     expected_revenue: Decimal = Field(Decimal("0.00"), ge=0)
     probability: Optional[Decimal] = None
     expected_closing_date: Optional[datetime] = None
@@ -150,13 +152,14 @@ class OpportunityBase(BaseModel):
 
 
 class OpportunityCreate(OpportunityBase):
-    pass
+    notes: Optional[str] = None
 
 
 class OpportunityUpdate(BaseModel):
     title: Optional[str] = None
     customer_id: Optional[uuid.UUID] = None
     stage_id: Optional[uuid.UUID] = None
+    stage_code: Optional[str] = None
     expected_revenue: Optional[Decimal] = None
     probability: Optional[Decimal] = None
     expected_closing_date: Optional[datetime] = None
@@ -166,6 +169,11 @@ class OpportunityUpdate(BaseModel):
     lost_reason: Optional[str] = None
     competitors: Optional[str] = None
     products_of_interest: Optional[str] = None
+
+
+class OpportunityStageChangeRequest(BaseModel):
+    stage_id: Optional[uuid.UUID] = None
+    stage_code: Optional[str] = None
 
 
 class OpportunityResponse(OpportunityBase):
@@ -181,18 +189,19 @@ class OpportunityResponse(OpportunityBase):
 
 
 class OpportunityWinLossRequest(BaseModel):
-    status: str = Field(..., max_length=50)  # 'Won' or 'Lost'
+    status: str = Field(..., max_length=50)  # 'Won', 'Lost', 'WON', 'LOST'
     reason: Optional[str] = None
 
 
 # --- Activity Schemas ---
 class ActivityBase(BaseModel):
-    activity_type: str = Field(..., max_length=50)  # Call, Meeting, Email, Task, Follow-up, Reminder
+    activity_type: str = Field(..., max_length=50)  # Call, Meeting, Email, Note, Follow-up
     subject: str = Field(..., max_length=255)
     description: Optional[str] = None
     status: str = Field("Pending", max_length=50)
     priority: str = Field("Medium", max_length=20)
     due_date: Optional[datetime] = None
+    activity_date: Optional[datetime] = None
     owner_id: Optional[uuid.UUID] = None
     lead_id: Optional[uuid.UUID] = None
     opportunity_id: Optional[uuid.UUID] = None
@@ -208,10 +217,12 @@ class ActivityCreate(ActivityBase):
 
 class ActivityUpdate(BaseModel):
     subject: Optional[str] = None
+    activity_type: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
     due_date: Optional[datetime] = None
+    activity_date: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     owner_id: Optional[uuid.UUID] = None
 
@@ -358,16 +369,18 @@ class CampaignResponse(CampaignBase):
 
 # --- Lead Conversion Engine Schemas ---
 class LeadConversionRequest(BaseModel):
-    lead_id: uuid.UUID
+    lead_id: Optional[uuid.UUID] = None
     opportunity_title: Optional[str] = None
     stage_id: Optional[uuid.UUID] = None
+    stage_code: Optional[str] = None
     expected_revenue: Optional[Decimal] = None
-    existing_customer_id: Optional[uuid.UUID] = None  # If null, search or create Customer
+    existing_customer_id: Optional[uuid.UUID] = None  # If null, search by email/phone or create Customer
+    create_opportunity: bool = True
 
 
 class LeadConversionResponse(BaseModel):
     lead_id: uuid.UUID
-    opportunity_id: uuid.UUID
+    opportunity_id: Optional[uuid.UUID] = None
     customer_id: uuid.UUID
     is_existing_customer: bool
     converted_at: datetime
@@ -419,3 +432,4 @@ class CRMSearchResult(BaseModel):
     campaigns: List[CampaignResponse] = []
     tasks: List[TaskResponse] = []
     meetings: List[MeetingResponse] = []
+    activities: List[ActivityResponse] = []

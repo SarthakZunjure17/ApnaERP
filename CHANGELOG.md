@@ -5,6 +5,50 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.9.0] - 2026-09-07
+
+### Milestone CRM Foundation
+
+#### Added
+- **CRM Lead Management Subsystem (`app/models/crm.py`, `app/services/crm_services.py`, `app/repositories/crm_repos.py`, `app/api/v1/endpoints/crm_leads.py`)**:
+  - Full CRUD and sequential human-readable numbering (`LEAD-YYYY-XXXXX`).
+  - Strict lifecycle state machine: `NEW` -> `CONTACTED` -> `QUALIFIED` -> `CONVERTED` (with `LOST` as terminal branch).
+  - Terminal state validation (rejection of modifications to `CONVERTED` or `LOST` leads).
+  - Dynamic lead readiness scoring (0–100) and duplicate detection based on email/phone.
+  - Ownership assignment (`POST /api/v1/crm/leads/{id}/assign`) and collaborative notes (`POST /api/v1/crm/leads/{id}/notes`).
+  - Soft delete support (`DELETE /api/v1/crm/leads/{id}`).
+- **CRM Opportunity Subsystem (`app/models/crm.py`, `app/services/crm_services.py`, `app/repositories/crm_repos.py`, `app/api/v1/endpoints/crm_opportunities.py`)**:
+  - Commercial pipeline deals with sequential numbering (`OPP-YYYY-XXXXX`).
+  - Standard stage pipeline: `PROSPECTING` (10%) -> `QUALIFICATION` (30%) -> `PROPOSAL` (60%) -> `NEGOTIATION` (80%) -> `WON` (100%) / `LOST` (0%).
+  - Stage progression endpoint (`POST /api/v1/crm/opportunities/{id}/stage`) and win/loss closing endpoint (`POST /api/v1/crm/opportunities/{id}/win-loss`).
+  - Immutability guards for closed deals (`Won` / `Lost`).
+- **Controlled Lead Conversion Subsystem (`app/services/crm_services.py`, `app/api/v1/endpoints/crm_leads.py`)**:
+  - Concurrency-safe atomic conversion using database row locks (`SELECT ... FOR UPDATE`).
+  - Qualification requirement: only `QUALIFIED` leads can convert.
+  - Duplicate conversion prevention guards.
+  - Canonical Customer master reuse: matches existing customers by email, phone, or explicit `existing_customer_id` without creating duplicate identity records.
+  - Creates canonical `Customer` (`CUST-YYYY-XXXXX`) in the Sales domain when no prior customer exists.
+  - Optional creation and linking of a CRM Opportunity in `QUALIFICATION` stage.
+- **CRM Activities & Interactions Subsystem (`app/models/crm.py`, `app/services/crm_services.py`, `app/repositories/crm_repos.py`, `app/api/v1/endpoints/crm_activities.py`)**:
+  - History tracking for `Call`, `Meeting`, `Email`, `Note`, and `Follow_up`.
+  - Multi-entity associations linking to `Lead`, `Opportunity`, and `Customer`.
+  - Activity lifecycle transitions with dedicated completion endpoint (`POST /api/v1/crm/activities/{id}/complete`).
+- **RBAC & Security (`app/db/seed_rbac.py`)**:
+  - Seeded permissions: `crm.lead.*`, `crm.lead.convert`, `crm.opportunity.*`, `crm.opportunity.stage`, `crm.activity.*`, `crm.meeting.*`, `crm.task.*`, `crm.campaign.*`, `crm.analytics.*`, `crm.search.*`.
+  - Configured roles: `CRM Manager`, `CRM Viewer`, `Sales Representative`, and `Sales Viewer`.
+- **Audit Logging & Domain Events**:
+  - Full audit coverage via canonical `AuditLog` for all lead, opportunity, activity, and conversion lifecycle events.
+  - Published internal domain events: `CRM_LEAD_CREATED`, `CRM_LEAD_ASSIGNED`, `CRM_LEAD_CONVERTED`, `CRM_OPPORTUNITY_CREATED`, `CRM_OPPORTUNITY_STAGE_CHANGED`.
+- **Domain Boundaries & Isolation**:
+  - **Reuses Sales Customer Master**: Direct association with canonical `Customer` master (`customers` table).
+  - **Zero Inventory Mutations**: No modification of stock balances, stock ledger, or warehouse movements.
+  - **Zero Finance Logic**: No GL journals, invoices, accounts receivable, or accounts payable modifications.
+  - **Zero Sales Order Generation**: CRM does not create Sales Orders.
+- **Automated Test Suite (`tests/test_crm_v090.py`)**:
+  - 35 dedicated test cases verifying CRUD, sequential numbering, state machines, invalid transitions, atomic conversion, duplicate prevention, customer reuse, activities, RBAC, audit logging, search, pagination, and domain isolation.
+- **Documentation**:
+  - `docs/crm/crm-foundation.md`: Complete architectural documentation for CRM Foundation.
+
 ## [v0.8.0] - 2026-09-07
 
 ### Milestone Sales Foundation & Core Order Flow
