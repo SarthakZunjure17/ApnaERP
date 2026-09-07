@@ -45,7 +45,7 @@ from app.services.procurement_search_services import procurement_search_service
 from app.services.purchase_order_services import purchase_order_service
 from app.services.purchase_requisition_services import purchase_requisition_service
 from app.services.purchase_return_services import purchase_return_service
-from app.services.quotation_services import quotation_service
+from app.services.supplier_quotation_services import supplier_quotation_service
 from app.services.rfq_services import rfq_service
 from app.services.supplier_services import supplier_service
 
@@ -218,9 +218,11 @@ async def test_rfq_and_comparison_matrix():
                 )
             ],
         )
-        sq = await quotation_service.create_quotation(session, sq_in, current_user_id=admin_user.id)
-        assert sq.status == "Submitted"
+        sq = await supplier_quotation_service.create_quotation(session, sq_in, current_user_id=admin_user.id)
+        assert sq.status == "Draft"
         assert sq.total_amount == Decimal("2200.0")
+        submitted = await supplier_quotation_service.submit_quotation(session, sq.id, current_user_id=admin_user.id)
+        assert submitted.status == "Submitted"
 
         # Generate Comparison Matrix
         matrix = await rfq_service.get_comparison_matrix(session, rfq.id)

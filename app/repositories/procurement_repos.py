@@ -298,14 +298,51 @@ class PurchaseRequisitionRepository(
     def __init__(self):
         super().__init__(PurchaseRequisition)
 
+    async def get_by_id(
+        self, db: AsyncSession, id: Any, for_update: bool = False
+    ) -> Optional[PurchaseRequisition]:
+        stmt = (
+            select(PurchaseRequisition)
+            .options(
+                selectinload(PurchaseRequisition.items).selectinload(PurchaseRequisitionItem.product),
+                selectinload(PurchaseRequisition.requester),
+                selectinload(PurchaseRequisition.department),
+            )
+            .where(PurchaseRequisition.id == id)
+        )
+        if for_update and db.bind and db.bind.dialect.name != "sqlite":
+            stmt = stmt.with_for_update()
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, requisition_number: str) -> Optional[PurchaseRequisition]:
         stmt = (
             select(PurchaseRequisition)
-            .options(selectinload(PurchaseRequisition.items))
+            .options(
+                selectinload(PurchaseRequisition.items).selectinload(PurchaseRequisitionItem.product),
+                selectinload(PurchaseRequisition.requester),
+                selectinload(PurchaseRequisition.department),
+            )
             .where(PurchaseRequisition.requisition_number == requisition_number)
         )
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def get_max_number_suffix(self, db: AsyncSession, year: int) -> int:
+        prefix = f"PR-{year}-"
+        stmt = select(PurchaseRequisition.requisition_number).where(
+            PurchaseRequisition.requisition_number.like(f"{prefix}%")
+        )
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def get_multi_paginated(
         self,
@@ -314,10 +351,15 @@ class PurchaseRequisitionRepository(
         requester_id: Optional[uuid.UUID] = None,
         status: Optional[str] = None,
         priority: Optional[str] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[PurchaseRequisition], int]:
-        stmt = select(PurchaseRequisition).options(selectinload(PurchaseRequisition.items))
+        stmt = select(PurchaseRequisition).options(
+            selectinload(PurchaseRequisition.items).selectinload(PurchaseRequisitionItem.product),
+            selectinload(PurchaseRequisition.requester),
+            selectinload(PurchaseRequisition.department),
+        )
 
         if department_id:
             stmt = stmt.where(PurchaseRequisition.department_id == department_id)
@@ -327,6 +369,13 @@ class PurchaseRequisitionRepository(
             stmt = stmt.where(PurchaseRequisition.status == status)
         if priority:
             stmt = stmt.where(PurchaseRequisition.priority == priority)
+        if search:
+            stmt = stmt.where(
+                or_(
+                    PurchaseRequisition.requisition_number.ilike(f"%{search}%"),
+                    PurchaseRequisition.remarks.ilike(f"%{search}%"),
+                )
+            )
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_res = await db.execute(count_stmt)
@@ -341,17 +390,49 @@ class RFQRepository(BaseRepository[RFQ, RFQCreate, RFQUpdate]):
     def __init__(self):
         super().__init__(RFQ)
 
+    async def get_by_id(
+        self, db: AsyncSession, id: Any, for_update: bool = False
+    ) -> Optional[RFQ]:
+        stmt = (
+            select(RFQ)
+            .options(
+                selectinload(RFQ.invited_suppliers).selectinload(RFQSupplier.supplier),
+                selectinload(RFQ.quotations),
+                selectinload(RFQ.requisition),
+            )
+            .where(RFQ.id == id)
+        )
+        if for_update and db.bind and db.bind.dialect.name != "sqlite":
+            stmt = stmt.with_for_update()
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, rfq_number: str) -> Optional[RFQ]:
         stmt = (
             select(RFQ)
             .options(
-                selectinload(RFQ.invited_suppliers),
+                selectinload(RFQ.invited_suppliers).selectinload(RFQSupplier.supplier),
                 selectinload(RFQ.quotations),
+                selectinload(RFQ.requisition),
             )
             .where(RFQ.rfq_number == rfq_number)
         )
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def get_max_number_suffix(self, db: AsyncSession, year: int) -> int:
+        prefix = f"RFQ-{year}-"
+        stmt = select(RFQ.rfq_number).where(RFQ.rfq_number.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def get_multi_paginated(
         self,
@@ -361,7 +442,11 @@ class RFQRepository(BaseRepository[RFQ, RFQCreate, RFQUpdate]):
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[RFQ], int]:
-        stmt = select(RFQ).options(selectinload(RFQ.invited_suppliers), selectinload(RFQ.quotations))
+        stmt = select(RFQ).options(
+            selectinload(RFQ.invited_suppliers).selectinload(RFQSupplier.supplier),
+            selectinload(RFQ.quotations),
+            selectinload(RFQ.requisition),
+        )
 
         if status:
             stmt = stmt.where(RFQ.status == status)
@@ -381,6 +466,27 @@ class RFQSupplierRepository(BaseRepository[RFQSupplier, Any, Any]):
     def __init__(self):
         super().__init__(RFQSupplier)
 
+    async def get_by_rfq_and_supplier(
+        self, db: AsyncSession, rfq_id: uuid.UUID, supplier_id: uuid.UUID
+    ) -> Optional[RFQSupplier]:
+        stmt = (
+            select(RFQSupplier)
+            .options(selectinload(RFQSupplier.supplier))
+            .where(and_(RFQSupplier.rfq_id == rfq_id, RFQSupplier.supplier_id == supplier_id))
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_by_rfq(self, db: AsyncSession, rfq_id: uuid.UUID) -> List[RFQSupplier]:
+        stmt = (
+            select(RFQSupplier)
+            .options(selectinload(RFQSupplier.supplier))
+            .where(RFQSupplier.rfq_id == rfq_id)
+            .order_by(RFQSupplier.invited_at.asc())
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
 
 class SupplierQuotationRepository(
     BaseRepository[SupplierQuotation, SupplierQuotationCreate, SupplierQuotationUpdate]
@@ -388,14 +494,51 @@ class SupplierQuotationRepository(
     def __init__(self):
         super().__init__(SupplierQuotation)
 
+    async def get_by_id(
+        self, db: AsyncSession, id: Any, for_update: bool = False
+    ) -> Optional[SupplierQuotation]:
+        stmt = (
+            select(SupplierQuotation)
+            .options(
+                selectinload(SupplierQuotation.items).selectinload(SupplierQuotationItem.product),
+                selectinload(SupplierQuotation.supplier),
+                selectinload(SupplierQuotation.rfq),
+            )
+            .where(SupplierQuotation.id == id)
+        )
+        if for_update and db.bind and db.bind.dialect.name != "sqlite":
+            stmt = stmt.with_for_update()
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, quotation_number: str) -> Optional[SupplierQuotation]:
         stmt = (
             select(SupplierQuotation)
-            .options(selectinload(SupplierQuotation.items))
+            .options(
+                selectinload(SupplierQuotation.items).selectinload(SupplierQuotationItem.product),
+                selectinload(SupplierQuotation.supplier),
+                selectinload(SupplierQuotation.rfq),
+            )
             .where(SupplierQuotation.quotation_number == quotation_number)
         )
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def get_max_number_suffix(self, db: AsyncSession, year_month: str) -> int:
+        prefix = f"SQ-{year_month}-"
+        stmt = select(SupplierQuotation.quotation_number).where(
+            SupplierQuotation.quotation_number.like(f"{prefix}%")
+        )
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def get_multi_paginated(
         self,
@@ -403,10 +546,15 @@ class SupplierQuotationRepository(
         rfq_id: Optional[uuid.UUID] = None,
         supplier_id: Optional[uuid.UUID] = None,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[SupplierQuotation], int]:
-        stmt = select(SupplierQuotation).options(selectinload(SupplierQuotation.items))
+        stmt = select(SupplierQuotation).options(
+            selectinload(SupplierQuotation.items).selectinload(SupplierQuotationItem.product),
+            selectinload(SupplierQuotation.supplier),
+            selectinload(SupplierQuotation.rfq),
+        )
 
         if rfq_id:
             stmt = stmt.where(SupplierQuotation.rfq_id == rfq_id)
@@ -414,6 +562,13 @@ class SupplierQuotationRepository(
             stmt = stmt.where(SupplierQuotation.supplier_id == supplier_id)
         if status:
             stmt = stmt.where(SupplierQuotation.status == status)
+        if search:
+            stmt = stmt.where(
+                or_(
+                    SupplierQuotation.quotation_number.ilike(f"%{search}%"),
+                    SupplierQuotation.notes.ilike(f"%{search}%"),
+                )
+            )
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_res = await db.execute(count_stmt)

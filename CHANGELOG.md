@@ -5,6 +5,33 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.1] - 2026-09-07
+
+### Milestone Procurement Sourcing & Requisitions
+
+#### Added
+- **Purchase Requisition Subsystem (`app/models/purchase_requisition.py`, `app/repositories/procurement_repos.py`, `app/services/purchase_requisition_services.py`, `app/schemas/procurement.py`, `app/api/v1/endpoints/purchase_requisitions.py`)**:
+  - `PurchaseRequisition` and `PurchaseRequisitionItem` models with database-safe sequence numbering (`PR-YYYY-XXXXX`), line validations (quantity $> 0$, active products), and Draft modification locks.
+  - Integration with canonical platform `ApprovalEngineService.start_workflow(...)` using workflow code `WF_PURCHASE_REQUISITION` with duplicate request prevention and no silent auto-approval.
+  - Lifecycle state management: `Draft` $\rightarrow$ `Submitted` $\rightarrow$ `Approved` / `Rejected` / `Cancelled`.
+- **Request For Quotation (RFQ) Subsystem (`app/models/rfq.py`, `app/repositories/procurement_repos.py`, `app/services/rfq_services.py`, `app/schemas/procurement.py`, `app/api/v1/endpoints/rfqs.py`)**:
+  - Sourcing requests linked to internal demand (`PurchaseRequisition`) with database-safe sequence numbering (`RFQ-YYYY-XXXXX`).
+  - Multi-supplier invitation management with active supplier validation, unique invitation constraints, and blacklisted/inactive supplier rejection.
+  - RFQ lifecycle: `Draft` $\rightarrow$ `Issued` $\rightarrow$ `Closed` / `Cancelled`.
+- **Dedicated Supplier Quotation Subsystem (`app/models/supplier_quotation.py`, `app/services/supplier_quotation_services.py`, `app/api/v1/endpoints/supplier_quotations.py`)**:
+  - Complete domain isolation of `SupplierQuotation` and `SupplierQuotationItem` from `SalesQuotation` via dedicated `SupplierQuotationService`.
+  - Sequential quotation numbering (`SQ-YYYYMM-XXXXX`) and exact line/header total calculations (subtotal, percentage discounts, taxes, net total).
+  - Validation enforcing invited active suppliers on open RFQs, active product lines, and state transitions (`Draft` $\rightarrow$ `Submitted` $\rightarrow$ `Withdrawn` / `Approved` / `Rejected`).
+- **Quotation Comparison Matrix & Sourcing Award**:
+  - Deterministic RFQ quotation comparison view evaluating pricing, supplier rating, lead times, payment terms, and delivery parameters sorted lowest price first.
+  - Explicit quotation award (`award_quotation`) selecting the winning supplier quotation, marking winning quotation `Approved`, rejecting competing quotations, closing the RFQ, and auditing the decision.
+  - Zero-mutation guarantee preserving Inventory boundary (no stock movements) and Purchase Order boundary (PO creation deferred to `v0.7.2`).
+- **RBAC Security & Audit Logging**:
+  - Seeded 19 granular sourcing permissions across requisitions, RFQs, supplier quotations, comparison, and award.
+  - Comprehensive audit event logging (`PURCHASE_REQUISITION_*`, `RFQ_*`, `SUPPLIER_QUOTATION_*`) via `AuditLog`.
+- **Comprehensive Automated Test Suite (`tests/test_procurement_sourcing_v071.py`)**:
+  - 11 test suites covering all 53 milestone scenarios across PRs, RFQs, Supplier Quotations, comparison matrix, award, approval engine, safe numbering, RBAC, audit logging, inventory invariants, and regression.
+
 ## [v0.7.0] - 2026-09-07
 
 ### Milestone Procurement Foundation

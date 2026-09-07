@@ -1,5 +1,5 @@
 import math
-from typing import Optional
+from typing import List, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, Query, status
@@ -54,6 +54,16 @@ async def get_rfq(
     return await rfq_service.get_rfq(db, rfq_id)
 
 
+@router.put("/{rfq_id}", response_model=RFQResponse)
+async def update_rfq(
+    rfq_id: uuid.UUID,
+    obj_in: RFQUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.rfq.update")),
+):
+    return await rfq_service.update_rfq(db, rfq_id, obj_in, current_user_id=current_user.id)
+
+
 @router.post("/{rfq_id}/issue", response_model=RFQResponse)
 async def issue_rfq(
     rfq_id: uuid.UUID,
@@ -63,6 +73,16 @@ async def issue_rfq(
     return await rfq_service.issue_rfq(db, rfq_id, current_user_id=current_user.id)
 
 
+@router.post("/{rfq_id}/cancel", response_model=RFQResponse)
+async def cancel_rfq(
+    rfq_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.rfq.cancel")),
+):
+    return await rfq_service.cancel_rfq(db, rfq_id, current_user_id=current_user.id)
+
+
+@router.post("/{rfq_id}/suppliers", response_model=RFQSupplierResponse)
 @router.post("/{rfq_id}/invite", response_model=RFQSupplierResponse)
 async def invite_supplier(
     rfq_id: uuid.UUID,
@@ -70,9 +90,32 @@ async def invite_supplier(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("procurement.rfq.update")),
 ):
-    return await rfq_service.invite_supplier(db, rfq_id, invite_in.supplier_id)
+    return await rfq_service.invite_supplier(
+        db, rfq_id, invite_in.supplier_id, current_user_id=current_user.id
+    )
 
 
+@router.get("/{rfq_id}/suppliers", response_model=List[RFQSupplierResponse])
+async def list_invited_suppliers(
+    rfq_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.rfq.read")),
+):
+    return await rfq_service.list_invited_suppliers(db, rfq_id)
+
+
+@router.delete("/{rfq_id}/suppliers/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_supplier(
+    rfq_id: uuid.UUID,
+    supplier_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.rfq.update")),
+):
+    await rfq_service.remove_supplier(db, rfq_id, supplier_id, current_user_id=current_user.id)
+    return None
+
+
+@router.get("/{rfq_id}/comparison", response_model=RFQComparisonMatrix)
 @router.get("/{rfq_id}/comparison-matrix", response_model=RFQComparisonMatrix)
 async def get_comparison_matrix(
     rfq_id: uuid.UUID,
@@ -80,3 +123,15 @@ async def get_comparison_matrix(
     current_user: User = Depends(require_permission("procurement.rfq.read")),
 ):
     return await rfq_service.get_comparison_matrix(db, rfq_id)
+
+
+@router.post("/{rfq_id}/award/{quotation_id}", response_model=RFQResponse)
+async def award_quotation(
+    rfq_id: uuid.UUID,
+    quotation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.quotation.award")),
+):
+    return await rfq_service.award_quotation(
+        db, rfq_id, quotation_id, current_user_id=current_user.id
+    )

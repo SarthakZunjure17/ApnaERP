@@ -28,8 +28,15 @@ logger = logging.getLogger("app.services.rfq")
 
 class RFQService:
     """
-    Domain service for managing RFQs (Requests For Quotations), inviting suppliers, issuing RFQs, and generating Quotation Comparison Matrices.
+    Domain service for managing RFQs (Requests For Quotations), inviting suppliers, issuing RFQs,
+    generating Quotation Comparison Matrices, and explicit quotation award.
     """
+
+    async def _generate_rfq_number(self, db: AsyncSession) -> str:
+        year = datetime.now(timezone.utc).year
+        max_num = await rfq_repository.get_max_number_suffix(db, year)
+        return f"RFQ-{year}-{max_num + 1:05d}"
+
     async def create_rfq(
         self, db: AsyncSession, obj_in: RFQCreate, current_user_id: Optional[uuid.UUID] = None
     ) -> RFQ:
@@ -38,9 +45,7 @@ class RFQService:
             if not pr:
                 raise NotFoundException(f"Purchase Requisition with ID '{obj_in.requisition_id}' not found.")
 
-        # Generate RFQ Number (RFQ-YYYY-XXXXX)
-        count = (await rfq_repository.get_multi_paginated(db, limit=1))[1] + 1
-        rfq_num = f"RFQ-{datetime.now().year}-{count:05d}"
+        rfq_num = await self._generate_rfq_number(db)
 
         rfq = RFQ(
             rfq_number=rfq_num,
@@ -58,8 +63,10 @@ class RFQService:
         if obj_in.supplier_ids:
             for s_id in obj_in.supplier_ids:
                 supplier = await supplier_repository.get_by_id(db, s_id)
-                if supplier and not supplier.is_deleted and supplier.status != "Blacklisted":
-                    db.add(RFQSupplier(rfq_id=rfq.id, supplier_id=s_id, status="Invited"))
+                if supplier and not supplier.is_deleted and supplier.status == "Active":
+                    existing_invite = await rfq_supplier_repository.get_by_rfq_and_supplier(db, rfq.id, s_id)
+                    if not existing_invite:
+                        db.add(RFQSupplier(rfq_id=rfq.id, supplier_id=s_id, status="Invited"))
 
         await db.commit()
         await db.refresh(rfq)
@@ -70,14 +77,47 @@ class RFQService:
             entity_type="RFQ",
             entity_id=rfq.id,
             user_id=current_user_id,
+            new_data={"rfq_number": rfq_num, "title": rfq.title},
         )
-        return rfq
+        return await self.get_rfq(db, rfq.id)
 
     async def get_rfq(self, db: AsyncSession, rfq_id: uuid.UUID) -> RFQ:
         rfq = await rfq_repository.get_by_id(db, rfq_id)
         if not rfq:
             raise NotFoundException(f"RFQ with ID '{rfq_id}' not found.")
         return rfq
+
+    async def update_rfq(
+        self,
+        db: AsyncSession,
+        rfq_id: uuid.UUID,
+        obj_in: RFQUpdate,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> RFQ:
+        rfq = await self.get_rfq(db, rfq_id)
+        if rfq.status != "Draft":
+            raise ValidationException(f"Only Draft RFQs can be updated. Current status: '{rfq.status}'.")
+
+        if obj_in.title is not None:
+            rfq.title = obj_in.title
+        if obj_in.submission_deadline is not None:
+            rfq.submission_deadline = obj_in.submission_deadline
+        if obj_in.terms_and_conditions is not None:
+            rfq.terms_and_conditions = obj_in.terms_and_conditions
+        if obj_in.notes is not None:
+            rfq.notes = obj_in.notes
+
+        await db.commit()
+        await db.refresh(rfq)
+
+        await audit_log_service.log_event(
+            db,
+            action="RFQ_UPDATE",
+            entity_type="RFQ",
+            entity_id=rfq.id,
+            user_id=current_user_id,
+        )
+        return await self.get_rfq(db, rfq.id)
 
     async def issue_rfq(
         self, db: AsyncSession, rfq_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
@@ -89,6 +129,14 @@ class RFQService:
         rfq.status = "Issued"
         await db.commit()
         await db.refresh(rfq)
+
+        await audit_log_service.log_event(
+            db,
+            action="RFQ_ISSUE",
+            entity_type="RFQ",
+            entity_id=rfq.id,
+            user_id=current_user_id,
+        )
 
         # Publish Domain Event
         domain_event_publisher.publish(
@@ -102,21 +150,80 @@ class RFQService:
         )
 
         await redis_manager.delete_pattern("rfq:*")
-        return rfq
+        return await self.get_rfq(db, rfq.id)
+
+    async def cancel_rfq(
+        self, db: AsyncSession, rfq_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> RFQ:
+        rfq = await self.get_rfq(db, rfq_id)
+        if rfq.status in ("Closed", "Cancelled"):
+            raise ValidationException(f"Cannot cancel RFQ in status '{rfq.status}'.")
+
+        rfq.status = "Cancelled"
+        await db.commit()
+        await db.refresh(rfq)
+
+        await audit_log_service.log_event(
+            db,
+            action="RFQ_CANCEL",
+            entity_type="RFQ",
+            entity_id=rfq.id,
+            user_id=current_user_id,
+        )
+
+        await redis_manager.delete_pattern("rfq:*")
+        return await self.get_rfq(db, rfq.id)
 
     async def invite_supplier(
-        self, db: AsyncSession, rfq_id: uuid.UUID, supplier_id: uuid.UUID
+        self, db: AsyncSession, rfq_id: uuid.UUID, supplier_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> RFQSupplier:
         rfq = await self.get_rfq(db, rfq_id)
+        if rfq.status not in ("Draft", "Issued"):
+            raise ValidationException(f"Cannot invite suppliers to RFQ in status '{rfq.status}'.")
+
         supplier = await supplier_repository.get_by_id(db, supplier_id)
-        if not supplier or supplier.is_deleted or supplier.status == "Blacklisted":
-            raise ValidationException("Cannot invite inactive or blacklisted supplier.")
+        if not supplier or supplier.is_deleted:
+            raise NotFoundException(f"Supplier with ID '{supplier_id}' not found.")
+        if supplier.status != "Active":
+            raise ValidationException(f"Cannot invite supplier in '{supplier.status}' status. Supplier must be Active.")
+
+        existing = await rfq_supplier_repository.get_by_rfq_and_supplier(db, rfq.id, supplier_id)
+        if existing:
+            raise ValidationException("Supplier is already invited to this RFQ.")
 
         invite = RFQSupplier(rfq_id=rfq.id, supplier_id=supplier_id, status="Invited")
         db.add(invite)
         await db.commit()
         await db.refresh(invite)
+
+        await audit_log_service.log_event(
+            db,
+            action="RFQ_SUPPLIER_INVITED",
+            entity_type="RFQSupplier",
+            entity_id=invite.id,
+            user_id=current_user_id,
+            new_data={"rfq_id": str(rfq.id), "supplier_id": str(supplier_id)},
+        )
+
         return invite
+
+    async def remove_supplier(
+        self, db: AsyncSession, rfq_id: uuid.UUID, supplier_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> None:
+        rfq = await self.get_rfq(db, rfq_id)
+        if rfq.status != "Draft":
+            raise ValidationException("Cannot remove invited suppliers from a non-Draft RFQ.")
+
+        invite = await rfq_supplier_repository.get_by_rfq_and_supplier(db, rfq.id, supplier_id)
+        if not invite:
+            raise NotFoundException(f"Supplier invitation for supplier '{supplier_id}' not found in RFQ.")
+
+        await db.delete(invite)
+        await db.commit()
+
+    async def list_invited_suppliers(self, db: AsyncSession, rfq_id: uuid.UUID) -> List[RFQSupplier]:
+        rfq = await self.get_rfq(db, rfq_id)
+        return await rfq_supplier_repository.get_by_rfq(db, rfq.id)
 
     async def get_comparison_matrix(self, db: AsyncSession, rfq_id: uuid.UUID) -> RFQComparisonMatrix:
         rfq = await self.get_rfq(db, rfq_id)
@@ -143,7 +250,7 @@ class RFQService:
                 }
             )
 
-        # Sort matrix items by total_amount ascending (lowest price first)
+        # Deterministic sort: total_amount ascending
         matrix_items.sort(key=lambda x: x["total_amount"])
 
         return RFQComparisonMatrix(
@@ -153,6 +260,53 @@ class RFQService:
             quotations_count=len(quotations),
             comparison_items=matrix_items,
         )
+
+    async def award_quotation(
+        self,
+        db: AsyncSession,
+        rfq_id: uuid.UUID,
+        quotation_id: uuid.UUID,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> RFQ:
+        rfq = await self.get_rfq(db, rfq_id)
+        if rfq.status in ("Closed", "Cancelled"):
+            raise ValidationException(f"Cannot award quotation for RFQ in '{rfq.status}' status.")
+
+        quotation = await supplier_quotation_repository.get_by_id(db, quotation_id)
+        if not quotation:
+            raise NotFoundException(f"Supplier Quotation with ID '{quotation_id}' not found.")
+        if quotation.rfq_id != rfq.id:
+            raise ValidationException(f"Supplier Quotation '{quotation.quotation_number}' does not belong to RFQ '{rfq.rfq_number}'.")
+        if quotation.status not in ("Draft", "Submitted", "Under Review"):
+            raise ValidationException(f"Cannot award quotation in '{quotation.status}' status.")
+
+        # Update winning quotation
+        quotation.status = "Approved"
+
+        # Update other quotations belonging to this RFQ to Rejected
+        all_quotations, _ = await supplier_quotation_repository.get_multi_paginated(db, rfq_id=rfq.id, limit=200)
+        for other_q in all_quotations:
+            if other_q.id != quotation.id and other_q.status in ("Draft", "Submitted", "Under Review"):
+                other_q.status = "Rejected"
+
+        # Close the RFQ (sourcing completed)
+        rfq.status = "Closed"
+
+        await db.commit()
+        await db.refresh(rfq)
+
+        # Audit event
+        await audit_log_service.log_event(
+            db,
+            action="SUPPLIER_QUOTATION_AWARD",
+            entity_type="RFQ",
+            entity_id=rfq.id,
+            user_id=current_user_id,
+            new_data={"winning_quotation_id": str(quotation.id), "winning_quotation_number": quotation.quotation_number},
+        )
+
+        await redis_manager.delete_pattern("rfq:*")
+        return await self.get_rfq(db, rfq.id)
 
     async def list_rfqs(
         self,

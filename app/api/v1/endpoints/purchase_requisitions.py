@@ -33,6 +33,7 @@ async def list_requisitions(
     requester_id: Optional[uuid.UUID] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -45,6 +46,7 @@ async def list_requisitions(
         requester_id=requester_id,
         status=status,
         priority=priority,
+        search=search,
         skip=skip,
         limit=size,
     )
@@ -61,11 +63,23 @@ async def get_requisition(
     return await purchase_requisition_service.get_requisition(db, requisition_id)
 
 
+@router.put("/{requisition_id}", response_model=PurchaseRequisitionResponse)
+async def update_requisition(
+    requisition_id: uuid.UUID,
+    obj_in: PurchaseRequisitionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.requisition.update")),
+):
+    return await purchase_requisition_service.update_requisition(
+        db, requisition_id, obj_in, current_user_id=current_user.id
+    )
+
+
 @router.post("/{requisition_id}/submit", response_model=PurchaseRequisitionResponse)
 async def submit_requisition(
     requisition_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("procurement.requisition.create")),
+    current_user: User = Depends(require_permission("procurement.requisition.submit")),
 ):
     return await purchase_requisition_service.submit_requisition(db, requisition_id, requester_id=current_user.id)
 
@@ -77,6 +91,18 @@ async def approve_requisition(
     current_user: User = Depends(require_permission("procurement.requisition.approve")),
 ):
     return await purchase_requisition_service.approve_requisition(db, requisition_id, approver_id=current_user.id)
+
+
+@router.post("/{requisition_id}/reject", response_model=PurchaseRequisitionResponse)
+async def reject_requisition(
+    requisition_id: uuid.UUID,
+    reason: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("procurement.requisition.approve")),
+):
+    return await purchase_requisition_service.reject_requisition(
+        db, requisition_id, reason=reason, current_user_id=current_user.id
+    )
 
 
 @router.post("/{requisition_id}/cancel", response_model=PurchaseRequisitionResponse)

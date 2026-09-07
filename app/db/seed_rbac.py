@@ -349,6 +349,7 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Create Purchase Requisition", "code": "procurement.requisition.create", "description": "Permission to create purchase requisitions", "module_name": "procurement"},
     {"name": "Read Purchase Requisition", "code": "procurement.requisition.read", "description": "Permission to view purchase requisitions", "module_name": "procurement"},
     {"name": "Update Purchase Requisition", "code": "procurement.requisition.update", "description": "Permission to update purchase requisitions", "module_name": "procurement"},
+    {"name": "Submit Purchase Requisition", "code": "procurement.requisition.submit", "description": "Permission to submit purchase requisitions", "module_name": "procurement"},
     {"name": "Approve Purchase Requisition", "code": "procurement.requisition.approve", "description": "Permission to approve purchase requisitions", "module_name": "procurement"},
     {"name": "Cancel Purchase Requisition", "code": "procurement.requisition.cancel", "description": "Permission to cancel purchase requisitions", "module_name": "procurement"},
 
@@ -356,10 +357,17 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read RFQ", "code": "procurement.rfq.read", "description": "Permission to view requests for quotation", "module_name": "procurement"},
     {"name": "Update RFQ", "code": "procurement.rfq.update", "description": "Permission to update requests for quotation", "module_name": "procurement"},
     {"name": "Issue RFQ", "code": "procurement.rfq.issue", "description": "Permission to issue requests for quotation to suppliers", "module_name": "procurement"},
+    {"name": "Cancel RFQ", "code": "procurement.rfq.cancel", "description": "Permission to cancel requests for quotation", "module_name": "procurement"},
 
     {"name": "Create Supplier Quotation", "code": "procurement.quotation.create", "description": "Permission to create supplier quotations", "module_name": "procurement"},
     {"name": "Read Supplier Quotation", "code": "procurement.quotation.read", "description": "Permission to view supplier quotations", "module_name": "procurement"},
+    {"name": "Update Supplier Quotation", "code": "procurement.quotation.update", "description": "Permission to update supplier quotations", "module_name": "procurement"},
+    {"name": "Submit Supplier Quotation", "code": "procurement.quotation.submit", "description": "Permission to submit supplier quotations", "module_name": "procurement"},
+    {"name": "Withdraw Supplier Quotation", "code": "procurement.quotation.withdraw", "description": "Permission to withdraw supplier quotations", "module_name": "procurement"},
     {"name": "Approve Supplier Quotation", "code": "procurement.quotation.approve", "description": "Permission to approve supplier quotations", "module_name": "procurement"},
+    {"name": "Read Sourcing", "code": "procurement.sourcing.read", "description": "Permission to view sourcing activities", "module_name": "procurement"},
+    {"name": "Compare Sourcing Quotations", "code": "procurement.sourcing.compare", "description": "Permission to compare supplier quotations in RFQ", "module_name": "procurement"},
+    {"name": "Award Sourcing Quotation", "code": "procurement.quotation.award", "description": "Permission to award winning supplier quotation", "module_name": "procurement"},
 
     {"name": "Create Purchase Order", "code": "procurement.purchase_order.create", "description": "Permission to create purchase orders", "module_name": "procurement"},
     {"name": "Read Purchase Order", "code": "procurement.purchase_order.read", "description": "Permission to view purchase orders", "module_name": "procurement"},
@@ -648,7 +656,7 @@ async def seed_rbac_data(db: AsyncSession) -> None:
                 db, role_id=procurement_manager_role.id, permission_id=perm_obj.id
             )
         if procurement_viewer_role and (
-            perm_code.startswith("procurement.") and (perm_code.endswith(".read") or perm_code.endswith(".read"))
+            perm_code.startswith("procurement.") and (perm_code.endswith(".read") or perm_code.endswith(".compare"))
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=procurement_viewer_role.id, permission_id=perm_obj.id
