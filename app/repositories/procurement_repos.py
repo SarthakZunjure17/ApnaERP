@@ -52,10 +52,64 @@ class SupplierCategoryRepository(BaseRepository[SupplierCategory, SupplierCatego
         res = await db.execute(stmt)
         return res.scalar_one_or_none()
 
+    async def get_multi_paginated(
+        self,
+        db: AsyncSession,
+        search: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Tuple[List[SupplierCategory], int]:
+        stmt = select(SupplierCategory)
+        if search:
+            stmt = stmt.where(
+                or_(
+                    SupplierCategory.code.ilike(f"%{search}%"),
+                    SupplierCategory.name.ilike(f"%{search}%"),
+                )
+            )
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total_res = await db.execute(count_stmt)
+        total = total_res.scalar() or 0
+
+        stmt = stmt.order_by(SupplierCategory.code.asc()).offset(skip).limit(limit)
+        res = await db.execute(stmt)
+        return list(res.scalars().all()), total
+
+    async def count_active_suppliers(self, db: AsyncSession, category_id: uuid.UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(Supplier)
+            .where(Supplier.category_id == category_id)
+            .where(Supplier.is_deleted == False)
+        )
+        res = await db.execute(stmt)
+        return res.scalar() or 0
+
 
 class SupplierRepository(BaseRepository[Supplier, SupplierCreate, SupplierUpdate]):
     def __init__(self):
         super().__init__(Supplier)
+
+    async def get_by_id(
+        self, db: AsyncSession, id: Any, include_deleted: bool = False, for_update: bool = False
+    ) -> Optional[Supplier]:
+        stmt = (
+            select(Supplier)
+            .options(
+                selectinload(Supplier.category),
+                selectinload(Supplier.contacts),
+                selectinload(Supplier.addresses),
+                selectinload(Supplier.documents),
+                selectinload(Supplier.ratings),
+            )
+            .where(Supplier.id == id)
+        )
+        if not include_deleted:
+            stmt = stmt.where(Supplier.is_deleted == False)
+        if for_update and db.bind and db.bind.dialect.name != "sqlite":
+            stmt = stmt.with_for_update()
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
 
     async def get_by_code(self, db: AsyncSession, code: str) -> Optional[Supplier]:
         stmt = (
@@ -106,6 +160,7 @@ class SupplierRepository(BaseRepository[Supplier, SupplierCreate, SupplierUpdate
                     Supplier.code.ilike(f"%{search}%"),
                     Supplier.name.ilike(f"%{search}%"),
                     Supplier.gst_vat_number.ilike(f"%{search}%"),
+                    Supplier.tax_id.ilike(f"%{search}%"),
                 )
             )
 
@@ -117,25 +172,124 @@ class SupplierRepository(BaseRepository[Supplier, SupplierCreate, SupplierUpdate
         res = await db.execute(stmt)
         return list(res.scalars().all()), total
 
+    async def get_max_code_suffix(self, db: AsyncSession, prefix: str = "SUP-") -> int:
+        stmt = select(Supplier.code).where(Supplier.code.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        codes = res.scalars().all()
+        max_num = 0
+        for code in codes:
+            suffix = code[len(prefix):]
+            if suffix.isdigit():
+                num = int(suffix)
+                if num > max_num:
+                    max_num = num
+        return max_num
+
+    async def has_active_dependencies(self, db: AsyncSession, supplier_id: uuid.UUID) -> bool:
+        # Check Purchase Orders
+        po_stmt = select(func.count()).select_from(PurchaseOrder).where(PurchaseOrder.supplier_id == supplier_id)
+        po_count = (await db.execute(po_stmt)).scalar() or 0
+        if po_count > 0:
+            return True
+
+        # Check RFQ invitations
+        rfq_stmt = select(func.count()).select_from(RFQSupplier).where(RFQSupplier.supplier_id == supplier_id)
+        rfq_count = (await db.execute(rfq_stmt)).scalar() or 0
+        if rfq_count > 0:
+            return True
+
+        # Check Supplier Quotations
+        sq_stmt = select(func.count()).select_from(SupplierQuotation).where(SupplierQuotation.supplier_id == supplier_id)
+        sq_count = (await db.execute(sq_stmt)).scalar() or 0
+        if sq_count > 0:
+            return True
+
+        # Check Purchase Returns
+        pr_stmt = select(func.count()).select_from(PurchaseReturn).where(PurchaseReturn.supplier_id == supplier_id)
+        pr_count = (await db.execute(pr_stmt)).scalar() or 0
+        if pr_count > 0:
+            return True
+
+        return False
+
 
 class SupplierContactRepository(BaseRepository[SupplierContact, SupplierContactCreate, Any]):
     def __init__(self):
         super().__init__(SupplierContact)
+
+    async def get_by_supplier(self, db: AsyncSession, supplier_id: uuid.UUID) -> List[SupplierContact]:
+        stmt = select(SupplierContact).where(SupplierContact.supplier_id == supplier_id).order_by(SupplierContact.created_at.asc())
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_primary_contact(self, db: AsyncSession, supplier_id: uuid.UUID) -> Optional[SupplierContact]:
+        stmt = select(SupplierContact).where(
+            and_(SupplierContact.supplier_id == supplier_id, SupplierContact.is_primary == True)
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def clear_primary_contacts(
+        self, db: AsyncSession, supplier_id: uuid.UUID, exclude_contact_id: Optional[uuid.UUID] = None
+    ) -> None:
+        stmt = select(SupplierContact).where(
+            and_(SupplierContact.supplier_id == supplier_id, SupplierContact.is_primary == True)
+        )
+        if exclude_contact_id:
+            stmt = stmt.where(SupplierContact.id != exclude_contact_id)
+        res = await db.execute(stmt)
+        contacts = res.scalars().all()
+        for contact in contacts:
+            contact.is_primary = False
+            db.add(contact)
 
 
 class SupplierAddressRepository(BaseRepository[SupplierAddress, SupplierAddressCreate, Any]):
     def __init__(self):
         super().__init__(SupplierAddress)
 
+    async def get_by_supplier(self, db: AsyncSession, supplier_id: uuid.UUID) -> List[SupplierAddress]:
+        stmt = select(SupplierAddress).where(SupplierAddress.supplier_id == supplier_id).order_by(SupplierAddress.created_at.asc())
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
 
 class SupplierDocumentRepository(BaseRepository[SupplierDocument, SupplierDocumentCreate, Any]):
     def __init__(self):
         super().__init__(SupplierDocument)
 
+    async def get_by_supplier(self, db: AsyncSession, supplier_id: uuid.UUID) -> List[SupplierDocument]:
+        stmt = (
+            select(SupplierDocument)
+            .options(selectinload(SupplierDocument.file))
+            .where(SupplierDocument.supplier_id == supplier_id)
+            .order_by(SupplierDocument.created_at.asc())
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
 
 class SupplierRatingRepository(BaseRepository[SupplierRating, SupplierRatingCreate, Any]):
     def __init__(self):
         super().__init__(SupplierRating)
+
+    async def get_by_supplier(self, db: AsyncSession, supplier_id: uuid.UUID) -> List[SupplierRating]:
+        stmt = (
+            select(SupplierRating)
+            .options(selectinload(SupplierRating.reviewer))
+            .where(SupplierRating.supplier_id == supplier_id)
+            .order_by(SupplierRating.created_at.desc())
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def calculate_average_rating(self, db: AsyncSession, supplier_id: uuid.UUID) -> Optional[Decimal]:
+        stmt = select(func.avg(SupplierRating.score)).where(SupplierRating.supplier_id == supplier_id)
+        res = await db.execute(stmt)
+        avg_score = res.scalar()
+        if avg_score is not None:
+            return Decimal(str(round(avg_score, 2)))
+        return None
 
 
 class PurchaseRequisitionRepository(

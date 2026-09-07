@@ -28,6 +28,14 @@ class SupplierCategoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaginatedSupplierCategoryResponse(BaseModel):
+    items: List[SupplierCategoryResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
 # --- Supplier Contacts ---
 class SupplierContactCreate(BaseModel):
     contact_name: str = Field(..., min_length=2, max_length=100)
@@ -35,6 +43,14 @@ class SupplierContactCreate(BaseModel):
     email: str = Field(..., min_length=5, max_length=150)
     phone: Optional[str] = None
     is_primary: bool = False
+
+
+class SupplierContactUpdate(BaseModel):
+    contact_name: Optional[str] = Field(None, min_length=2, max_length=100)
+    designation: Optional[str] = None
+    email: Optional[str] = Field(None, min_length=5, max_length=150)
+    phone: Optional[str] = None
+    is_primary: Optional[bool] = None
 
 
 class SupplierContactResponse(BaseModel):
@@ -51,6 +67,14 @@ class SupplierContactResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaginatedSupplierContactResponse(BaseModel):
+    items: List[SupplierContactResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
 # --- Supplier Addresses ---
 class SupplierAddressCreate(BaseModel):
     address_type: str = Field("Billing", description="Billing, Shipping, Head Office, Branch")
@@ -61,6 +85,17 @@ class SupplierAddressCreate(BaseModel):
     country: str = Field(..., min_length=2, max_length=100)
     postal_code: str = Field(..., min_length=2, max_length=20)
     is_primary: bool = False
+
+
+class SupplierAddressUpdate(BaseModel):
+    address_type: Optional[str] = Field(None, description="Billing, Shipping, Head Office, Branch")
+    address_line1: Optional[str] = Field(None, min_length=2, max_length=255)
+    address_line2: Optional[str] = None
+    city: Optional[str] = Field(None, min_length=2, max_length=100)
+    state: Optional[str] = Field(None, min_length=2, max_length=100)
+    country: Optional[str] = Field(None, min_length=2, max_length=100)
+    postal_code: Optional[str] = Field(None, min_length=2, max_length=20)
+    is_primary: Optional[bool] = None
 
 
 class SupplierAddressResponse(BaseModel):
@@ -80,10 +115,23 @@ class SupplierAddressResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaginatedSupplierAddressResponse(BaseModel):
+    items: List[SupplierAddressResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
 # --- Supplier Documents ---
 class SupplierDocumentCreate(BaseModel):
     file_id: uuid.UUID
     document_type: str = Field(..., min_length=2, max_length=100)
+    description: Optional[str] = None
+
+
+class SupplierDocumentUpdate(BaseModel):
+    document_type: Optional[str] = Field(None, min_length=2, max_length=100)
     description: Optional[str] = None
 
 
@@ -97,6 +145,14 @@ class SupplierDocumentResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedSupplierDocumentResponse(BaseModel):
+    items: List[SupplierDocumentResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 # --- Supplier Ratings ---
@@ -118,15 +174,23 @@ class SupplierRatingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaginatedSupplierRatingResponse(BaseModel):
+    items: List[SupplierRatingResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
 # --- Supplier Master ---
 class SupplierCreate(BaseModel):
-    code: str = Field(..., min_length=2, max_length=50)
+    code: Optional[str] = Field(None, min_length=2, max_length=50)
     name: str = Field(..., min_length=2, max_length=150)
     category_id: Optional[uuid.UUID] = None
     gst_vat_number: Optional[str] = None
     tax_id: Optional[str] = None
     payment_terms: str = "Net 30"
-    credit_limit: Decimal = Decimal("0.0")
+    credit_limit: Decimal = Field(Decimal("0.0"), ge=Decimal("0.0"))
     currency: str = "USD"
     bank_name: Optional[str] = None
     bank_account_number: Optional[str] = None
@@ -143,7 +207,7 @@ class SupplierUpdate(BaseModel):
     gst_vat_number: Optional[str] = None
     tax_id: Optional[str] = None
     payment_terms: Optional[str] = None
-    credit_limit: Optional[Decimal] = None
+    credit_limit: Optional[Decimal] = Field(None, ge=Decimal("0.0"))
     currency: Optional[str] = None
     bank_name: Optional[str] = None
     bank_account_number: Optional[str] = None

@@ -5,6 +5,32 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.0] - 2026-09-07
+
+### Milestone Procurement Foundation
+
+#### Added
+- **Authoritative Supplier Master Domain (`app/models/supplier.py`, `app/repositories/procurement_repos.py`, `app/services/supplier_services.py`, `app/schemas/procurement.py`)**:
+  - `SupplierCategory`: Canonical taxonomy classifying suppliers by industry and material type with unique code constraints and protected deactivation.
+  - `Supplier`: Authoritative master identity with sequential `SUP-00001` code generation, commercial defaults, sensitive banking metadata masking (`****1234`), and lifecycle state transitions (`Active`, `Inactive`, `Blacklisted`).
+  - `SupplierContact`: Multi-contact registry enforcing strict single primary contact per supplier with atomic synchronization.
+  - `SupplierAddress`: Multi-location logistical endpoints (`Billing`, `Shipping`, `Head Office`, `Branch`) with cross-supplier isolation.
+  - `SupplierDocument`: Compliance attachments linked directly to canonical `files.id` (`File` engine) with validation and expiry tracking.
+  - `SupplierRating`: Immutable performance evaluation scorecards (scores 1.00 to 5.00) and automatic calculation of aggregate `Supplier.rating`.
+- **RBAC Security & Roles (`app/db/seed_rbac.py`)**:
+  - Seeded granular permissions: `procurement.supplier.create`, `procurement.supplier.read`, `procurement.supplier.update`, `procurement.supplier.delete`, `procurement.supplier.blacklist`, and child entity permissions.
+  - Seeded canonical roles: `Procurement Manager` (full administrative rights) and `Procurement Viewer` (read-only rights).
+- **Audit Logging & Event Publication**:
+  - Integrated canonical `AuditLog` for all supplier, category, contact, address, document, and rating lifecycle mutations with sensitive data masking.
+  - Published domain events (`SupplierCreated`, `SupplierUpdated`, etc.) via `DomainEventPublisher`.
+- **Search & Pagination**:
+  - Full PostgreSQL-backed search across supplier code, legal name, tax identifiers, email, and category filters with standard pagination models (`page`, `size`, `total`, `pages`).
+- **Comprehensive Automated Test Suite (`tests/test_procurement_foundation.py`)**:
+  - 44 dedicated tests validating categories, suppliers, contacts, addresses, documents, ratings, RBAC, audit logging, concurrency hardening, and zero-regression compatibility.
+- **Documentation & ADR**:
+  - `docs/procurement/procurement-foundation.md`: Complete domain specification for v0.7.0.
+  - `docs/adr/ADR-0033-procurement-foundation.md`: Architecture Decision Record for Procurement Foundation.
+
 ## [v0.6.4] - 2026-09-06
 
 ### Milestone Inventory Reports & Analytics

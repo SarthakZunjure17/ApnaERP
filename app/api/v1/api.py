@@ -228,6 +228,7 @@ api_router.include_router(inventory_search.router, prefix="/inventory/search", t
 api_router.include_router(inventory_import_export.router, prefix="/inventory/import-export", tags=["Inventory Import Export"])
 
 # Procurement Domain Completion Routers
+api_router.include_router(suppliers.router, prefix="/suppliers", tags=["Supplier Master & Ratings"])
 api_router.include_router(suppliers.router, prefix="/procurement/suppliers", tags=["Supplier Master & Ratings"])
 api_router.include_router(purchase_requisitions.router, prefix="/procurement/requisitions", tags=["Purchase Requisitions"])
 api_router.include_router(rfqs.router, prefix="/procurement/rfqs", tags=["Requests For Quotations (RFQ)"])

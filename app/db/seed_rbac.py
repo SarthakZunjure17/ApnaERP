@@ -323,6 +323,29 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Supplier", "code": "procurement.supplier.delete", "description": "Permission to delete suppliers", "module_name": "procurement"},
     {"name": "Blacklist Supplier", "code": "procurement.supplier.blacklist", "description": "Permission to blacklist suppliers", "module_name": "procurement"},
 
+    {"name": "Create Supplier Category", "code": "procurement.category.create", "description": "Permission to create supplier categories", "module_name": "procurement"},
+    {"name": "Read Supplier Category", "code": "procurement.category.read", "description": "Permission to view supplier categories", "module_name": "procurement"},
+    {"name": "Update Supplier Category", "code": "procurement.category.update", "description": "Permission to update supplier categories", "module_name": "procurement"},
+    {"name": "Delete Supplier Category", "code": "procurement.category.delete", "description": "Permission to delete supplier categories", "module_name": "procurement"},
+
+    {"name": "Create Supplier Contact", "code": "procurement.contact.create", "description": "Permission to create supplier contacts", "module_name": "procurement"},
+    {"name": "Read Supplier Contact", "code": "procurement.contact.read", "description": "Permission to view supplier contacts", "module_name": "procurement"},
+    {"name": "Update Supplier Contact", "code": "procurement.contact.update", "description": "Permission to update supplier contacts", "module_name": "procurement"},
+    {"name": "Delete Supplier Contact", "code": "procurement.contact.delete", "description": "Permission to delete supplier contacts", "module_name": "procurement"},
+
+    {"name": "Create Supplier Address", "code": "procurement.address.create", "description": "Permission to create supplier addresses", "module_name": "procurement"},
+    {"name": "Read Supplier Address", "code": "procurement.address.read", "description": "Permission to view supplier addresses", "module_name": "procurement"},
+    {"name": "Update Supplier Address", "code": "procurement.address.update", "description": "Permission to update supplier addresses", "module_name": "procurement"},
+    {"name": "Delete Supplier Address", "code": "procurement.address.delete", "description": "Permission to delete supplier addresses", "module_name": "procurement"},
+
+    {"name": "Create Supplier Document", "code": "procurement.document.create", "description": "Permission to attach supplier documents", "module_name": "procurement"},
+    {"name": "Read Supplier Document", "code": "procurement.document.read", "description": "Permission to view supplier documents", "module_name": "procurement"},
+    {"name": "Update Supplier Document", "code": "procurement.document.update", "description": "Permission to update supplier documents", "module_name": "procurement"},
+    {"name": "Delete Supplier Document", "code": "procurement.document.delete", "description": "Permission to delete supplier documents", "module_name": "procurement"},
+
+    {"name": "Create Supplier Rating", "code": "procurement.rating.create", "description": "Permission to evaluate and rate suppliers", "module_name": "procurement"},
+    {"name": "Read Supplier Rating", "code": "procurement.rating.read", "description": "Permission to view supplier evaluations and ratings", "module_name": "procurement"},
+
     {"name": "Create Purchase Requisition", "code": "procurement.requisition.create", "description": "Permission to create purchase requisitions", "module_name": "procurement"},
     {"name": "Read Purchase Requisition", "code": "procurement.requisition.read", "description": "Permission to view purchase requisitions", "module_name": "procurement"},
     {"name": "Update Purchase Requisition", "code": "procurement.requisition.update", "description": "Permission to update purchase requisitions", "module_name": "procurement"},
@@ -531,6 +554,7 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "HR Executive", "description": "Human Resources operational privileges"},
     {"name": "Inventory Manager", "description": "Stock and warehouse management privileges"},
     {"name": "Procurement Manager", "description": "Purchasing and supplier management privileges"},
+    {"name": "Procurement Viewer", "description": "Read-only access to procurement records"},
     {"name": "Sales Manager", "description": "Sales orders and revenue management privileges"},
     {"name": "CRM Manager", "description": "Lead acquisition, sales pipeline, and campaign management privileges"},
     {"name": "Finance Manager", "description": "General Ledger, posting rules, taxes, and fiscal management privileges"},
@@ -588,10 +612,12 @@ async def seed_rbac_data(db: AsyncSession) -> None:
             await inventory_transaction_type_repository.create(db, obj_in=t_data)
             logger.info(f"Seeded inventory transaction type: {t_data['code']}")
 
-    # 4. Assign Permissions to Super Admin, HR Manager, and Inventory Manager
+    # 4. Assign Permissions to Roles
     super_admin_role = created_roles.get("Super Admin")
     hr_manager_role = created_roles.get("HR Manager")
     inventory_manager_role = created_roles.get("Inventory Manager")
+    procurement_manager_role = created_roles.get("Procurement Manager")
+    procurement_viewer_role = created_roles.get("Procurement Viewer")
     finance_manager_role = created_roles.get("Finance Manager")
     chief_accountant_role = created_roles.get("Chief Accountant")
 
@@ -616,6 +642,16 @@ async def seed_rbac_data(db: AsyncSession) -> None:
         if inventory_manager_role and perm_code.startswith("inventory."):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=inventory_manager_role.id, permission_id=perm_obj.id
+            )
+        if procurement_manager_role and perm_code.startswith("procurement."):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=procurement_manager_role.id, permission_id=perm_obj.id
+            )
+        if procurement_viewer_role and (
+            perm_code.startswith("procurement.") and (perm_code.endswith(".read") or perm_code.endswith(".read"))
+        ):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=procurement_viewer_role.id, permission_id=perm_obj.id
             )
         if (finance_manager_role or chief_accountant_role) and perm_code.startswith("finance."):
             if finance_manager_role:
