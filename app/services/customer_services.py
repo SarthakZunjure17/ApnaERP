@@ -74,16 +74,16 @@ class CustomerService:
             for c in obj_in.contacts:
                 c_data = c.model_dump()
                 c_data["customer_id"] = customer.id
-                await customer_contact_repository.create(db, obj_in=c_data)
+                customer.contacts.append(CustomerContact(**c_data))
 
         if obj_in.addresses:
             for a in obj_in.addresses:
                 a_data = a.model_dump()
                 a_data["customer_id"] = customer.id
-                await customer_address_repository.create(db, obj_in=a_data)
+                customer.addresses.append(CustomerAddress(**a_data))
 
-        # Refresh customer
-        full_cust = await customer_repository.get_by_id(db, customer.id)
+        await db.commit()
+        await db.refresh(customer)
         await audit_log_service.log_event(
             db=db,
             user_id=current_user_id,
@@ -92,7 +92,7 @@ class CustomerService:
             entity_id=str(customer.id),
             new_data={"customer_code": customer.customer_code, "name": customer.name},
         )
-        return full_cust
+        return customer
 
     async def update_customer(
         self, db: AsyncSession, customer_id: uuid.UUID, obj_in: CustomerUpdate, current_user_id: Optional[uuid.UUID] = None
@@ -221,10 +221,46 @@ class CustomerService:
             })
         return res
 
+    async def activate_customer(
+        self, db: AsyncSession, customer_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> Customer:
+        customer = await self.get_customer(db, customer_id)
+        customer.status = "Active"
+        await db.commit()
+        await db.refresh(customer)
+
+        await audit_log_service.log_event(
+            db=db,
+            user_id=current_user_id,
+            action="CUSTOMER_ACTIVATE",
+            entity_type="Customer",
+            entity_id=str(customer_id),
+            new_data={"status": "Active"},
+        )
+        return customer
+
+    async def deactivate_customer(
+        self, db: AsyncSession, customer_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> Customer:
+        customer = await self.get_customer(db, customer_id)
+        customer.status = "Inactive"
+        await db.commit()
+        await db.refresh(customer)
+
+        await audit_log_service.log_event(
+            db=db,
+            user_id=current_user_id,
+            action="CUSTOMER_DEACTIVATE",
+            entity_type="Customer",
+            entity_id=str(customer_id),
+            new_data={"status": "Inactive"},
+        )
+        return customer
+
     async def check_credit_limit(self, db: AsyncSession, customer_id: uuid.UUID, requested_amount: Decimal) -> bool:
         cust = await self.get_customer(db, customer_id)
-        if cust.status == "Blacklisted":
-            raise ValidationException(f"Customer '{cust.name}' is blacklisted and cannot place new orders.")
+        if cust.status != "Active":
+            raise ValidationException(f"Customer '{cust.name}' is {cust.status.lower()} and cannot place new orders.")
         # If credit_limit is > 0, ensure requested_amount <= credit_limit
         if cust.credit_limit > Decimal("0.00") and requested_amount > cust.credit_limit:
             raise ValidationException(

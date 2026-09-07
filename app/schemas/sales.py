@@ -247,7 +247,7 @@ class SalesQuotationItemResponse(BaseModel):
 
 class SalesQuotationCreate(BaseModel):
     customer_id: uuid.UUID
-    validity_date: datetime
+    validity_date: Optional[datetime] = None
     currency: str = "INR"
     remarks: Optional[str] = None
     items: List[SalesQuotationItemCreate]
@@ -266,7 +266,7 @@ class SalesQuotationResponse(BaseModel):
     customer_id: uuid.UUID
     customer: Optional[CustomerResponse] = None
     quotation_date: datetime
-    validity_date: datetime
+    validity_date: Optional[datetime] = None
     currency: str
     status: str
     revision_number: int

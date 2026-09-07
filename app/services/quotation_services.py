@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, List, Optional, Tuple
 import uuid
@@ -19,10 +19,11 @@ from app.services.pricing_services import discount_service
 
 class QuotationService:
     async def _generate_quotation_number(self, db: AsyncSession) -> str:
-        count_stmt = await sales_quotation_repository.get_all(db, limit=1)
-        # Unique timestamp based code
-        uid = uuid.uuid4().hex[:6].upper()
-        return f"SQ-{datetime.now(timezone.utc).strftime('%Y%m')}-{uid}"
+        year = datetime.now(timezone.utc).year
+        prefix = f"SQ-{year}-"
+        max_suffix = await sales_quotation_repository.get_max_number_suffix(db, prefix=prefix)
+        new_num = max_suffix + 1
+        return f"{prefix}{new_num:05d}"
 
     async def create_quotation(
         self, db: AsyncSession, obj_in: SalesQuotationCreate, current_user_id: Optional[uuid.UUID] = None
@@ -30,15 +31,21 @@ class QuotationService:
         cust = await customer_repository.get_by_id(db, obj_in.customer_id)
         if not cust or cust.is_deleted:
             raise NotFoundException(f"Customer ID '{obj_in.customer_id}' not found.")
+        if cust.status != "Active":
+            raise ValidationException(f"Customer '{cust.name}' is {cust.status.lower()} and cannot be used for quotations.")
+
+        if not obj_in.items:
+            raise ValidationException("Quotation must have at least one line item.")
 
         q_number = await self._generate_quotation_number(db)
+        validity = obj_in.validity_date or (datetime.now(timezone.utc) + timedelta(days=30))
         quotation = await sales_quotation_repository.create(
             db,
             obj_in={
                 "quotation_number": q_number,
                 "customer_id": obj_in.customer_id,
                 "quotation_date": datetime.now(timezone.utc),
-                "validity_date": obj_in.validity_date,
+                "validity_date": validity,
                 "currency": obj_in.currency,
                 "status": "Draft",
                 "revision_number": 1,
@@ -56,9 +63,16 @@ class QuotationService:
         total_tax = Decimal("0.00")
 
         for item_in in obj_in.items:
+            if item_in.quantity <= Decimal("0.00"):
+                raise ValidationException("Item quantity must be greater than 0.")
+            if item_in.unit_price < Decimal("0.00"):
+                raise ValidationException("Item unit price cannot be negative.")
+
             prod = await product_repository.get_by_id(db, item_in.product_id)
             if not prod:
                 raise NotFoundException(f"Product ID '{item_in.product_id}' not found.")
+            if hasattr(prod, "is_active") and not prod.is_active:
+                raise ValidationException(f"Product '{prod.name}' is inactive and cannot be quoted.")
 
             gross = item_in.unit_price * item_in.quantity
             disc_amt = await discount_service.calculate_line_discount(
@@ -99,7 +113,7 @@ class QuotationService:
         await audit_log_service.log_event(
             db=db,
             user_id=current_user_id,
-            action="QUOTATION_CREATE",
+            action="SALES_QUOTATION_CREATE",
             entity_type="SalesQuotation",
             entity_id=str(quotation.id),
             new_data={"quotation_number": q_number, "total_amount": float(net_total)},
@@ -117,8 +131,8 @@ class QuotationService:
         if not quotation:
             raise NotFoundException(f"Quotation ID '{quotation_id}' not found.")
 
-        if quotation.status not in ("Draft", "Submitted"):
-            raise ValidationException(f"Cannot update quotation in status '{quotation.status}'.")
+        if quotation.status != "Draft":
+            raise ValidationException(f"Cannot update quotation in status '{quotation.status}'. Only Draft quotations can be updated.")
 
         quotation.revision_number += 1
         if obj_in.validity_date:
@@ -129,6 +143,8 @@ class QuotationService:
             quotation.remarks = obj_in.remarks
 
         if obj_in.items is not None:
+            if not obj_in.items:
+                raise ValidationException("Quotation must have at least one line item.")
             # Clear items and recalculate
             quotation.items.clear()
             subtotal = Decimal("0.00")
@@ -136,9 +152,16 @@ class QuotationService:
             total_tax = Decimal("0.00")
 
             for item_in in obj_in.items:
+                if item_in.quantity <= Decimal("0.00"):
+                    raise ValidationException("Item quantity must be greater than 0.")
+                if item_in.unit_price < Decimal("0.00"):
+                    raise ValidationException("Item unit price cannot be negative.")
+
                 prod = await product_repository.get_by_id(db, item_in.product_id)
                 if not prod:
                     raise NotFoundException(f"Product ID '{item_in.product_id}' not found.")
+                if hasattr(prod, "is_active") and not prod.is_active:
+                    raise ValidationException(f"Product '{prod.name}' is inactive and cannot be quoted.")
 
                 gross = item_in.unit_price * item_in.quantity
                 disc_amt = await discount_service.calculate_line_discount(
@@ -178,7 +201,7 @@ class QuotationService:
         await audit_log_service.log_event(
             db=db,
             user_id=current_user_id,
-            action="QUOTATION_UPDATE",
+            action="SALES_QUOTATION_UPDATE",
             entity_type="SalesQuotation",
             entity_id=str(quotation_id),
             new_data={"revision_number": quotation.revision_number},
@@ -210,13 +233,19 @@ class QuotationService:
         q = await self.get_quotation(db, quotation_id)
         if q.status != "Draft":
             raise ValidationException(f"Quotation in status '{q.status}' cannot be submitted.")
+        if not q.items:
+            raise ValidationException("Quotation must have at least one line item before submission.")
+
+        cust = await customer_repository.get_by_id(db, q.customer_id)
+        if cust and cust.status != "Active":
+            raise ValidationException(f"Customer '{cust.name}' is {cust.status.lower()} and cannot be used for quotation submission.")
 
         q.status = "Submitted"
         await db.commit()
         await audit_log_service.log_event(
             db=db,
             user_id=current_user_id,
-            action="QUOTATION_SUBMIT",
+            action="SALES_QUOTATION_SUBMIT",
             entity_type="SalesQuotation",
             entity_id=str(quotation_id),
         )
@@ -236,7 +265,7 @@ class QuotationService:
         await audit_log_service.log_event(
             db=db,
             user_id=current_user_id,
-            action="QUOTATION_APPROVE",
+            action="SALES_QUOTATION_APPROVE",
             entity_type="SalesQuotation",
             entity_id=str(quotation_id),
         )
@@ -256,7 +285,25 @@ class QuotationService:
         await audit_log_service.log_event(
             db=db,
             user_id=current_user_id,
-            action="QUOTATION_REJECT",
+            action="SALES_QUOTATION_REJECT",
+            entity_type="SalesQuotation",
+            entity_id=str(quotation_id),
+        )
+        return await self.get_quotation(db, quotation_id)
+
+    async def cancel_quotation(
+        self, db: AsyncSession, quotation_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> SalesQuotation:
+        q = await self.get_quotation(db, quotation_id)
+        if q.status in ("Converted", "Cancelled"):
+            raise ValidationException(f"Quotation in status '{q.status}' cannot be cancelled.")
+
+        q.status = "Cancelled"
+        await db.commit()
+        await audit_log_service.log_event(
+            db=db,
+            user_id=current_user_id,
+            action="SALES_QUOTATION_CANCEL",
             entity_type="SalesQuotation",
             entity_id=str(quotation_id),
         )
@@ -309,7 +356,6 @@ class QuotationService:
 
     async def expire_quotations(self, db: AsyncSession) -> int:
         now = datetime.now(timezone.utc)
-        # Find active quotations past validity_date
         quots, _ = await sales_quotation_repository.search_quotations(db, status="Submitted", limit=500)
         expired_count = 0
         for q in quots:

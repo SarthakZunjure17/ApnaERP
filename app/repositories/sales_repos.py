@@ -37,9 +37,28 @@ class CustomerRepository(BaseRepository[Customer, Any, Any]):
     def __init__(self):
         super().__init__(Customer)
 
+    async def get_by_id(self, db: AsyncSession, id: uuid.UUID) -> Optional[Customer]:
+        stmt = (
+            select(Customer)
+            .options(
+                selectinload(Customer.contacts),
+                selectinload(Customer.addresses),
+                selectinload(Customer.category),
+            )
+            .where(and_(Customer.id == id, Customer.is_deleted.is_(False)))
+        )
+        res = await db.execute(stmt)
+        return res.scalars().first()
+
     async def get_by_code(self, db: AsyncSession, customer_code: str) -> Optional[Customer]:
-        stmt = select(Customer).where(
-            and_(Customer.customer_code == customer_code, Customer.is_deleted.is_(False))
+        stmt = (
+            select(Customer)
+            .options(
+                selectinload(Customer.contacts),
+                selectinload(Customer.addresses),
+                selectinload(Customer.category),
+            )
+            .where(and_(Customer.customer_code == customer_code, Customer.is_deleted.is_(False)))
         )
         res = await db.execute(stmt)
         return res.scalars().first()
@@ -184,10 +203,33 @@ class SalesQuotationRepository(BaseRepository[SalesQuotation, Any, Any]):
         res = await db.execute(stmt)
         return res.scalars().first()
 
+    async def get_for_update(self, db: AsyncSession, id: uuid.UUID) -> Optional[SalesQuotation]:
+        stmt = (
+            select(SalesQuotation)
+            .options(selectinload(SalesQuotation.items))
+            .where(SalesQuotation.id == id)
+            .with_for_update()
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, quotation_number: str) -> Optional[SalesQuotation]:
         stmt = select(SalesQuotation).where(SalesQuotation.quotation_number == quotation_number).options(selectinload(SalesQuotation.items))
         res = await db.execute(stmt)
         return res.scalars().first()
+
+    async def get_max_number_suffix(self, db: AsyncSession, prefix: str = "SQ-") -> int:
+        stmt = select(SalesQuotation.quotation_number).where(SalesQuotation.quotation_number.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def search_quotations(
         self,
@@ -228,10 +270,33 @@ class SalesOrderRepository(BaseRepository[SalesOrder, Any, Any]):
         res = await db.execute(stmt)
         return res.scalars().first()
 
+    async def get_for_update(self, db: AsyncSession, id: uuid.UUID) -> Optional[SalesOrder]:
+        stmt = (
+            select(SalesOrder)
+            .options(selectinload(SalesOrder.items))
+            .where(SalesOrder.id == id)
+            .with_for_update()
+        )
+        res = await db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_by_number(self, db: AsyncSession, order_number: str) -> Optional[SalesOrder]:
         stmt = select(SalesOrder).where(SalesOrder.order_number == order_number).options(selectinload(SalesOrder.items))
         res = await db.execute(stmt)
         return res.scalars().first()
+
+    async def get_max_number_suffix(self, db: AsyncSession, prefix: str = "SO-") -> int:
+        stmt = select(SalesOrder.order_number).where(SalesOrder.order_number.like(f"{prefix}%"))
+        res = await db.execute(stmt)
+        numbers = res.scalars().all()
+        max_num = 0
+        for num_str in numbers:
+            suffix = num_str[len(prefix):]
+            if suffix.isdigit():
+                val = int(suffix)
+                if val > max_num:
+                    max_num = val
+        return max_num
 
     async def search_orders(
         self,

@@ -403,12 +403,17 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Create Sales Quotation", "code": "sales.quotation.create", "description": "Permission to create sales quotations", "module_name": "sales"},
     {"name": "Read Sales Quotation", "code": "sales.quotation.read", "description": "Permission to view sales quotations", "module_name": "sales"},
     {"name": "Update Sales Quotation", "code": "sales.quotation.update", "description": "Permission to update sales quotations", "module_name": "sales"},
+    {"name": "Submit Sales Quotation", "code": "sales.quotation.submit", "description": "Permission to submit sales quotations", "module_name": "sales"},
     {"name": "Approve Sales Quotation", "code": "sales.quotation.approve", "description": "Permission to approve or reject sales quotations", "module_name": "sales"},
+    {"name": "Cancel Sales Quotation", "code": "sales.quotation.cancel", "description": "Permission to cancel sales quotations", "module_name": "sales"},
 
     {"name": "Create Sales Order", "code": "sales.order.create", "description": "Permission to create sales orders", "module_name": "sales"},
     {"name": "Read Sales Order", "code": "sales.order.read", "description": "Permission to view sales orders", "module_name": "sales"},
     {"name": "Update Sales Order", "code": "sales.order.update", "description": "Permission to update sales orders", "module_name": "sales"},
+    {"name": "Submit Sales Order", "code": "sales.order.submit", "description": "Permission to submit sales orders for approval", "module_name": "sales"},
     {"name": "Approve Sales Order", "code": "sales.order.approve", "description": "Permission to approve or reject sales orders", "module_name": "sales"},
+    {"name": "Cancel Sales Order", "code": "sales.order.cancel", "description": "Permission to cancel sales orders", "module_name": "sales"},
+    {"name": "Fulfill Sales Order", "code": "sales.order.fulfill", "description": "Permission to fulfill sales orders", "module_name": "sales"},
 
     {"name": "Create Delivery Order", "code": "sales.delivery.create", "description": "Permission to create delivery orders and dispatches", "module_name": "sales"},
     {"name": "Read Delivery Order", "code": "sales.delivery.read", "description": "Permission to view delivery orders and tracking", "module_name": "sales"},
@@ -574,6 +579,8 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "Procurement Manager", "description": "Purchasing and supplier management privileges"},
     {"name": "Procurement Viewer", "description": "Read-only access to procurement records"},
     {"name": "Sales Manager", "description": "Sales orders and revenue management privileges"},
+    {"name": "Sales Representative", "description": "Operational sales, quotations, and order creation privileges"},
+    {"name": "Sales Viewer", "description": "Read-only access to sales records"},
     {"name": "CRM Manager", "description": "Lead acquisition, sales pipeline, and campaign management privileges"},
     {"name": "Finance Manager", "description": "General Ledger, posting rules, taxes, and fiscal management privileges"},
     {"name": "Chief Accountant", "description": "Accounting journal entry, posting, and period locking privileges"},
@@ -636,6 +643,9 @@ async def seed_rbac_data(db: AsyncSession) -> None:
     inventory_manager_role = created_roles.get("Inventory Manager")
     procurement_manager_role = created_roles.get("Procurement Manager")
     procurement_viewer_role = created_roles.get("Procurement Viewer")
+    sales_manager_role = created_roles.get("Sales Manager")
+    sales_rep_role = created_roles.get("Sales Representative")
+    sales_viewer_role = created_roles.get("Sales Viewer")
     finance_manager_role = created_roles.get("Finance Manager")
     chief_accountant_role = created_roles.get("Chief Accountant")
 
@@ -670,6 +680,29 @@ async def seed_rbac_data(db: AsyncSession) -> None:
         ):
             await role_permission_repository.assign_permission_to_role(
                 db, role_id=procurement_viewer_role.id, permission_id=perm_obj.id
+            )
+        if sales_manager_role and perm_code.startswith("sales."):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=sales_manager_role.id, permission_id=perm_obj.id
+            )
+        if sales_rep_role and (
+            perm_code in [
+                "sales.customer.create", "sales.customer.read", "sales.customer.update",
+                "sales.quotation.create", "sales.quotation.read", "sales.quotation.update", "sales.quotation.submit", "sales.quotation.cancel",
+                "sales.order.create", "sales.order.read", "sales.order.update", "sales.order.submit", "sales.order.cancel",
+                "sales.delivery.create", "sales.delivery.read", "sales.delivery.update",
+                "sales.return.create", "sales.return.read",
+                "sales.pricing.read",
+            ]
+        ):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=sales_rep_role.id, permission_id=perm_obj.id
+            )
+        if sales_viewer_role and (
+            perm_code.startswith("sales.") and perm_code.endswith(".read")
+        ):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=sales_viewer_role.id, permission_id=perm_obj.id
             )
         if (finance_manager_role or chief_accountant_role) and perm_code.startswith("finance."):
             if finance_manager_role:

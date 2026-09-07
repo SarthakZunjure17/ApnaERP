@@ -95,6 +95,34 @@ async def update_customer(
     return await customer_service.update_customer(db, customer_id, obj_in, current_user_id=current_user.id)
 
 
+@router.patch("/{customer_id}", response_model=CustomerResponse)
+async def patch_customer(
+    customer_id: uuid.UUID,
+    obj_in: CustomerUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.customer.update")),
+):
+    return await customer_service.update_customer(db, customer_id, obj_in, current_user_id=current_user.id)
+
+
+@router.post("/{customer_id}/activate", response_model=CustomerResponse)
+async def activate_customer(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.customer.update")),
+):
+    return await customer_service.activate_customer(db, customer_id, current_user_id=current_user.id)
+
+
+@router.post("/{customer_id}/deactivate", response_model=CustomerResponse)
+async def deactivate_customer(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.customer.update")),
+):
+    return await customer_service.deactivate_customer(db, customer_id, current_user_id=current_user.id)
+
+
 @router.delete("/{customer_id}", response_model=CustomerResponse)
 async def delete_customer(
     customer_id: uuid.UUID,

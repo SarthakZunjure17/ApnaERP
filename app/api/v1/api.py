@@ -249,8 +249,11 @@ api_router.include_router(procurement_search.router, prefix="/procurement/search
 api_router.include_router(procurement_import_export.router, prefix="/procurement/import-export", tags=["Procurement Import Export"])
 
 # Sales Domain Completion Routers
+api_router.include_router(customers.router, prefix="/customers", tags=["Customer Master"])
 api_router.include_router(customers.router, prefix="/sales/customers", tags=["Customer Master"])
+api_router.include_router(quotations.router, prefix="/sales-quotations", tags=["Sales Quotations"])
 api_router.include_router(quotations.router, prefix="/sales/quotations", tags=["Sales Quotations"])
+api_router.include_router(sales_orders.router, prefix="/sales-orders", tags=["Sales Orders"])
 api_router.include_router(sales_orders.router, prefix="/sales/orders", tags=["Sales Orders"])
 api_router.include_router(delivery_orders.router, prefix="/sales/deliveries", tags=["Delivery Orders & Dispatches"])
 api_router.include_router(sales_returns.router, prefix="/sales/returns", tags=["Sales Returns & Stock Reversals"])

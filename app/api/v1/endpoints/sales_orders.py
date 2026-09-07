@@ -53,6 +53,15 @@ async def list_sales_orders(
     }
 
 
+@router.post("/from-quotation/{quotation_id}", response_model=SalesOrderResponse, status_code=status.HTTP_201_CREATED)
+async def create_sales_order_from_quotation(
+    quotation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.order.create")),
+):
+    return await sales_order_service.create_from_quotation(db, quotation_id, current_user_id=current_user.id)
+
+
 @router.get("/{order_id}", response_model=SalesOrderResponse)
 async def get_sales_order(
     order_id: uuid.UUID,
@@ -72,11 +81,21 @@ async def update_sales_order(
     return await sales_order_service.update_order(db, order_id, obj_in, current_user_id=current_user.id)
 
 
+@router.patch("/{order_id}", response_model=SalesOrderResponse)
+async def patch_sales_order(
+    order_id: uuid.UUID,
+    obj_in: SalesOrderUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.order.update")),
+):
+    return await sales_order_service.update_order(db, order_id, obj_in, current_user_id=current_user.id)
+
+
 @router.post("/{order_id}/submit", response_model=SalesOrderResponse)
 async def submit_sales_order(
     order_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("sales.order.update")),
+    current_user: User = Depends(require_permission("sales.order.submit")),
 ):
     return await sales_order_service.submit_order(db, order_id, current_user_id=current_user.id)
 
@@ -104,7 +123,7 @@ async def reject_sales_order(
 async def cancel_sales_order(
     order_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("sales.order.update")),
+    current_user: User = Depends(require_permission("sales.order.cancel")),
 ):
     return await sales_order_service.cancel_order(db, order_id, current_user_id=current_user.id)
 

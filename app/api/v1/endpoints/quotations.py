@@ -69,11 +69,21 @@ async def update_quotation(
     return await quotation_service.update_quotation(db, quotation_id, obj_in, current_user_id=current_user.id)
 
 
+@router.patch("/{quotation_id}", response_model=SalesQuotationResponse)
+async def patch_quotation(
+    quotation_id: uuid.UUID,
+    obj_in: SalesQuotationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.quotation.update")),
+):
+    return await quotation_service.update_quotation(db, quotation_id, obj_in, current_user_id=current_user.id)
+
+
 @router.post("/{quotation_id}/submit", response_model=SalesQuotationResponse)
 async def submit_quotation(
     quotation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("sales.quotation.update")),
+    current_user: User = Depends(require_permission("sales.quotation.submit")),
 ):
     return await quotation_service.submit_quotation(db, quotation_id, current_user_id=current_user.id)
 
@@ -95,6 +105,15 @@ async def reject_quotation(
     current_user: User = Depends(require_permission("sales.quotation.approve")),
 ):
     return await quotation_service.reject_quotation(db, quotation_id, reason=reason, current_user_id=current_user.id)
+
+
+@router.post("/{quotation_id}/cancel", response_model=SalesQuotationResponse)
+async def cancel_quotation(
+    quotation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("sales.quotation.cancel")),
+):
+    return await quotation_service.cancel_quotation(db, quotation_id, current_user_id=current_user.id)
 
 
 @router.post("/{quotation_id}/clone", response_model=SalesQuotationResponse, status_code=status.HTTP_201_CREATED)

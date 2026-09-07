@@ -5,6 +5,42 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.0] - 2026-09-07
+
+### Milestone Sales Foundation & Core Order Flow
+
+#### Added
+- **Customer Master Subsystem (`app/models/customer.py`, `app/services/customer_services.py`, `app/repositories/sales_repos.py`, `app/api/v1/endpoints/customers.py`)**:
+  - Full CRUD, category classification, contact persons, billing/shipping addresses, and customer document attachments.
+  - Lifecycle management: activation and deactivation (`POST /api/v1/customers/{id}/activate`, `POST /api/v1/customers/{id}/deactivate`).
+  - Credit limit verification: enforces credit limit ceilings and active status validation before sales order approvals.
+- **Sales Quotation Subsystem (`app/models/sales_quotation.py`, `app/services/quotation_services.py`, `app/repositories/sales_repos.py`, `app/api/v1/endpoints/quotations.py`)**:
+  - Outbound commercial quotations with concurrency-safe sequential numbering (`SQ-YYYY-XXXXX`).
+  - Precise line-item calculations: gross amount, line discount, taxable amount, tax amount, and line totals using exact Decimal arithmetic.
+  - Complete lifecycle: `Draft` -> `Submitted` -> `Approved` / `Rejected` -> `Converted` / `Cancelled` / `Expired`.
+  - Immutability guards for non-draft quotations.
+- **Sales Order Subsystem (`app/models/sales_order.py`, `app/services/sales_order_services.py`, `app/repositories/sales_repos.py`, `app/api/v1/endpoints/sales_orders.py`)**:
+  - Committed customer orders with concurrency-safe sequential numbering (`SO-YYYY-XXXXX`).
+  - Item-level validations: active product, positive quantities, non-negative unit prices, active customer checks.
+  - Complete lifecycle: `Draft` -> `Submitted` -> `Approved` / `Rejected` -> `Ready for Fulfillment` -> `Fully Delivered` / `Closed` / `Cancelled`.
+  - Approval Engine integration: triggers canonical platform `ApprovalEngineService.start_workflow(..., workflow_code="WF_SALES_ORDER", ...)`.
+- **Quotation to Order Conversion (`app/services/sales_order_services.py`, `app/api/v1/endpoints/sales_orders.py`)**:
+  - Atomic conversion from approved sales quotations (`POST /api/v1/sales-orders/from-quotation/{quotation_id}`).
+  - Copies commercial terms, line items, discounts, and taxes, transitioning quotation status to `Converted`.
+  - Duplicate conversion prevention via database locks and state guards.
+- **Domain Boundaries & Isolation**:
+  - **Sales / Procurement Isolation**: `SalesQuotation` and `SupplierQuotation` remain strictly isolated in distinct models, repositories, and routes with zero cross-domain mutations.
+  - **Sales / Inventory Boundary**: Sales operations never directly insert into `StockLedger` or mutate `StockBalance`.
+  - **Finance Boundary**: Order totals remain commercial numbers; zero accounts receivable, customer invoices, or GL entries.
+  - **CRM Boundary**: Zero CRM leads, opportunities, or campaigns created in this milestone.
+- **RBAC & Audit Logging**:
+  - Seeded default sales permissions (`sales.customer.*`, `sales.quotation.*`, `sales.order.*`) and configured `Sales Manager`, `Sales Representative`, and `Sales Viewer` roles in `app/db/seed_rbac.py`.
+  - Complete audit logging with canonical `AuditLog` events (`CUSTOMER_*`, `SALES_QUOTATION_*`, `SALES_ORDER_*`).
+- **Comprehensive Automated Test Suite (`tests/test_sales_v080.py`)**:
+  - 40 tests covering all customer, quotation, order, conversion, isolation, RBAC, approval, audit, and inventory boundary requirements.
+- **Documentation**:
+  - `docs/sales/sales-foundation.md`: Complete architectural documentation for Sales Foundation & Core Order Flow.
+
 ## [v0.7.4] - 2026-09-07
 
 ### Milestone Procurement Finalization & Analytics
