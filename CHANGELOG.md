@@ -5,6 +5,37 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.4] - 2026-09-07
+
+### Milestone Procurement Finalization & Analytics
+
+#### Added
+- **Procurement Analytics Dashboard (`app/services/procurement_report_services.py`, `app/schemas/procurement.py`, `app/api/v1/endpoints/procurement_reports.py`, `app/api/v1/endpoints/procurement_analytics.py`)**:
+  - `get_dashboard_summary` aggregating supplier base metrics (total, active, blacklisted), sourcing activity (open PRs, submitted PRs, pending approvals, open RFQs, submitted quotations, approved/awarded quotations), purchasing pipeline (active, dispatched, partially received, fully received POs), physical quantities (ordered, received, returned), and gross commercial purchasing spend.
+  - Endpoints: `GET /api/v1/procurement/reports/dashboard`, `GET /api/v1/procurement/analytics/dashboard-summary`.
+- **Operational Tabular Reports (`app/services/procurement_report_services.py`, `app/api/v1/endpoints/procurement_reports.py`)**:
+  - **Purchase Order Report** (`/reports/purchase-orders`, `/purchase-register`): Detailed header and line aggregated summaries with filters for `supplier_id`, `warehouse_id`, `product_id`, `status`, and date ranges.
+  - **Supplier Performance Report** (`/reports/suppliers`, `/supplier-ledger`): Scorecard with total PO value, ordered/received/returned quantities, fulfillment rate, and `SupplierRating`.
+  - **Purchase Requisition Report** (`/reports/requisitions`): Pipeline volume, breakdown by status and priority, department filtering, and estimated total values.
+  - **RFQ & Sourcing Report** (`/reports/rfqs`): Sourcing activity, supplier invitation count, quotation response count, and awarded contract values.
+  - **Supplier Quotation Report** (`/reports/quotations`): Proposal pricing, validity dates, payment terms, and lead times.
+  - **Receiving Performance Report** (`/reports/receiving`): Inbound goods receipts, received vs. rejected quantities, and receipt fulfillment rate.
+  - **Purchase Return Report** (`/reports/returns`): Vendor returns, returned units, reasons, and return rates.
+- **Operational Spend Analytics (`app/services/procurement_report_services.py`, `app/api/v1/endpoints/procurement_reports.py`, `app/api/v1/endpoints/procurement_analytics.py`)**:
+  - `get_spend_analytics`: Commercial purchasing breakdown by top suppliers, receiving warehouses, PO approval/fulfillment statuses, and monthly expenditure run-rates (`YYYY-MM`).
+- **Procurement Efficiency & Conversion Metrics (`app/services/procurement_report_services.py`, `app/api/v1/endpoints/procurement_reports.py`)**:
+  - `get_efficiency_metrics`: Pipeline conversion ratios including participation rate, quotations per RFQ, quotation award ratio, award to PO conversion ratio, PO receipt completion ratio, and return ratio.
+- **Synchronous Streaming CSV Export Subsystem (`app/services/procurement_import_export_services.py`, `app/api/v1/endpoints/procurement_import_export.py`)**:
+  - `GET /api/v1/procurement/import-export/export` streaming CSV export supporting `purchase_orders`, `suppliers`, `receiving`, `returns`, `requisitions`, `quotations`, and `rfqs` with safe CSV escaping.
+- **Security & Read-Only Invariance**:
+  - Protected under `procurement.reports.read`, `procurement.analytics.read`, and `procurement.import_export.execute` permissions.
+  - Strict read-only guarantee: zero entity creation, mutation, or state alteration during reporting.
+  - Domain boundary enforcement: no accounting entries (no AP, GL, COGS, or invoices) and zero inventory stock mutation.
+- **Automated Test Suite (`tests/test_procurement_analytics_v074.py`)**:
+  - 8 comprehensive test suites verifying KPI calculation correctness, report filtering/pagination, spend aggregation, efficiency metrics, CSV exports, RBAC authorization, and database read-only invariance.
+- **Documentation**:
+  - `docs/procurement/procurement-analytics.md`: Complete architectural documentation for v0.7.4.
+
 ## [v0.7.3] - 2026-09-07
 
 ### Milestone Logistics & Receiving

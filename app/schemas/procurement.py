@@ -683,14 +683,35 @@ class PaginatedPurchaseReturnResponse(BaseModel):
 
 # --- Analytics & Reports ---
 class ProcurementDashboardSummary(BaseModel):
-    total_purchase_spend: Decimal
-    open_po_count: int
-    open_requisitions_count: int
-    active_suppliers_count: int
-    delayed_orders_count: int
+    total_purchase_spend: Decimal = Decimal("0.0")
+    open_po_count: int = 0
+    open_requisitions_count: int = 0
+    active_suppliers_count: int = 0
+    delayed_orders_count: int = 0
+    total_suppliers: int = 0
+    active_suppliers: int = 0
+    blacklisted_suppliers: int = 0
+    open_requisitions: int = 0
+    submitted_requisitions: int = 0
+    pending_approvals: int = 0
+    open_rfqs: int = 0
+    submitted_quotations: int = 0
+    approved_quotations: int = 0
+    active_purchase_orders: int = 0
+    dispatched_purchase_orders: int = 0
+    partially_received_pos: int = 0
+    fully_received_pos: int = 0
+    total_ordered_quantity: Decimal = Decimal("0.0")
+    total_received_quantity: Decimal = Decimal("0.0")
+    total_returned_quantity: Decimal = Decimal("0.0")
     spend_by_department: List[Dict[str, Any]] = []
     top_vendors: List[Dict[str, Any]] = []
     purchase_trends: List[Dict[str, Any]] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+ProcurementDashboardResponse = ProcurementDashboardSummary
 
 
 class PurchaseRegisterItem(BaseModel):
@@ -710,6 +731,245 @@ class SupplierLedgerItem(BaseModel):
     quality_rate: Decimal
 
 
+class PurchaseOrderReportItem(BaseModel):
+    id: uuid.UUID
+    po_number: str
+    supplier_id: uuid.UUID
+    supplier_name: str
+    order_date: datetime
+    expected_delivery_date: Optional[datetime] = None
+    status: str
+    currency: str
+    subtotal: Decimal
+    discount_amount: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+    ordered_quantity: Decimal
+    received_quantity: Decimal
+    returned_quantity: Decimal
+    warehouse_id: Optional[uuid.UUID] = None
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None
+    items_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedPurchaseOrderReportResponse(BaseModel):
+    items: List[PurchaseOrderReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class SupplierPerformanceReportItem(BaseModel):
+    supplier_id: uuid.UUID
+    supplier_code: str
+    supplier_name: str
+    status: str
+    total_pos: int
+    total_spend: Decimal
+    ordered_quantity: Decimal
+    received_quantity: Decimal
+    returned_quantity: Decimal
+    rating: Decimal
+    ontime_delivery_rate: Decimal
+    quality_rating: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedSupplierPerformanceReportResponse(BaseModel):
+    items: List[SupplierPerformanceReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class RequisitionReportItem(BaseModel):
+    id: uuid.UUID
+    requisition_number: str
+    requester_id: uuid.UUID
+    requester_name: Optional[str] = None
+    department_id: Optional[uuid.UUID] = None
+    department_name: Optional[str] = None
+    required_date: datetime
+    priority: str
+    status: str
+    total_estimated_amount: Decimal
+    item_count: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedRequisitionReportResponse(BaseModel):
+    items: List[RequisitionReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class RFQReportItem(BaseModel):
+    id: uuid.UUID
+    rfq_number: str
+    title: str
+    requisition_id: Optional[uuid.UUID] = None
+    requisition_number: Optional[str] = None
+    submission_deadline: datetime
+    status: str
+    invited_suppliers_count: int
+    quotations_count: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedRFQReportResponse(BaseModel):
+    items: List[RFQReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class QuotationReportItem(BaseModel):
+    id: uuid.UUID
+    quotation_number: str
+    rfq_id: Optional[uuid.UUID] = None
+    rfq_number: Optional[str] = None
+    supplier_id: uuid.UUID
+    supplier_name: str
+    quotation_date: datetime
+    validity_date: datetime
+    lead_time_days: int
+    currency: str
+    subtotal: Decimal
+    tax_amount: Decimal
+    discount_amount: Decimal
+    total_amount: Decimal
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedQuotationReportResponse(BaseModel):
+    items: List[QuotationReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class ReceivingReportItem(BaseModel):
+    id: uuid.UUID
+    receipt_number: str
+    purchase_order_id: Optional[uuid.UUID] = None
+    po_number: Optional[str] = None
+    supplier_id: Optional[uuid.UUID] = None
+    supplier_name: Optional[str] = None
+    warehouse_id: uuid.UUID
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None
+    receipt_date: datetime
+    status: str
+    total_items: int
+    received_quantity: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedReceivingReportResponse(BaseModel):
+    items: List[ReceivingReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PurchaseReturnReportItem(BaseModel):
+    id: uuid.UUID
+    return_number: str
+    purchase_order_id: uuid.UUID
+    po_number: str
+    supplier_id: uuid.UUID
+    supplier_name: str
+    warehouse_id: uuid.UUID
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None
+    return_date: datetime
+    reason_code: str
+    supplier_return_ref: Optional[str] = None
+    total_return_amount: Decimal
+    status: str
+    returned_quantity: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedPurchaseReturnReportResponse(BaseModel):
+    items: List[PurchaseReturnReportItem]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class SupplierSpendItem(BaseModel):
+    supplier_id: uuid.UUID
+    supplier_code: str
+    supplier_name: str
+    total_amount: Decimal
+    po_count: int
+
+
+class MonthlySpendItem(BaseModel):
+    month: str
+    total_amount: Decimal
+    po_count: int
+
+
+class WarehouseSpendItem(BaseModel):
+    warehouse_id: uuid.UUID
+    warehouse_code: str
+    warehouse_name: str
+    total_amount: Decimal
+    po_count: int
+
+
+class StatusSpendItem(BaseModel):
+    status: str
+    total_amount: Decimal
+    po_count: int
+
+
+class ProcurementSpendAnalyticsResponse(BaseModel):
+    total_spend: Decimal
+    spend_by_supplier: List[SupplierSpendItem] = []
+    spend_by_month: List[MonthlySpendItem] = []
+    spend_by_warehouse: List[WarehouseSpendItem] = []
+    spend_by_status: List[StatusSpendItem] = []
+
+
+class ProcurementEfficiencyMetricsResponse(BaseModel):
+    rfq_participation_rate: Decimal
+    average_quotations_per_rfq: Decimal
+    quotation_to_award_ratio: Decimal
+    pr_to_po_conversion_ratio: Decimal
+    po_to_receipt_completion_ratio: Decimal
+    purchase_return_ratio: Decimal
+    total_rfqs: int
+    total_quotations: int
+    total_pos: int
+    fully_received_pos: int
+    total_ordered_quantity: Decimal
+    total_received_quantity: Decimal
+    total_returned_quantity: Decimal
+
+
 class GlobalProcurementSearchResponse(BaseModel):
     query: str
     suppliers: List[Dict[str, Any]] = []
@@ -723,3 +983,4 @@ class ProcurementImportResult(BaseModel):
     success_count: int
     error_count: int
     errors: List[str] = []
+

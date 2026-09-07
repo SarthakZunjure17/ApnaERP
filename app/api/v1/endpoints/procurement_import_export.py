@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/export", response_class=Response)
 async def export_to_csv(
-    entity_type: str = Query(..., description="suppliers, purchase_orders"),
+    entity_type: str = Query(..., description="suppliers, purchase_orders, receiving, returns, requisitions, quotations, rfqs"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("procurement.import_export.execute")),
 ):
