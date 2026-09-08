@@ -5,6 +5,24 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.6.0] - 2026-09-08
+
+### Milestone Final Integration & Project Finalization (Build Phase Complete)
+
+#### Added
+- **Final Integration & Cross-Domain Smoke Test Suite (`tests/test_final_integration_smoke.py`)**:
+  - Automated smoke test suite verifying application initialization, OpenAPI schema generation (`/api/v1/openapi.json`), interactive documentation (`/docs`, `/redoc`), system diagnostics (`/`, `/health`, `/health/liveness`, `/health/readiness`, `/health/db`), user registration, JWT authentication flow, and cross-domain API accessibility across all 9 modules.
+- **Alembic Single-Head Migration Chain Finalization (`alembic/versions/f1a2b3c4d5f6_phase_v140_finance_company_and_enhancements.py`)**:
+  - Merged migration history branches into a unified, linear, single-head DAG terminating cleanly at `f1a2b3c4d5f6 (head)`.
+- **Standalone Seeding CLI Integration (`app/db/seed_rbac.py`)**:
+  - Added standalone `if __name__ == "__main__":` entrypoint runner enabling direct execution of RBAC and Super Admin database seeding via `python -m app.db.seed_rbac`.
+- **Project Documentation & Portfolio Packaging (`README.md`)**:
+  - Updated comprehensive architectural guide, system flowcharts, domain breakdown, environment configuration, local and Docker setup instructions, API explorer links, and test commands.
+
+#### Changed
+- **Application Configuration (`app/core/config.py`)**:
+  - Upgraded application `VERSION` identifier to `1.6.0`.
+
 ## [v1.5.0] - 2026-09-08
 
 ### Milestone Reporting & Executive Management Dashboard (Final Project Completion)

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # General Project Metadata
     PROJECT_NAME: str = "ApnaERP"
-    VERSION: str = "0.2.0"
+    VERSION: str = "1.6.0"
     API_V1_STR: str = "/api/v1"
     ENV: str = "development"
     DEBUG: bool = True

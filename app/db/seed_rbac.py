@@ -834,3 +834,9 @@ async def run_seed() -> None:
         await seed_rbac_data(session)
 
 
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(run_seed())
+
+
+
