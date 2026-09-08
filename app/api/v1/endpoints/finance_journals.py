@@ -13,6 +13,7 @@ from app.schemas.finance import (
     JournalReverseRequest,
     JournalTypeCreate,
     JournalTypeResponse,
+    JournalUpdate,
 )
 from app.services.finance_services import JournalService, PostingEngineService
 
@@ -92,6 +93,31 @@ async def get_journal(
     return journal
 
 
+@router.put("/{journal_id}", response_model=JournalResponse)
+async def update_journal(
+    journal_id: uuid.UUID,
+    obj_in: JournalUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("finance.journal.update")),
+) -> Any:
+    try:
+        return await journal_service.update_journal(db, journal_id, obj_in, current_user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{journal_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_journal(
+    journal_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("finance.journal.delete")),
+) -> None:
+    try:
+        await journal_service.delete_journal(db, journal_id, current_user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/{journal_id}/post", response_model=JournalResponse)
 async def post_journal(
     journal_id: uuid.UUID,
@@ -126,6 +152,6 @@ async def cancel_journal(
     current_user: User = Depends(require_permission("finance.journal.cancel")),
 ) -> Any:
     try:
-        return await journal_service.cancel_journal(db, journal_id)
+        return await journal_service.cancel_journal(db, journal_id, current_user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

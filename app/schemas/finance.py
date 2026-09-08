@@ -54,6 +54,7 @@ class ChartOfAccountCreate(ChartOfAccountBase):
 
 class ChartOfAccountUpdate(BaseModel):
     name: Optional[str] = None
+    account_type: Optional[str] = None
     account_group_id: Optional[uuid.UUID] = None
     parent_id: Optional[uuid.UUID] = None
     currency_code: Optional[str] = None
@@ -296,10 +297,14 @@ class JournalCreate(JournalBase):
 
 
 class JournalUpdate(BaseModel):
+    journal_type_id: Optional[uuid.UUID] = None
     posting_date: Optional[date] = None
+    currency_code: Optional[str] = None
+    exchange_rate: Optional[Decimal] = None
     description: Optional[str] = None
     reference_module: Optional[str] = None
     reference_id: Optional[str] = None
+    lines: Optional[List[JournalLineCreate]] = None
 
 
 class JournalResponse(JournalBase):
@@ -413,3 +418,114 @@ class FinanceSearchResponse(BaseModel):
     accounts: List[ChartOfAccountResponse] = []
     journals: List[JournalResponse] = []
     cost_centers: List[CostCenterResponse] = []
+
+
+# --- Company / Accounting Configuration Schemas ---
+class CompanyBase(BaseModel):
+    code: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=150)
+    legal_name: Optional[str] = Field(None, max_length=200)
+    tax_id: Optional[str] = Field(None, max_length=50)
+    base_currency_code: str = Field("USD", max_length=10)
+    fiscal_year_start_month: int = Field(1, ge=1, le=12)
+    default_receivable_account_id: Optional[uuid.UUID] = None
+    default_payable_account_id: Optional[uuid.UUID] = None
+    default_retained_earnings_account_id: Optional[uuid.UUID] = None
+    default_bank_account_id: Optional[uuid.UUID] = None
+    default_cash_account_id: Optional[uuid.UUID] = None
+    address: Optional[str] = None
+    city: Optional[str] = Field(None, max_length=100)
+    country: Optional[str] = Field("United States", max_length=100)
+    phone: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = Field(None, max_length=100)
+    is_active: bool = True
+
+
+class CompanyCreate(CompanyBase):
+    pass
+
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    legal_name: Optional[str] = None
+    tax_id: Optional[str] = None
+    base_currency_code: Optional[str] = None
+    fiscal_year_start_month: Optional[int] = Field(None, ge=1, le=12)
+    default_receivable_account_id: Optional[uuid.UUID] = None
+    default_payable_account_id: Optional[uuid.UUID] = None
+    default_retained_earnings_account_id: Optional[uuid.UUID] = None
+    default_bank_account_id: Optional[uuid.UUID] = None
+    default_cash_account_id: Optional[uuid.UUID] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class CompanyResponse(CompanyBase):
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- General Ledger Schemas ---
+class GeneralLedgerEntryResponse(BaseModel):
+    id: uuid.UUID
+    journal_id: uuid.UUID
+    journal_number: str
+    posting_date: date
+    line_number: int
+    account_id: uuid.UUID
+    account_code: str
+    account_name: str
+    account_type: str
+    debit: Decimal
+    credit: Decimal
+    running_balance: Optional[Decimal] = None
+    description: Optional[str] = None
+    reference_module: Optional[str] = None
+    reference_id: Optional[str] = None
+    cost_center_id: Optional[uuid.UUID] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AccountLedgerResponse(BaseModel):
+    account_id: uuid.UUID
+    account_code: str
+    account_name: str
+    account_type: str
+    currency_code: str
+    opening_balance: Decimal
+    period_debit: Decimal
+    period_credit: Decimal
+    closing_balance: Decimal
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
+    entries: List[GeneralLedgerEntryResponse] = []
+    total_entries: int = 0
+
+
+class TrialBalanceLineResponse(BaseModel):
+    account_id: uuid.UUID
+    account_code: str
+    account_name: str
+    account_type: str
+    opening_balance: Decimal = Decimal("0.00")
+    period_debit: Decimal = Decimal("0.00")
+    period_credit: Decimal = Decimal("0.00")
+    debit_balance: Decimal = Decimal("0.00")
+    credit_balance: Decimal = Decimal("0.00")
+    net_balance: Decimal = Decimal("0.00")
+
+
+class TrialBalanceReportResponse(BaseModel):
+    as_of_date: date
+    total_debit: Decimal
+    total_credit: Decimal
+    is_balanced: bool = True
+    lines: List[TrialBalanceLineResponse] = []
+

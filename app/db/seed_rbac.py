@@ -469,6 +469,11 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Delete Inventory Items", "code": "inventory.delete", "description": "Permission to delete inventory stock", "module_name": "inventory"},
 
     # Finance Core Permissions
+    {"name": "Create Company", "code": "finance.company.create", "description": "Permission to create legal entity company master", "module_name": "finance"},
+    {"name": "Read Company", "code": "finance.company.read", "description": "Permission to view legal entity company master", "module_name": "finance"},
+    {"name": "Update Company", "code": "finance.company.update", "description": "Permission to update legal entity company master", "module_name": "finance"},
+    {"name": "Delete Company", "code": "finance.company.delete", "description": "Permission to delete legal entity company master", "module_name": "finance"},
+
     {"name": "Create Account", "code": "finance.accounts.create", "description": "Permission to create accounts and groups", "module_name": "finance"},
     {"name": "Read Account", "code": "finance.accounts.read", "description": "Permission to view chart of accounts", "module_name": "finance"},
     {"name": "Update Account", "code": "finance.accounts.update", "description": "Permission to update chart of accounts", "module_name": "finance"},
@@ -481,6 +486,9 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Post Journal", "code": "finance.journal.post", "description": "Permission to post journal entries to General Ledger", "module_name": "finance"},
     {"name": "Reverse Journal", "code": "finance.journal.reverse", "description": "Permission to reverse posted journal entries", "module_name": "finance"},
     {"name": "Cancel Journal", "code": "finance.journal.cancel", "description": "Permission to cancel draft journal entries", "module_name": "finance"},
+
+    {"name": "Read General Ledger", "code": "finance.ledger.read", "description": "Permission to view general ledger transactions and account ledgers", "module_name": "finance"},
+    {"name": "Read Financial Reports", "code": "finance.reports.read", "description": "Permission to view trial balance and financial reports", "module_name": "finance"},
 
     {"name": "Create Posting Rule", "code": "finance.posting.create", "description": "Permission to create posting rules", "module_name": "finance"},
     {"name": "Read Posting Rule", "code": "finance.posting.read", "description": "Permission to view posting rules", "module_name": "finance"},
@@ -506,7 +514,8 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Fiscal", "code": "finance.fiscal.read", "description": "Permission to view fiscal years and periods", "module_name": "finance"},
     {"name": "Update Fiscal", "code": "finance.fiscal.update", "description": "Permission to update fiscal years and periods", "module_name": "finance"},
     {"name": "Delete Fiscal", "code": "finance.fiscal.delete", "description": "Permission to delete fiscal years and periods", "module_name": "finance"},
-    {"name": "Lock Fiscal Period", "code": "finance.fiscal.lock", "description": "Permission to lock and close fiscal periods", "module_name": "finance"},
+    {"name": "Lock Fiscal Period", "code": "finance.fiscal.lock", "description": "Permission to lock and unlock fiscal periods", "module_name": "finance"},
+    {"name": "Close Fiscal Period", "code": "finance.fiscal.close", "description": "Permission to close fiscal periods and years", "module_name": "finance"},
 
     # Finance Operations & Reporting Permissions
     {"name": "Read Accounts Receivable", "code": "finance.receivable.read", "description": "Permission to view invoices and customer ledgers", "module_name": "finance"},
@@ -553,6 +562,16 @@ DEFAULT_PERMISSIONS: List[Dict[str, str]] = [
     {"name": "Read Finance Analytics", "code": "finance.analytics.read", "description": "Permission to view executive finance analytics", "module_name": "finance"},
 
     # Enterprise Reporting & BI Domain Permissions
+    {"name": "Read Centralized Management Dashboard", "code": "reports.dashboard.read", "description": "Permission to view management dashboard", "module_name": "reporting"},
+    {"name": "Read Centralized Finance Reports", "code": "reports.finance.read", "description": "Permission to view finance reports", "module_name": "reporting"},
+    {"name": "Read Centralized Sales Reports", "code": "reports.sales.read", "description": "Permission to view sales reports", "module_name": "reporting"},
+    {"name": "Read Centralized Procurement Reports", "code": "reports.procurement.read", "description": "Permission to view procurement reports", "module_name": "reporting"},
+    {"name": "Read Centralized Inventory Reports", "code": "reports.inventory.read", "description": "Permission to view inventory reports", "module_name": "reporting"},
+    {"name": "Read Centralized HR Reports", "code": "reports.hr.read", "description": "Permission to view HR reports", "module_name": "reporting"},
+    {"name": "Read Centralized Payroll Reports", "code": "reports.payroll.read", "description": "Permission to view payroll reports", "module_name": "reporting"},
+    {"name": "Read Centralized CRM Reports", "code": "reports.crm.read", "description": "Permission to view CRM reports", "module_name": "reporting"},
+    {"name": "Export Centralized Reports", "code": "reports.export", "description": "Permission to export CSV reports", "module_name": "reporting"},
+
     {"name": "View Dashboard", "code": "report.dashboard.view", "description": "Permission to view executive and module dashboards", "module_name": "reporting"},
     {"name": "Manage Dashboard", "code": "report.dashboard.manage", "description": "Permission to create and modify dashboards", "module_name": "reporting"},
     {"name": "View Analytics", "code": "report.analytics.view", "description": "Permission to view cross-module analytics and trends", "module_name": "reporting"},
@@ -587,6 +606,8 @@ DEFAULT_ROLES: List[Dict[str, str]] = [
     {"name": "CRM Viewer", "description": "Read-only access to CRM records"},
     {"name": "Finance Manager", "description": "General Ledger, posting rules, taxes, and fiscal management privileges"},
     {"name": "Chief Accountant", "description": "Accounting journal entry, posting, and period locking privileges"},
+    {"name": "Accountant", "description": "Accounting operational privileges for journals and ledger access"},
+    {"name": "Finance Viewer", "description": "Read-only access to financial accounts, ledgers, and reports"},
     {"name": "Employee", "description": "Basic employee access privileges"},
 ]
 
@@ -653,6 +674,8 @@ async def seed_rbac_data(db: AsyncSession) -> None:
     crm_viewer_role = created_roles.get("CRM Viewer")
     finance_manager_role = created_roles.get("Finance Manager")
     chief_accountant_role = created_roles.get("Chief Accountant")
+    accountant_role = created_roles.get("Accountant")
+    finance_viewer_role = created_roles.get("Finance Viewer")
 
     for perm_code, perm_obj in created_perms.items():
         if super_admin_role:
@@ -736,6 +759,43 @@ async def seed_rbac_data(db: AsyncSession) -> None:
                 await role_permission_repository.assign_permission_to_role(
                     db, role_id=chief_accountant_role.id, permission_id=perm_obj.id
                 )
+        if accountant_role and (
+            perm_code in [
+                "finance.company.read",
+                "finance.accounts.read",
+                "finance.journal.create",
+                "finance.journal.read",
+                "finance.journal.update",
+                "finance.journal.post",
+                "finance.journal.reverse",
+                "finance.journal.cancel",
+                "finance.ledger.read",
+                "finance.reports.read",
+                "finance.fiscal.read",
+                "finance.currency.read",
+                "finance.tax.read",
+                "finance.costcenter.read",
+                "finance.receivable.read",
+                "finance.receivable.create",
+                "finance.payable.read",
+                "finance.payable.create",
+                "finance.payment.read",
+                "finance.payment.create",
+                "finance.payment.post",
+            ]
+        ):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=accountant_role.id, permission_id=perm_obj.id
+            )
+        if finance_viewer_role and (
+            perm_code.startswith("finance.") and (
+                perm_code.endswith(".read")
+                or perm_code.endswith(".view")
+            )
+        ):
+            await role_permission_repository.assign_permission_to_role(
+                db, role_id=finance_viewer_role.id, permission_id=perm_obj.id
+            )
 
     # 5. Seed Default Super Admin User if not exists
     from app.repositories.user import user_repository

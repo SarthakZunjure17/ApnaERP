@@ -490,3 +490,60 @@ class AccountingEvent(Base, UUIDMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<AccountingEvent(type='{self.event_type}', entity='{self.entity_type}:{self.entity_id}')>"
+
+
+class Company(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+    """
+    Company / Legal Entity ORM Model.
+    Represents an enterprise organization or legal entity with accounting preferences.
+    """
+    __tablename__ = "companies"
+
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    legal_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    tax_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    base_currency_code: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
+    fiscal_year_start_month: Mapped[int] = mapped_column(Integer, default=1, nullable=False, comment="Month 1-12 marking start of fiscal calendar")
+
+    default_receivable_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chart_of_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    default_payable_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chart_of_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    default_retained_earnings_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chart_of_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    default_bank_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chart_of_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    default_cash_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chart_of_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(100), default="United States", nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+
+    # Relationships
+    default_receivable_account: Mapped[Optional["ChartOfAccount"]] = relationship("ChartOfAccount", foreign_keys=[default_receivable_account_id])
+    default_payable_account: Mapped[Optional["ChartOfAccount"]] = relationship("ChartOfAccount", foreign_keys=[default_payable_account_id])
+    default_retained_earnings_account: Mapped[Optional["ChartOfAccount"]] = relationship("ChartOfAccount", foreign_keys=[default_retained_earnings_account_id])
+
+    def __repr__(self) -> str:
+        return f"<Company(code='{self.code}', name='{self.name}', currency='{self.base_currency_code}')>"
+

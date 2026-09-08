@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import select, and_, or_, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -24,6 +24,7 @@ from app.models.finance import (
     AccountingDimension,
     AccountingEvent,
     ChartOfAccount,
+    Company,
     CostCenter,
     Currency,
     ExchangeRate,
@@ -42,11 +43,13 @@ from app.repositories.finance_repos import (
     AccountingDimensionRepository,
     AccountingEventRepository,
     ChartOfAccountRepository,
+    CompanyRepository,
     CostCenterRepository,
     CurrencyRepository,
     ExchangeRateRepository,
     FiscalPeriodRepository,
     FiscalYearRepository,
+    GeneralLedgerRepository,
     JournalLineRepository,
     JournalRepository,
     JournalTypeRepository,
@@ -56,9 +59,12 @@ from app.repositories.finance_repos import (
 )
 from app.schemas.finance import (
     AccountGroupCreate,
+    AccountGroupUpdate,
     AccountingDimensionCreate,
     ChartOfAccountCreate,
     ChartOfAccountUpdate,
+    CompanyCreate,
+    CompanyUpdate,
     CostCenterCreate,
     CurrencyCreate,
     ExchangeRateCreate,
@@ -67,10 +73,12 @@ from app.schemas.finance import (
     JournalCreate,
     JournalLineCreate,
     JournalTypeCreate,
+    JournalUpdate,
     PostingRuleCreate,
     TaxCategoryCreate,
     TaxRateCreate,
 )
+from app.services.audit_log import audit_log_service
 
 logger = logging.getLogger("app.services.finance")
 
@@ -115,6 +123,101 @@ class AccountingEventService:
         db.add(event)
         await db.commit()
         return event
+
+
+class CompanyService:
+    def __init__(self):
+        self.company_repo = CompanyRepository()
+        self.account_repo = ChartOfAccountRepository()
+
+    async def create_company(
+        self, db: AsyncSession, obj_in: CompanyCreate, current_user_id: Optional[uuid.UUID] = None
+    ) -> Company:
+        existing = await self.company_repo.get_by_code(db, obj_in.code)
+        if existing:
+            raise ValueError(f"Company with code '{obj_in.code}' already exists")
+
+        company = Company(**obj_in.model_dump())
+        db.add(company)
+        await db.commit()
+        await db.refresh(company)
+
+        await audit_log_service.log_event(
+            db,
+            action="CREATE",
+            entity_type="Company",
+            entity_id=str(company.id),
+            user_id=current_user_id,
+            new_data={"code": company.code, "name": company.name, "currency": company.base_currency_code},
+        )
+        return company
+
+    async def get_company(self, db: AsyncSession, company_id: uuid.UUID) -> Optional[Company]:
+        company = await self.company_repo.get_by_id(db, company_id)
+        if not company or company.is_deleted:
+            return None
+        return company
+
+    async def get_default_company(self, db: AsyncSession) -> Optional[Company]:
+        return await self.company_repo.get_default_company(db)
+
+    async def list_companies(
+        self,
+        db: AsyncSession,
+        query: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Tuple[List[Company], int]:
+        return await self.company_repo.search_companies(db, query=query, is_active=is_active, skip=skip, limit=limit)
+
+    async def update_company(
+        self, db: AsyncSession, company_id: uuid.UUID, obj_in: CompanyUpdate, current_user_id: Optional[uuid.UUID] = None
+    ) -> Company:
+        company = await self.company_repo.get_by_id(db, company_id)
+        if not company or company.is_deleted:
+            raise ValueError("Company not found")
+
+        prev_data = {"name": company.name, "is_active": company.is_active}
+        update_data = obj_in.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(company, field, value)
+
+        await db.commit()
+        await db.refresh(company)
+
+        await audit_log_service.log_event(
+            db,
+            action="UPDATE",
+            entity_type="Company",
+            entity_id=str(company.id),
+            user_id=current_user_id,
+            previous_data=prev_data,
+            new_data=update_data,
+        )
+        return company
+
+    async def delete_company(
+        self, db: AsyncSession, company_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> bool:
+        company = await self.company_repo.get_by_id(db, company_id)
+        if not company or company.is_deleted:
+            raise ValueError("Company not found")
+
+        company.is_deleted = True
+        company.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+        await audit_log_service.log_event(
+            db,
+            action="DELETE",
+            entity_type="Company",
+            entity_id=str(company.id),
+            user_id=current_user_id,
+            previous_data={"code": company.code, "name": company.name},
+        )
+        return True
+
 
 
 class ChartOfAccountsService:
@@ -164,6 +267,15 @@ class ChartOfAccountsService:
             },
         )
 
+        await audit_log_service.log_event(
+            db,
+            action="CREATE",
+            entity_type="ChartOfAccount",
+            entity_id=str(account.id),
+            user_id=current_user_id,
+            new_data={"account_code": account.account_code, "name": account.name, "account_type": account.account_type},
+        )
+
         await self.event_service.log_event(
             db,
             event_type="AccountCreated",
@@ -177,7 +289,7 @@ class ChartOfAccountsService:
         return account
 
     async def update_account(
-        self, db: AsyncSession, account_id: uuid.UUID, obj_in: ChartOfAccountUpdate
+        self, db: AsyncSession, account_id: uuid.UUID, obj_in: ChartOfAccountUpdate, current_user_id: Optional[uuid.UUID] = None
     ) -> ChartOfAccount:
         account = await self.account_repo.get_by_id(db, account_id)
         if not account or account.is_deleted:
@@ -187,13 +299,64 @@ class ChartOfAccountsService:
             if obj_in.account_group_id is not None or obj_in.is_active is False:
                 raise ValueError("System reserved accounts cannot be disabled or moved")
 
+        # Circular hierarchy validation
+        if obj_in.parent_id is not None:
+            if obj_in.parent_id == account_id:
+                raise ValueError("Circular reference detected in account hierarchy: account cannot be its own parent")
+            descendants = await self.account_repo.get_descendant_ids(db, account_id)
+            if obj_in.parent_id in descendants:
+                raise ValueError("Circular reference detected in account hierarchy: cannot set a descendant as parent")
+
+        prev_data = {
+            "name": account.name,
+            "account_type": account.account_type,
+            "is_active": account.is_active,
+            "parent_id": str(account.parent_id) if account.parent_id else None,
+        }
         update_data = obj_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(account, field, value)
 
         await db.commit()
         await db.refresh(account)
+
+        await audit_log_service.log_event(
+            db,
+            action="UPDATE",
+            entity_type="ChartOfAccount",
+            entity_id=str(account.id),
+            user_id=current_user_id,
+            previous_data=prev_data,
+            new_data=update_data,
+        )
         return account
+
+    async def delete_account(
+        self, db: AsyncSession, account_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> bool:
+        account = await self.account_repo.get_by_id(db, account_id)
+        if not account or account.is_deleted:
+            raise ValueError("Account not found")
+        if account.is_system:
+            raise ValueError("System reserved accounts cannot be deleted")
+
+        has_tx = await self.account_repo.has_posted_transactions(db, account_id)
+        if has_tx:
+            raise ValueError("Cannot delete account with posted transactions")
+
+        account.is_deleted = True
+        account.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+        await audit_log_service.log_event(
+            db,
+            action="DELETE",
+            entity_type="ChartOfAccount",
+            entity_id=str(account.id),
+            user_id=current_user_id,
+            previous_data={"account_code": account.account_code, "name": account.name},
+        )
+        return True
 
 
 class FiscalService:
@@ -202,7 +365,12 @@ class FiscalService:
         self.period_repo = FiscalPeriodRepository()
         self.event_service = AccountingEventService()
 
-    async def create_fiscal_year(self, db: AsyncSession, obj_in: FiscalYearCreate) -> FiscalYear:
+    async def create_fiscal_year(
+        self, db: AsyncSession, obj_in: FiscalYearCreate, current_user_id: Optional[uuid.UUID] = None
+    ) -> FiscalYear:
+        if obj_in.start_date > obj_in.end_date:
+            raise ValueError("Fiscal Year start_date cannot be after end_date")
+
         existing = await self.year_repo.get_by_code(db, obj_in.code)
         if existing:
             raise ValueError(f"Fiscal Year with code '{obj_in.code}' already exists")
@@ -232,7 +400,45 @@ class FiscalService:
 
         await db.commit()
         await db.refresh(fy)
+
+        await audit_log_service.log_event(
+            db,
+            action="CREATE",
+            entity_type="FiscalYear",
+            entity_id=str(fy.id),
+            user_id=current_user_id,
+            new_data={"code": fy.code, "name": fy.name, "start_date": str(fy.start_date), "end_date": str(fy.end_date)},
+        )
         return fy
+
+    async def create_fiscal_period(
+        self, db: AsyncSession, obj_in: FiscalPeriodCreate, current_user_id: Optional[uuid.UUID] = None
+    ) -> FiscalPeriod:
+        if obj_in.start_date > obj_in.end_date:
+            raise ValueError("Fiscal Period start_date cannot be after end_date")
+
+        fy = await self.year_repo.get_by_id(db, obj_in.fiscal_year_id)
+        if not fy:
+            raise ValueError("Fiscal Year not found")
+
+        has_overlap = await self.period_repo.check_overlap(db, obj_in.fiscal_year_id, obj_in.start_date, obj_in.end_date)
+        if has_overlap:
+            raise ValueError("Fiscal Period dates overlap with an existing period in the same fiscal year")
+
+        period = FiscalPeriod(**obj_in.model_dump())
+        db.add(period)
+        await db.commit()
+        await db.refresh(period)
+
+        await audit_log_service.log_event(
+            db,
+            action="CREATE",
+            entity_type="FiscalPeriod",
+            entity_id=str(period.id),
+            user_id=current_user_id,
+            new_data={"name": period.name, "period_number": period.period_number},
+        )
+        return period
 
     async def lock_period(
         self, db: AsyncSession, period_id: uuid.UUID, is_locked: bool, current_user_id: Optional[uuid.UUID] = None
@@ -240,6 +446,9 @@ class FiscalService:
         period = await self.period_repo.get_by_id(db, period_id)
         if not period:
             raise ValueError("Fiscal period not found")
+
+        if period.is_closed and not is_locked:
+            raise ValueError("Closed fiscal periods cannot be unlocked directly")
 
         period.is_locked = is_locked
         await db.commit()
@@ -260,7 +469,68 @@ class FiscalService:
                 user_id=current_user_id,
             )
 
+        await audit_log_service.log_event(
+            db,
+            action="LOCK" if is_locked else "UNLOCK",
+            entity_type="FiscalPeriod",
+            entity_id=str(period.id),
+            user_id=current_user_id,
+            new_data={"name": period.name, "is_locked": is_locked},
+        )
         return period
+
+    async def close_period(
+        self, db: AsyncSession, period_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> FiscalPeriod:
+        period = await self.period_repo.get_by_id(db, period_id)
+        if not period:
+            raise ValueError("Fiscal period not found")
+
+        period.is_closed = True
+        period.is_locked = True
+        await db.commit()
+        await db.refresh(period)
+
+        domain_event_publisher.publish(
+            FINANCE_FISCAL_PERIOD_CLOSED,
+            {"period_id": str(period.id), "name": period.name, "start_date": str(period.start_date)},
+        )
+
+        await audit_log_service.log_event(
+            db,
+            action="CLOSE",
+            entity_type="FiscalPeriod",
+            entity_id=str(period.id),
+            user_id=current_user_id,
+            new_data={"name": period.name, "is_closed": True, "is_locked": True},
+        )
+        return period
+
+    async def close_fiscal_year(
+        self, db: AsyncSession, year_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> FiscalYear:
+        fy = await self.year_repo.get_by_id(db, year_id)
+        if not fy:
+            raise ValueError("Fiscal Year not found")
+
+        periods = await self.period_repo.get_periods_for_year(db, year_id)
+        for p in periods:
+            p.is_closed = True
+            p.is_locked = True
+
+        fy.status = "Closed"
+        await db.commit()
+        await db.refresh(fy)
+
+        await audit_log_service.log_event(
+            db,
+            action="CLOSE",
+            entity_type="FiscalYear",
+            entity_id=str(fy.id),
+            user_id=current_user_id,
+            new_data={"code": fy.code, "status": "Closed"},
+        )
+        return fy
 
 
 class CurrencyService:
@@ -499,6 +769,7 @@ class JournalService:
         self.line_repo = JournalLineRepository()
         self.type_repo = JournalTypeRepository()
         self.period_repo = FiscalPeriodRepository()
+        self.account_repo = ChartOfAccountRepository()
         self.event_service = AccountingEventService()
 
     async def create_journal_type(self, db: AsyncSession, obj_in: JournalTypeCreate) -> JournalType:
@@ -520,13 +791,39 @@ class JournalService:
 
         # Resolve Fiscal Period
         period = await self.period_repo.get_period_for_date(db, obj_in.posting_date)
-        if period and period.is_locked:
-            raise ValueError(f"Posting Date {obj_in.posting_date} falls in locked fiscal period '{period.name}'")
+        if period and (period.is_locked or period.is_closed):
+            raise ValueError(f"Posting Date {obj_in.posting_date} falls in closed or locked fiscal period '{period.name}'")
+
+        # Line validation
+        if not obj_in.lines or len(obj_in.lines) < 2:
+            raise ValueError("Every journal entry must contain at least two lines")
+
+        total_debit = Decimal("0.00")
+        total_credit = Decimal("0.00")
+
+        for line_in in obj_in.lines:
+            if line_in.debit < 0 or line_in.credit < 0:
+                raise ValueError("Journal line debit and credit amounts must be non-negative")
+            if line_in.debit > 0 and line_in.credit > 0:
+                raise ValueError("A journal line cannot have both debit and credit amounts")
+            if line_in.debit == 0 and line_in.credit == 0:
+                raise ValueError("A journal line must have either a debit or credit amount greater than zero")
+
+            acc = await self.account_repo.get_by_id(db, line_in.account_id)
+            if not acc or acc.is_deleted:
+                raise ValueError(f"Account {line_in.account_id} not found")
+            if not acc.is_active:
+                raise ValueError(f"Account '{acc.account_code} - {acc.name}' is inactive and cannot be used in journal entries")
+
+            total_debit += line_in.debit
+            total_credit += line_in.credit
+
+        if total_debit != total_credit:
+            raise ValueError(f"Total debit ({total_debit}) must equal total credit ({total_credit})")
+        if total_debit <= Decimal("0.00"):
+            raise ValueError("Journal entry total amount must be greater than zero")
 
         journal_num = f"{jtype.prefix}-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-
-        total_debit = sum(line.debit for line in obj_in.lines)
-        total_credit = sum(line.credit for line in obj_in.lines)
 
         status = "Draft"
         if jtype.requires_approval and total_debit >= jtype.approval_threshold:
@@ -566,6 +863,15 @@ class JournalService:
 
         await db.commit()
 
+        await audit_log_service.log_event(
+            db,
+            action="CREATE",
+            entity_type="Journal",
+            entity_id=str(journal.id),
+            user_id=current_user_id,
+            new_data={"journal_number": journal.journal_number, "total_debit": str(total_debit), "status": status},
+        )
+
         # Route to Approval Workflow if PendingApproval
         if status == "PendingApproval":
             try:
@@ -583,16 +889,162 @@ class JournalService:
 
         return await self.journal_repo.get_by_id_with_details(db, journal.id)
 
-    async def cancel_journal(self, db: AsyncSession, journal_id: uuid.UUID) -> Journal:
+    async def update_journal(
+        self,
+        db: AsyncSession,
+        journal_id: uuid.UUID,
+        obj_in: JournalUpdate,
+        current_user_id: Optional[uuid.UUID] = None,
+    ) -> Journal:
+        journal = await self.journal_repo.get_by_id_with_details(db, journal_id)
+        if not journal or journal.is_deleted:
+            raise ValueError("Journal not found")
+
+        if journal.status in ("Posted", "Cancelled", "Reversed"):
+            raise ValueError(f"Cannot update journal in '{journal.status}' status. Only Draft or PendingApproval journals may be modified.")
+
+        prev_data = {
+            "journal_number": journal.journal_number,
+            "status": journal.status,
+            "total_debit": str(journal.total_debit),
+            "description": journal.description,
+        }
+
+        # Validate date change with fiscal period
+        if obj_in.posting_date is not None:
+            period = await self.period_repo.get_period_for_date(db, obj_in.posting_date)
+            if period and (period.is_locked or period.is_closed):
+                raise ValueError(f"Posting Date {obj_in.posting_date} falls in closed or locked fiscal period '{period.name}'")
+            journal.posting_date = obj_in.posting_date
+            journal.fiscal_period_id = period.id if period else None
+
+        if obj_in.journal_type_id is not None:
+            jtype = await self.type_repo.get_by_id(db, obj_in.journal_type_id)
+            if not jtype:
+                raise ValueError("Journal Type not found")
+            journal.journal_type_id = jtype.id
+
+        if obj_in.currency_code is not None:
+            journal.currency_code = obj_in.currency_code
+        if obj_in.exchange_rate is not None:
+            journal.exchange_rate = obj_in.exchange_rate
+        if obj_in.description is not None:
+            journal.description = obj_in.description
+        if obj_in.reference_module is not None:
+            journal.reference_module = obj_in.reference_module
+        if obj_in.reference_id is not None:
+            journal.reference_id = obj_in.reference_id
+
+        # Update lines if provided
+        if obj_in.lines is not None:
+            if len(obj_in.lines) < 2:
+                raise ValueError("Every journal entry must contain at least two lines")
+
+            total_debit = Decimal("0.00")
+            total_credit = Decimal("0.00")
+
+            for line_in in obj_in.lines:
+                if line_in.debit < 0 or line_in.credit < 0:
+                    raise ValueError("Journal line debit and credit amounts must be non-negative")
+                if line_in.debit > 0 and line_in.credit > 0:
+                    raise ValueError("A journal line cannot have both debit and credit amounts")
+                if line_in.debit == 0 and line_in.credit == 0:
+                    raise ValueError("A journal line must have either a debit or credit amount greater than zero")
+
+                acc = await self.account_repo.get_by_id(db, line_in.account_id)
+                if not acc or acc.is_deleted:
+                    raise ValueError(f"Account {line_in.account_id} not found")
+                if not acc.is_active:
+                    raise ValueError(f"Account '{acc.account_code} - {acc.name}' is inactive and cannot be used in journal entries")
+
+                total_debit += line_in.debit
+                total_credit += line_in.credit
+
+            if total_debit != total_credit:
+                raise ValueError(f"Total debit ({total_debit}) must equal total credit ({total_credit})")
+            if total_debit <= Decimal("0.00"):
+                raise ValueError("Journal entry total amount must be greater than zero")
+
+            # Remove existing lines and add new lines
+            await db.execute(delete(JournalLine).where(JournalLine.journal_id == journal.id))
+            journal.total_debit = total_debit
+            journal.total_credit = total_credit
+
+            for idx, l_in in enumerate(obj_in.lines, start=1):
+                line = JournalLine(
+                    journal_id=journal.id,
+                    line_number=idx,
+                    account_id=l_in.account_id,
+                    cost_center_id=l_in.cost_center_id,
+                    debit=l_in.debit,
+                    credit=l_in.credit,
+                    description=l_in.description,
+                    dimensions=l_in.dimensions,
+                )
+                db.add(line)
+
+        await db.commit()
+        await db.refresh(journal)
+
+        await audit_log_service.log_event(
+            db,
+            action="UPDATE",
+            entity_type="Journal",
+            entity_id=str(journal.id),
+            user_id=current_user_id,
+            previous_data=prev_data,
+            new_data={"journal_number": journal.journal_number, "total_debit": str(journal.total_debit), "status": journal.status},
+        )
+
+        return await self.journal_repo.get_by_id_with_details(db, journal.id)
+
+    async def delete_journal(
+        self, db: AsyncSession, journal_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> bool:
         journal = await self.journal_repo.get_by_id(db, journal_id)
-        if not journal:
+        if not journal or journal.is_deleted:
+            raise ValueError("Journal not found")
+
+        if journal.status == "Posted":
+            raise ValueError("Posted journals cannot be deleted")
+
+        journal.is_deleted = True
+        journal.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+        await audit_log_service.log_event(
+            db,
+            action="DELETE",
+            entity_type="Journal",
+            entity_id=str(journal.id),
+            user_id=current_user_id,
+            previous_data={"journal_number": journal.journal_number, "status": journal.status},
+        )
+        return True
+
+    async def cancel_journal(
+        self, db: AsyncSession, journal_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
+    ) -> Journal:
+        journal = await self.journal_repo.get_by_id(db, journal_id)
+        if not journal or journal.is_deleted:
             raise ValueError("Journal not found")
         if journal.status == "Posted":
             raise ValueError("Posted journals cannot be cancelled. Use reverse_journal instead.")
 
+        prev_status = journal.status
         journal.status = "Cancelled"
         await db.commit()
         await db.refresh(journal)
+
+        await audit_log_service.log_event(
+            db,
+            action="CANCEL",
+            entity_type="Journal",
+            entity_id=str(journal.id),
+            user_id=current_user_id,
+            previous_data={"status": prev_status},
+            new_data={"status": "Cancelled"},
+        )
         return journal
 
 
@@ -608,37 +1060,44 @@ class PostingEngineService:
         self, db: AsyncSession, journal_id: uuid.UUID, current_user_id: Optional[uuid.UUID] = None
     ) -> Journal:
         journal = await self.journal_repo.get_by_id_with_details(db, journal_id)
-        if not journal:
+        if not journal or journal.is_deleted:
             raise ValueError("Journal not found")
         if journal.status == "Posted":
             raise ValueError("Journal is already posted")
         if journal.status not in ("Draft", "Approved"):
             raise ValueError(f"Journal status is '{journal.status}'. Only Draft or Approved journals may be posted.")
 
-        # Period locking check
+        # Fiscal period validation
+        period = None
         if journal.fiscal_period_id:
             period = await self.period_repo.get_by_id(db, journal.fiscal_period_id)
-            if period and period.is_locked:
-                raise ValueError(f"Cannot post journal: Fiscal Period '{period.name}' is locked")
         else:
             period = await self.period_repo.get_period_for_date(db, journal.posting_date)
-            if period and period.is_locked:
-                raise ValueError(f"Cannot post journal: Fiscal Period '{period.name}' is locked")
+
+        if period and (period.is_locked or period.is_closed):
+            raise ValueError(f"Cannot post journal: Fiscal Period '{period.name}' is closed or locked")
 
         # Double entry balance check
         if journal.total_debit != journal.total_credit or journal.total_debit <= 0:
             raise ValueError("Unbalanced journal entries cannot be posted into General Ledger")
 
+        # Verify lines exist and at least 2
+        if not journal.lines or len(journal.lines) < 2:
+            raise ValueError("Every journal entry must contain at least two lines to be posted")
+
         # Update Account Balances
         for line in journal.lines:
             account = await self.account_repo.get_by_id(db, line.account_id)
-            if not account or not account.is_active:
-                raise ValueError(f"Account {line.account_id} not active or not found")
+            if not account or account.is_deleted:
+                raise ValueError(f"Account {line.account_id} not found")
+            if not account.is_active:
+                raise ValueError(f"Account '{account.account_code} - {account.name}' is inactive and cannot be posted to")
 
             # Normal Balance Convention:
             # Assets / Expenses increase with Debit, decrease with Credit
-            # Liabilities / Equity / Income increase with Credit, decrease with Debit
-            if account.account_type in ("Asset", "Expense"):
+            # Liabilities / Equity / Revenue increase with Credit, decrease with Debit
+            acc_type = account.account_type.upper()
+            if acc_type in ("ASSET", "EXPENSE"):
                 account.current_balance += line.debit - line.credit
             else:
                 account.current_balance += line.credit - line.debit
@@ -650,7 +1109,6 @@ class PostingEngineService:
         # Update FinancialPostingQueue if linked by reference
         if journal.reference_id:
             try:
-                # Update matching FinancialPostingQueue status to Posted
                 from sqlalchemy import update
                 stmt = (
                     update(FinancialPostingQueue)
@@ -663,6 +1121,15 @@ class PostingEngineService:
 
         await db.commit()
         await db.refresh(journal)
+
+        await audit_log_service.log_event(
+            db,
+            action="POST",
+            entity_type="Journal",
+            entity_id=str(journal.id),
+            user_id=current_user_id,
+            new_data={"journal_number": journal.journal_number, "total_debit": str(journal.total_debit), "status": "Posted"},
+        )
 
         domain_event_publisher.publish(
             FINANCE_JOURNAL_POSTED,
@@ -703,14 +1170,23 @@ class PostingEngineService:
             db.add(jtype)
             await db.flush()
 
+        # Check fiscal period
+        period = await self.period_repo.get_period_for_date(db, entry_date)
+        if period and (period.is_locked or period.is_closed):
+            raise ValueError(f"Cannot post journal: Fiscal Period '{period.name}' is closed or locked")
+
         j_num = f"{jtype.prefix}-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         total_debit = Decimal(str(sum(line.get("debit", 0.0) for line in lines)))
         total_credit = Decimal(str(sum(line.get("credit", 0.0) for line in lines)))
+
+        if total_debit != total_credit or total_debit <= 0:
+            raise ValueError("Unbalanced journal entries cannot be posted into General Ledger")
 
         journal = Journal(
             journal_number=j_num,
             journal_type_id=jtype.id,
             posting_date=entry_date,
+            fiscal_period_id=period.id if period else None,
             description=description,
             reference_id=reference_number,
             status="Posted",
@@ -741,13 +1217,25 @@ class PostingEngineService:
             acc_res = await db.execute(acc_stmt)
             account = acc_res.scalar_one_or_none()
             if account:
-                if account.account_type in ("Asset", "Expense"):
+                if not account.is_active or account.is_deleted:
+                    raise ValueError(f"Account '{account.account_code} - {account.name}' is inactive or deleted")
+                acc_type = account.account_type.upper()
+                if acc_type in ("ASSET", "EXPENSE"):
                     account.current_balance += debit_amt - credit_amt
                 else:
                     account.current_balance += credit_amt - debit_amt
 
         await db.commit()
         await db.refresh(journal)
+
+        await audit_log_service.log_event(
+            db,
+            action="POST",
+            entity_type="Journal",
+            entity_id=str(journal.id),
+            user_id=user.id if user and hasattr(user, "id") else None,
+            new_data={"journal_number": journal.journal_number, "total_debit": str(total_debit), "status": "Posted"},
+        )
         return journal
 
     async def reverse_journal(
@@ -758,20 +1246,29 @@ class PostingEngineService:
         current_user_id: Optional[uuid.UUID] = None,
     ) -> Journal:
         orig = await self.journal_repo.get_by_id_with_details(db, journal_id)
-        if not orig:
+        if not orig or orig.is_deleted:
             raise ValueError("Original journal not found")
         if orig.status != "Posted":
             raise ValueError("Only Posted journals can be reversed")
 
-        jtype = orig.journal_type
+        rev_date = orig.posting_date
+        period = None
+        if orig.fiscal_period_id:
+            period = await self.period_repo.get_by_id(db, orig.fiscal_period_id)
+        else:
+            period = await self.period_repo.get_period_for_date(db, rev_date)
+
+        if period and (period.is_locked or period.is_closed):
+            raise ValueError(f"Cannot reverse journal: Fiscal Period '{period.name}' is closed or locked")
+
         rev_number = f"REV-{orig.journal_number}"
 
         # Create Reversal Journal Header
         rev_journal = Journal(
             journal_number=rev_number,
             journal_type_id=orig.journal_type_id,
-            posting_date=date.today(),
-            fiscal_period_id=orig.fiscal_period_id,
+            posting_date=rev_date,
+            fiscal_period_id=period.id if period else orig.fiscal_period_id,
             currency_code=orig.currency_code,
             exchange_rate=orig.exchange_rate,
             description=f"Reversal of {orig.journal_number}: {reversal_reason}",
@@ -806,7 +1303,8 @@ class PostingEngineService:
             # Reverse account balance
             account = await self.account_repo.get_by_id(db, line.account_id)
             if account:
-                if account.account_type in ("Asset", "Expense"):
+                acc_type = account.account_type.upper()
+                if acc_type in ("ASSET", "EXPENSE"):
                     account.current_balance += line.credit - line.debit
                 else:
                     account.current_balance += line.debit - line.credit
@@ -817,6 +1315,15 @@ class PostingEngineService:
         orig.reversal_reason = reversal_reason
 
         await db.commit()
+
+        await audit_log_service.log_event(
+            db,
+            action="REVERSE",
+            entity_type="Journal",
+            entity_id=str(orig.id),
+            user_id=current_user_id,
+            new_data={"reversal_journal_id": str(rev_journal.id), "reason": reversal_reason},
+        )
 
         domain_event_publisher.publish(
             FINANCE_JOURNAL_REVERSED,
@@ -839,3 +1346,53 @@ class PostingEngineService:
         )
 
         return await self.journal_repo.get_by_id_with_details(db, rev_journal.id)
+
+
+class GeneralLedgerService:
+    def __init__(self):
+        self.gl_repo = GeneralLedgerRepository()
+
+    async def get_account_ledger(
+        self,
+        db: AsyncSession,
+        account_id: uuid.UUID,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        return await self.gl_repo.get_account_ledger(
+            db,
+            account_id=account_id,
+            from_date=from_date,
+            to_date=to_date,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def get_all_transactions(
+        self,
+        db: AsyncSession,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        account_id: Optional[uuid.UUID] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        return await self.gl_repo.get_all_transactions(
+            db,
+            from_date=from_date,
+            to_date=to_date,
+            account_id=account_id,
+            skip=skip,
+            limit=limit,
+        )
+
+    async def get_trial_balance(
+        self,
+        db: AsyncSession,
+        as_of_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        target_date = as_of_date or date.today()
+        return await self.gl_repo.get_trial_balance(db, as_of_date=target_date)
+

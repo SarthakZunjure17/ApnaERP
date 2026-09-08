@@ -201,7 +201,7 @@ async def test_pricing_and_discount_engine():
 
         # Document Discount Rule
         d_code = f"DISC_DOC_{uuid.uuid4().hex[:4]}"
-        await discount_service.create_discount_rule(
+        d_rule = await discount_service.create_discount_rule(
             session,
             obj_in=DiscountRuleCreate(
                 code=d_code,
@@ -215,6 +215,8 @@ async def test_pricing_and_discount_engine():
 
         doc_disc = await discount_service.evaluate_document_discounts(session, order_total=Decimal("2000.00"), total_quantity=Decimal("20.0000"))
         assert doc_disc == Decimal("100.00")
+        d_rule.is_active = False
+        await session.commit()
 
 
 @pytest.mark.asyncio

@@ -34,10 +34,12 @@ from app.api.v1.endpoints import (
     finance_assets,
     finance_banks,
     finance_budgets,
+    finance_company,
     finance_cost_centers,
     finance_currencies,
     finance_fiscal,
     finance_journals,
+    finance_ledger,
     finance_payables,
     finance_payments,
     finance_posting_rules,
@@ -86,6 +88,7 @@ from app.api.v1.endpoints import (
     purchase_returns,
     quotations,
     rbac,
+    reporting,
     reporting_analytics,
     reporting_builder,
     reporting_charts,
@@ -276,11 +279,14 @@ api_router.include_router(crm_search.router, prefix="/crm/search", tags=["Global
 api_router.include_router(crm_import_export.router, prefix="/crm/import-export", tags=["CRM Import Export"])
 
 # Finance Core Routers
+api_router.include_router(finance_company.router, prefix="/finance/company", tags=["Company & Legal Entity"])
+api_router.include_router(finance_company.router, prefix="/finance/companies", tags=["Company & Legal Entity"])
 api_router.include_router(finance_accounts.router, prefix="/finance/accounts", tags=["Chart of Accounts & Groups"])
 api_router.include_router(finance_fiscal.router, prefix="/finance/fiscal", tags=["Fiscal Years & Periods"])
 api_router.include_router(finance_currencies.router, prefix="/finance/currencies", tags=["Currencies & Exchange Rates"])
 api_router.include_router(finance_cost_centers.router, prefix="/finance/cost-centers", tags=["Cost Centers & Dimensions"])
 api_router.include_router(finance_journals.router, prefix="/finance/journals", tags=["Journal Types & Journal Entries"])
+api_router.include_router(finance_ledger.router, prefix="/finance/ledger", tags=["General Ledger & Trial Balance"])
 api_router.include_router(finance_posting_rules.router, prefix="/finance/posting-rules", tags=["Posting Rules"])
 api_router.include_router(finance_taxes.router, prefix="/finance/taxes", tags=["Tax Categories & Rates"])
 api_router.include_router(finance_search.router, prefix="/finance/search", tags=["Global Finance Search"])
@@ -305,6 +311,7 @@ api_router.include_router(reporting_schedules.router, prefix="/reporting/schedul
 api_router.include_router(reporting_exports.router, prefix="/reporting/exports", tags=["Export Engine"])
 api_router.include_router(reporting_charts.router, prefix="/reporting/charts", tags=["Chart Visualization Engine"])
 api_router.include_router(reporting_search.router, prefix="/reporting/search", tags=["Global Reporting Search"])
+api_router.include_router(reporting.router, prefix="/reports", tags=["Centralized Reporting & Dashboards"])
 
 # Infrastructure & Production Readiness Routers
 api_router.include_router(api_keys.router, prefix="/api-keys", tags=["API Key Management"])

@@ -5,6 +5,87 @@ All notable changes to the **ApnaERP** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.5.0] - 2026-09-08
+
+### Milestone Reporting & Executive Management Dashboard (Final Project Completion)
+
+#### Added
+- **Centralized Read-Only Reporting Architecture (`app/repositories/reporting_repos.py`, `app/services/reporting_services.py`, `app/schemas/reporting.py`, `app/api/v1/endpoints/reporting.py`)**:
+  - Dedicated `ReportingRepository` and `ReportingService` layer providing high-performance database-side aggregations across all 7 ERP domains (Finance, Sales, Procurement, Inventory, CRM, HR, Payroll).
+  - Strict read-only transactional guarantees with zero side-effects and zero mutations on underlying business records.
+- **Executive Management Dashboard (`GET /api/v1/reports/dashboard`)**:
+  - Unified multi-domain KPI metrics aggregating real persisted data: workforce headcount, open leads, pipeline valuation, sales revenue, procurement spend, inventory stock levels & valuation, and posted financial ledger totals.
+- **Financial Reports Subsystem (`GET /api/v1/reports/finance/*`)**:
+  - Real-time Trial Balance verifying debit/credit equality across active Chart of Accounts.
+  - Comprehensive Profit & Loss statement detailing revenue, operating expenses, and net profit for date ranges and fiscal periods.
+  - Balance Sheet presenting Assets, Liabilities, and Equity balances as of specified reporting dates.
+- **Sales Reports Subsystem (`GET /api/v1/reports/sales/*`)**:
+  - Sales Order Summary with status breakdowns and quotation-to-order conversion metrics.
+  - Sales by Customer tracking order frequencies and lifetime spend.
+  - Sales by Product reporting unit volumes and product-line revenue.
+- **Procurement Reports Subsystem (`GET /api/v1/reports/procurement/*`)**:
+  - Purchase Order Summary tracking approved commitments, spend, goods receipt stats, and purchase returns.
+  - Purchases by Supplier summarizing purchasing volume and spend distribution across vendors.
+- **Inventory Reports Subsystem (`GET /api/v1/reports/inventory/*`)**:
+  - Stock by Warehouse facility reporting on-hand quantities and stock valuations.
+  - Stock by Product reporting physical and available quantities.
+  - Low Stock Alerts identifying SKUs at or below reorder levels.
+- **HR & Payroll Reports Subsystem (`GET /api/v1/reports/hr/*`, `GET /api/v1/reports/payroll/*`)**:
+  - Workforce Headcount summary broken down by active/inactive status, employment type, and department.
+  - Payroll Summary analyzing gross earnings, statutory deductions, net disbursements, and departmental payroll expenses.
+- **CRM Reports Subsystem (`GET /api/v1/reports/crm/*`)**:
+  - Lead Performance Metrics analyzing lead stages, lead sources, and conversion rates.
+  - Opportunity Pipeline Report analyzing sales stages, nominal pipeline value, and probability-weighted pipeline forecast.
+- **Universal CSV Export Engine (`GET /api/v1/reports/export`)**:
+  - RFC 4180 compliant CSV export service formatting reports into standardized downloadable files with appropriate MIME headers (`text/csv`).
+- **RBAC & Permissions Seeding (`app/db/seed_rbac.py`)**:
+  - Seeded reporting permissions: `reports.dashboard.read`, `reports.finance.read`, `reports.sales.read`, `reports.procurement.read`, `reports.inventory.read`, `reports.hr.read`, `reports.payroll.read`, `reports.crm.read`, `reports.export`.
+  - Mapped granular read-only access to Admin, Management, Specialist, and Viewer roles across all domains.
+- **Automated Test Suite (`tests/test_reporting_foundation.py`)**:
+  - 10 dedicated test cases verifying Executive Dashboard aggregations, Finance P&L/Balance Sheet/Trial Balance, Sales summaries, Procurement spend, Inventory warehouse/product stock, HR & Payroll cost breakdowns, CRM pipeline, RFC 4180 CSV exports, read-only guarantees, and empty-database edge cases.
+- **Documentation (`docs/reporting/reporting.md`)**:
+  - Comprehensive architectural guide and API specification for ApnaERP Reporting and Dashboard.
+
+## [v1.4.0] - 2026-09-08
+
+### Milestone Finance Foundation & Core Accounting
+
+#### Added
+- **Legal Entity & Accounting Configuration Subsystem (`app/models/finance.py`, `app/schemas/finance.py`, `app/services/finance_services.py`, `app/repositories/finance_repos.py`, `app/api/v1/endpoints/finance_company.py`)**:
+  - `Company` ORM model, schemas, repository, and service supporting organizational identity (`code`, `name`, `legal_name`, `tax_identifier`).
+  - Multi-currency reporting base currency (`currency_code`) and fiscal year alignment (`fiscal_year_start_month`).
+  - System default account references (`default_bank_account_id`, `default_receivable_account_id`, `default_payable_account_id`, `default_retained_earnings_account_id`).
+  - Dedicated REST endpoints under `/api/v1/finance/company` and `/api/v1/finance/companies`.
+- **Chart of Accounts Hierarchy & Safety Engine (`app/services/finance_services.py`, `app/repositories/finance_repos.py`, `app/api/v1/endpoints/finance_accounts.py`)**:
+  - Multi-level nested tree hierarchy with self-parent and ancestor-descendant cycle detection (`validate_no_circular_hierarchy`).
+  - Deletion restrictions preventing hard or soft deletion of accounts with posted journal transactions.
+  - Active/Inactive lifecycle state management with posting guards.
+- **Fiscal Calendar & Period Management Subsystem (`app/services/finance_services.py`, `app/repositories/finance_repos.py`, `app/api/v1/endpoints/finance_fiscal.py`)**:
+  - Automatic 12-month period generation on `FiscalYear` creation.
+  - Temporal overlap detection preventing duplicate/conflicting accounting periods.
+  - Atomic period lock/unlock (`PUT /api/v1/finance/fiscal/periods/{id}/lock`), period close (`PUT /api/v1/finance/fiscal/periods/{id}/close`), and fiscal year close (`PUT /api/v1/finance/fiscal/years/{id}/close`).
+- **Double-Entry Journal Engine (`app/services/finance_services.py`, `app/repositories/finance_repos.py`, `app/api/v1/endpoints/finance_journals.py`)**:
+  - Strict validation engine: $\ge 2$ lines, total debits $\equiv$ total credits, non-negative amounts, prohibition of both debit and credit on single line.
+  - Transactional posting engine verifying account active status and open/unlocked fiscal period validity.
+  - Immutability enforcement blocking modification or deletion of posted journals.
+  - Cancellation rules and automated counter-balancing journal reversals (`POST /api/v1/finance/journals/{id}/reverse`).
+- **General Ledger & Trial Balance Subsystem (`app/services/finance_services.py`, `app/repositories/finance_repos.py`, `app/api/v1/endpoints/finance_ledger.py`)**:
+  - Database-safe, Decimal-precision Account Ledger (`GET /api/v1/finance/ledger/accounts/{id}`) with chronological line entries, prior opening balance, period totals, and running closing balance.
+  - All Transactions Ledger (`GET /api/v1/finance/ledger/transactions`) with multi-column filtering and pagination.
+  - Real-time Trial Balance report (`GET /api/v1/finance/ledger/trial-balance`) mathematically verifying debit/credit equilibrium across all active ledger accounts.
+- **Alembic Database Migration (`alembic/versions/f1a2b3c4d5f6_phase_v140_finance_company_and_enhancements.py`)**:
+  - Schema migration for `companies` table with foreign key linkages to `chart_of_accounts`.
+- **RBAC & Security Seed Configuration (`app/db/seed_rbac.py`)**:
+  - Seeded permissions: `finance.company.*`, `finance.account.*`, `finance.fiscal.*`, `finance.journal.*`, `finance.ledger.read`, `finance.reports.read`.
+  - Configured practical accounting roles: `Finance Manager`, `Accountant`, and `Finance Viewer`.
+- **Audit Logging & Domain Events**:
+  - Full canonical `AuditLog` coverage across Company, Chart of Accounts, Fiscal Periods, and Journal operations.
+  - Published domain events: `AccountCreated`, `AccountUpdated`, `AccountDeactivated`, `FiscalPeriodLocked`, `FiscalPeriodClosed`, `FiscalYearClosed`, `JournalCreated`, `JournalPosted`, `JournalCancelled`, `JournalReversed`.
+- **Automated Test Suites (`tests/test_finance_foundation.py`, `tests/test_finance_core.py`, `tests/test_finance_ops.py`)**:
+  - 18 comprehensive tests verifying company configuration, hierarchical circular hierarchy prevention, fiscal closing, journal validations, transactional posting, immutability, reversal, general ledger, trial balance, and cross-domain compatibility.
+- **Documentation**:
+  - `docs/finance/finance-foundation.md`: Complete architectural guide for Finance Foundation v1.4.0.
+
 ## [v0.9.0] - 2026-09-07
 
 ### Milestone CRM Foundation

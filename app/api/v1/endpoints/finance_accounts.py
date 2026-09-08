@@ -91,6 +91,18 @@ async def update_chart_of_account(
     current_user: User = Depends(require_permission("finance.accounts.update")),
 ) -> Any:
     try:
-        return await coa_service.update_account(db, account_id, obj_in)
+        return await coa_service.update_account(db, account_id, obj_in, current_user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_chart_of_account(
+    account_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("finance.accounts.delete")),
+) -> None:
+    try:
+        await coa_service.delete_account(db, account_id, current_user_id=current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

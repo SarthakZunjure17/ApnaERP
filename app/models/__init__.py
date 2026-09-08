@@ -122,6 +122,7 @@ from app.models.finance import (
     PostingRule,
     TaxCategory,
     TaxRate,
+    Company,
 )
 
 __all__ = [
@@ -261,6 +262,7 @@ __all__ = [
     "TaxCategory",
     "PostingRule",
     "AccountingEvent",
+    "Company",
     "CustomerInvoice",
     "CustomerInvoiceLine",
     "CustomerCreditNote",

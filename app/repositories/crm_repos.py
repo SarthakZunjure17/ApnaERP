@@ -195,14 +195,8 @@ class OpportunityStageRepository(BaseRepository[OpportunityStage, Any, Any]):
         return res.scalars().first()
 
     async def get_all_ordered(self, db: AsyncSession) -> List[OpportunityStage]:
-        stmt = (
-            select(OpportunityStage)
-            .where(OpportunityStage.is_active.is_(True))
-            .order_by(OpportunityStage.display_order.asc())
-        )
-        res = await db.execute(stmt)
-        stages = list(res.scalars().all())
-        if not stages:
+        prospecting = await self.get_by_code(db, "PROSPECTING")
+        if not prospecting:
             # Seed standard pipeline stages
             default_stages = [
                 OpportunityStage(code="PROSPECTING", name="Prospecting", probability_default=Decimal("10.00"), display_order=1),
@@ -216,8 +210,13 @@ class OpportunityStageRepository(BaseRepository[OpportunityStage, Any, Any]):
             await db.commit()
             for s in default_stages:
                 await db.refresh(s)
-            stages = default_stages
-        return stages
+        stmt = (
+            select(OpportunityStage)
+            .where(OpportunityStage.is_active.is_(True))
+            .order_by(OpportunityStage.display_order.asc())
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
 
 
 class OpportunityRepository(BaseRepository[Opportunity, Any, Any]):

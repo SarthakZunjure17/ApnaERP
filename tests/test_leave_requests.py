@@ -165,8 +165,8 @@ async def test_leave_request_state_machine_transitions(setup_employee_policy_and
             LeaveRequestCreate(
                 employee_id=emp.id,
                 leave_type_id=lt.id,
-                start_date=datetime.date(2026, 9, 8),
-                end_date=datetime.date(2026, 9, 10),
+                start_date=datetime.date(2026, 10, 6),
+                end_date=datetime.date(2026, 10, 8),
                 reason="Personal vacation trip",
             )
         )

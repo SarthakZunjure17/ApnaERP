@@ -420,6 +420,9 @@ class OpportunityService:
             stage = await self.stage_repo.get_by_code(db, stage_code)
             if stage:
                 return stage
+        prospecting = await self.stage_repo.get_by_code(db, "PROSPECTING")
+        if prospecting:
+            return prospecting
         stages = await self.stage_repo.get_all_ordered(db)
         if stages:
             return stages[0]
@@ -1009,6 +1012,42 @@ class CampaignService:
         await db.commit()
         await db.refresh(camp)
         return camp
+
+    async def add_member(
+        self, db: AsyncSession, campaign_id: uuid.UUID, member_in: CampaignMemberCreate
+    ) -> CampaignMember:
+        camp = await self.campaign_repo.get_by_id(db, campaign_id)
+        if not camp:
+            raise NotFoundException("Campaign not found")
+        member = CampaignMember(
+            campaign_id=campaign_id,
+            lead_id=member_in.lead_id,
+            customer_id=member_in.customer_id,
+            status=member_in.status,
+        )
+        db.add(member)
+        await db.commit()
+        await db.refresh(member)
+        return member
+
+    async def calculate_roi(self, db: AsyncSession, campaign_id: uuid.UUID) -> CampaignROIReport:
+        camp = await self.campaign_repo.get_by_id(db, campaign_id)
+        if not camp:
+            raise NotFoundException("Campaign not found")
+        cost = Decimal(str(camp.actual_cost or camp.budget or "0.00"))
+        rev = Decimal(str(camp.actual_revenue or "0.00"))
+        if cost > 0:
+            roi = float((rev - cost) / cost * 100)
+        else:
+            roi = 0.0
+        return CampaignROIReport(
+            campaign_id=camp.id,
+            campaign_name=camp.name,
+            budget=camp.budget or Decimal("0.00"),
+            actual_cost=cost,
+            actual_revenue=rev,
+            roi_percentage=round(roi, 2),
+        )
 
 
 class CRMAnalyticsService:
