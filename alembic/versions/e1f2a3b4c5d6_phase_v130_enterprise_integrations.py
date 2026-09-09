@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column('prefix', sa.String(length=16), nullable=False),
         sa.Column('name', sa.String(length=150), nullable=False),
         sa.Column('owner_id', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('scopes', postgresql.JSONB(as_text=True), nullable=False),
+        sa.Column('scopes', postgresql.JSONB(), nullable=False),
         sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('is_revoked', sa.Boolean(), server_default='false', nullable=False),
         sa.Column('usage_count', sa.Integer(), server_default='0', nullable=False),
@@ -56,9 +56,9 @@ def upgrade() -> None:
         sa.Column('name', sa.String(length=150), nullable=False),
         sa.Column('target_url', sa.Text(), nullable=False),
         sa.Column('secret_token', sa.String(length=255), nullable=False),
-        sa.Column('event_types', postgresql.JSONB(as_text=True), nullable=False),
+        sa.Column('event_types', postgresql.JSONB(), nullable=False),
         sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
-        sa.Column('headers_json', postgresql.JSONB(as_text=True), nullable=True),
+        sa.Column('headers_json', postgresql.JSONB(), nullable=True),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_webhook_subscriptions_is_active'), 'webhook_subscriptions', ['is_active'], unique=False)
@@ -71,7 +71,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('subscription_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('event_type', sa.String(length=100), nullable=False),
-        sa.Column('payload_json', postgresql.JSONB(as_text=True), nullable=False),
+        sa.Column('payload_json', postgresql.JSONB(), nullable=False),
         sa.Column('response_status', sa.Integer(), nullable=True),
         sa.Column('response_body', sa.Text(), nullable=True),
         sa.Column('attempt_count', sa.Integer(), server_default='1', nullable=False),
@@ -94,7 +94,7 @@ def upgrade() -> None:
         sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('provider_type', sa.String(length=50), nullable=False),
         sa.Column('provider_name', sa.String(length=50), nullable=False),
-        sa.Column('settings_json', postgresql.JSONB(as_text=True), nullable=False),
+        sa.Column('settings_json', postgresql.JSONB(), nullable=False),
         sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
         sa.Column('is_default', sa.Boolean(), server_default='false', nullable=False),
         sa.PrimaryKeyConstraint('id')

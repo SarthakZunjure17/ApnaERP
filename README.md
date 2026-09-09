@@ -7,7 +7,7 @@
 [![Redis](https://img.shields.io/badge/Redis-7.0+-DC382D.svg?style=flat&logo=redis&logoColor=white)](https://redis.io)
 [![Celery](https://img.shields.io/badge/Celery-5.4+-37B24D.svg?style=flat&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Production_Ready-2496ED.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Tests](https://img.shields.io/badge/Tests-459%20Passed-brightgreen.svg?style=flat)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-463%20Passed-brightgreen.svg?style=flat)](tests/)
 
 **ApnaERP** is a modular, high-performance, production-ready Enterprise Resource Planning (ERP) backend platform built with **Python**, **FastAPI**, **SQLAlchemy 2.0 (Async)**, **PostgreSQL**, **Redis**, and **Celery**.
 
@@ -286,7 +286,7 @@ pytest tests/test_finance_foundation.py -v
 ```
 
 ### Test Suite Summary:
-- **Total Tests:** 459+
+- **Total Tests:** 463
 - **Pass Rate:** 100% (0 failures, 0 regressions)
 - **Coverage:** Unit, Integration, Concurrency, State Machine, Immutability, and RBAC security.
 

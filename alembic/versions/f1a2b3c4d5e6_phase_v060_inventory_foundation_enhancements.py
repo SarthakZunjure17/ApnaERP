@@ -20,8 +20,14 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # 1. Enhance unit_of_measures table
     conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    uom_cols = [c['name'] for c in inspector.get_columns('unit_of_measures')] if 'unit_of_measures' in inspector.get_table_names() else []
+    try:
+        inspector = sa.inspect(conn)
+        tables = inspector.get_table_names()
+    except Exception:
+        inspector = None
+        tables = []
+
+    uom_cols = [c['name'] for c in inspector.get_columns('unit_of_measures')] if inspector and 'unit_of_measures' in tables else []
     
     if 'code' not in uom_cols:
         op.add_column('unit_of_measures', sa.Column('code', sa.String(length=50), nullable=True, comment='Unique UOM code identifier'))
@@ -31,7 +37,7 @@ def upgrade() -> None:
             pass
 
     # 2. Enhance warehouses table
-    wh_cols = [c['name'] for c in inspector.get_columns('warehouses')] if 'warehouses' in inspector.get_table_names() else []
+    wh_cols = [c['name'] for c in inspector.get_columns('warehouses')] if inspector and 'warehouses' in tables else []
     
     if 'description' not in wh_cols:
         op.add_column('warehouses', sa.Column('description', sa.String(length=255), nullable=True, comment='Detailed warehouse description'))
@@ -69,12 +75,12 @@ def upgrade() -> None:
             pass
 
     # 3. Enhance storage_locations table
-    loc_cols = [c['name'] for c in inspector.get_columns('storage_locations')] if 'storage_locations' in inspector.get_table_names() else []
+    loc_cols = [c['name'] for c in inspector.get_columns('storage_locations')] if inspector and 'storage_locations' in tables else []
     if 'description' not in loc_cols:
         op.add_column('storage_locations', sa.Column('description', sa.String(length=255), nullable=True, comment='Storage location description or notes'))
 
     # 4. Enhance products table
-    prod_cols = [c['name'] for c in inspector.get_columns('products')] if 'products' in inspector.get_table_names() else []
+    prod_cols = [c['name'] for c in inspector.get_columns('products')] if inspector and 'products' in tables else []
     if 'model_number' not in prod_cols:
         op.add_column('products', sa.Column('model_number', sa.String(length=100), nullable=True, comment='Model number or manufacturer part identifier'))
         try:
@@ -113,8 +119,7 @@ def upgrade() -> None:
         op.add_column('products', sa.Column('metadata_json', sa.JSON(), nullable=True, comment='Flexible JSON metadata attributes'))
 
     # 5. Create product_warehouses table
-    existing_tables = inspector.get_table_names()
-    if 'product_warehouses' not in existing_tables:
+    if 'product_warehouses' not in tables:
         op.create_table(
             'product_warehouses',
             sa.Column('id', sa.UUID(), nullable=False, comment='Primary Key UUID'),
@@ -142,7 +147,7 @@ def upgrade() -> None:
         op.create_index(op.f('ix_product_warehouses_warehouse_id'), 'product_warehouses', ['warehouse_id'], unique=False)
 
     # 6. Create inventory_policies table
-    if 'inventory_policies' not in existing_tables:
+    if 'inventory_policies' not in tables:
         op.create_table(
             'inventory_policies',
             sa.Column('id', sa.UUID(), nullable=False, comment='Primary Key UUID'),

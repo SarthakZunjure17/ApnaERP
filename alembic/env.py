@@ -23,8 +23,9 @@ if config.config_file_name is not None:
 # Set target metadata for 'autogenerate' support
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url with dynamic application database configuration
-config.set_main_option("sqlalchemy.url", settings.sync_database_url)
+# Override sqlalchemy.url with dynamic application database configuration if not set
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 
 
 def run_migrations_offline() -> None:
@@ -39,13 +40,14 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = settings.sync_database_url
+    url = config.get_main_option("sqlalchemy.url", settings.sync_database_url)
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -57,6 +59,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        render_as_batch=True,
     )
 
     with context.begin_transaction():

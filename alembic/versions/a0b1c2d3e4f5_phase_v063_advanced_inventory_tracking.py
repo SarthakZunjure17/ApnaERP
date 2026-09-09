@@ -19,8 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    tables = inspector.get_table_names()
+    try:
+        inspector = sa.inspect(conn)
+        tables = inspector.get_table_names()
+    except Exception:
+        inspector = None
+        tables = []
 
     # 1. Products - tracking_type
     if 'products' in tables:
@@ -106,8 +110,12 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    tables = inspector.get_table_names()
+    try:
+        inspector = sa.inspect(conn)
+        tables = inspector.get_table_names()
+    except Exception:
+        inspector = None
+        tables = []
 
     if 'stock_transfer_items' in tables:
         sti_cols = [c['name'] for c in inspector.get_columns('stock_transfer_items')]

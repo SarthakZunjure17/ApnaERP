@@ -19,8 +19,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    ledger_cols = [c['name'] for c in inspector.get_columns('stock_ledgers')] if 'stock_ledgers' in inspector.get_table_names() else []
+    try:
+        inspector = sa.inspect(conn)
+        tables = inspector.get_table_names()
+    except Exception:
+        inspector = None
+        tables = []
+
+    ledger_cols = [c['name'] for c in inspector.get_columns('stock_ledgers')] if inspector and 'stock_ledgers' in tables else []
     
     if 'movement_type' not in ledger_cols:
         op.add_column('stock_ledgers', sa.Column('movement_type', sa.String(length=50), server_default='STOCK_IN', nullable=False, comment='Generic movement type: STOCK_IN, STOCK_OUT, ADJUSTMENT'))
