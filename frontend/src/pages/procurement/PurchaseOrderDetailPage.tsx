@@ -5,498 +5,391 @@ import {
   Truck,
   CheckCircle2,
   XCircle,
-  Pencil,
-  Send,
   ChevronRight,
   Clock,
-  Mail,
-  MapPin,
   Calendar,
-  CreditCard,
-  User,
-  AlertCircle,
-  FileCheck,
-  FileText,
+  DollarSign,
+  Package,
+  Send,
+  Boxes,
+  Ban,
+  ArrowLeft,
 } from 'lucide-react';
 import { procurementService } from '../../services/procurementService';
+import { inventoryService } from '../../services/inventoryService';
 import { PurchaseOrderDetail } from '../../types/procurement';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
 import { LoadingState } from '../../components/common/LoadingState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { useToast } from '../../context/ToastContext';
 
 export const PurchaseOrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [po, setPo] = useState<PurchaseOrderDetail | null>(null);
-  const [newComment, setNewComment] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modals & Action States
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
-  const { success, info } = useToast();
+  const { success, error: toastError } = useToast();
 
   useEffect(() => {
-    loadPoDetail();
+    loadPo();
   }, [id]);
 
-  const loadPoDetail = async () => {
+  const loadPo = async () => {
+    if (!id) return;
     setIsLoading(true);
-    if (!id) {
-      setPo(null);
+    setError(null);
+    try {
+      const data = await procurementService.getPurchaseOrderById(id);
+      setPo(data);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load purchase order details');
+    } finally {
       setIsLoading(false);
-      return;
     }
-    const data = await procurementService.getPurchaseOrderById(id);
-    setPo(data);
-    setIsLoading(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!po) return;
+    setIsSubmitting(true);
+    try {
+      const updated = await procurementService.submitPurchaseOrder(po.id);
+      setPo(updated);
+      success('PO Submitted', `${po.po_number} is now submitted for approval.`);
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to submit PO');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleApprove = async () => {
     if (!po) return;
-    const updated = await procurementService.approvePurchaseOrder(po.id);
-    if (updated) {
+    setIsSubmitting(true);
+    try {
+      const updated = await procurementService.approvePurchaseOrder(po.id);
       setPo(updated);
-      success('Purchase Order Approved', `${po.po_number} has been approved successfully.`);
+      success('PO Approved', `${po.po_number} has been approved.`);
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to approve PO');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleReject = async () => {
     if (!po) return;
-    const updated = await procurementService.rejectPurchaseOrder(po.id, rejectReason);
-    if (updated) {
+    setIsSubmitting(true);
+    try {
+      const updated = await procurementService.rejectPurchaseOrder(po.id, rejectReason);
       setPo(updated);
       setIsRejectModalOpen(false);
-      success('Purchase Order Rejected', `${po.po_number} has been rejected.`);
+      success('PO Rejected', `${po.po_number} was rejected.`);
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to reject PO');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleAddComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!po || !newComment.trim()) return;
-
-    const updated = await procurementService.addComment(po.id, newComment.trim());
-    if (updated) {
+  const handleCancel = async () => {
+    if (!po || !window.confirm('Are you sure you want to cancel this purchase order?')) return;
+    setIsSubmitting(true);
+    try {
+      const updated = await procurementService.cancelPurchaseOrder(po.id);
       setPo(updated);
-      setNewComment('');
-      success('Note Added', 'Internal comment recorded.');
+      success('PO Cancelled', `${po.po_number} has been cancelled.`);
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to cancel PO');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReceiveGoods = async () => {
+    if (!po || !po.items || po.items.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await inventoryService.createGoodsReceipt({
+        warehouse_id: po.warehouse_id || '',
+        supplier_id: po.supplier_id,
+        po_id: po.id,
+        receipt_date: new Date().toISOString().split('T')[0],
+        items: po.items.map((item) => ({
+          product_id: item.product_id,
+          received_quantity: item.quantity,
+          unit_cost: item.unit_price,
+        })),
+      });
+      success('Goods Received', 'Stock has been booked into warehouse inventory.');
+      setIsReceiveModalOpen(false);
+      loadPo();
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to receive goods');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
-    return <LoadingState message="Loading purchase order..." />;
+    return (
+      <div className="p-8">
+        <LoadingState message="Loading purchase order details..." />
+      </div>
+    );
   }
 
-  if (!po) {
+  if (error || !po) {
     return (
-      <div className="space-y-4 sm:space-y-5 animate-fade-in pb-10">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <Link to="/procurement/orders" className="hover:text-brand-600 transition-colors">
-            Procurement
-          </Link>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <Link to="/procurement/orders" className="hover:text-brand-600 transition-colors">
-            Orders
-          </Link>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <span className="font-semibold text-slate-700 dark:text-slate-200">Not Found</span>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs">
-          <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-4 border border-rose-100 dark:border-rose-900/40">
-            <FileText className="w-6 h-6" />
-          </div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Purchase Order Not Found</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs mx-auto">
-            No purchase order was found matching ID <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">"{id}"</span>.
-          </p>
-          <div className="mt-6">
-            <Link
-              to="/procurement/orders"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
-            >
-              Back to Purchase Orders
-            </Link>
-          </div>
-        </div>
+      <div className="p-8">
+        <ErrorState
+          title="Purchase Order Not Found"
+          message={error || 'The requested purchase order could not be located.'}
+          onRetry={() => navigate('/procurement/orders')}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5 animate-fade-in pb-10">
-      {/* Top Breadcrumbs & Header (Matching Screenshot 3) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          {/* Breadcrumb line with PO Badge and Status */}
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="font-bold text-[10px] tracking-wider text-slate-400 uppercase">
-              PURCHASE ORDER
-            </span>
-            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-mono font-semibold text-[11px]">
-              {po.po_number}
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-              {po.status}
-            </span>
-          </div>
-
-          {/* Supplier Title */}
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-1.5">
-            {po.supplier_name}
-          </h1>
+    <div className="space-y-6">
+      {/* Breadcrumb & Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <Link to="/procurement/orders" className="hover:text-blue-600 flex items-center gap-1">
+            <ArrowLeft className="w-4 h-4" /> Purchase Orders
+          </Link>
+          <ChevronRight className="w-4 h-4" />
+          <span className="font-mono font-bold text-gray-900 dark:text-white">{po.po_number}</span>
         </div>
 
-        {/* Action buttons (Cancel, Edit, Reject, Approve PO) */}
-        <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
-          <button
-            onClick={() => navigate('/procurement/orders')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-          >
-            <XCircle className="w-3.5 h-3.5 text-slate-400" />
-            Cancel
-          </button>
+        <div className="flex items-center gap-2">
+          {po.status === 'Draft' && (
+            <Button
+              variant="primary"
+              icon={<Send className="w-4 h-4" />}
+              loading={isSubmitting}
+              onClick={handleSubmit}
+            >
+              Submit for Approval
+            </Button>
+          )}
 
-          <button
-            onClick={() => info('Edit Mode', 'PO editing is enabled for draft/pending states.')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-          >
-            <Pencil className="w-3.5 h-3.5 text-slate-400" />
-            Edit
-          </button>
-
-          <button
-            onClick={() => setIsRejectModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-          >
-            Reject
-          </button>
-
-          <button
-            onClick={handleApprove}
-            disabled={po.status === 'Approved'}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:bg-emerald-600 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-          >
-            {po.status === 'Approved' ? (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Approved
-              </>
-            ) : (
-              'Approve PO'
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Top 3 Cards Grid (Supplier Details, Shipping & Terms, Approval Timeline) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* Card 1: Supplier Details (Col span 4) */}
-        <div className="md:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-3.5">
-              <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
-                <Building2 className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Supplier Details
-              </h3>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase block">
-                  Company
-                </span>
-                <p className="font-semibold text-slate-900 dark:text-white mt-0.5">
-                  {po.supplier_name}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase block">
-                  Contact Person
-                </span>
-                <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-slate-800 dark:text-slate-200 font-medium">
-                    {po.contact_person}
-                  </span>
-                  <a
-                    href={`mailto:${po.contact_email}`}
-                    className="text-brand-600 hover:underline font-mono text-[11px]"
-                  >
-                    {po.contact_email}
-                  </a>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase block">
-                  Address
-                </span>
-                <p className="text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed whitespace-pre-line">
-                  {po.supplier_address}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Shipping & Terms (Col span 4) */}
-        <div className="md:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-3.5">
-              <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
-                <Truck className="w-3.5 h-3.5" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Shipping & Terms
-              </h3>
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase block">
-                  Ship To
-                </span>
-                <p className="text-slate-800 dark:text-slate-200 mt-0.5 leading-relaxed whitespace-pre-line">
-                  {po.ship_to_address}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase block">
-                    Expected Delivery
-                  </span>
-                  <span className="text-slate-800 dark:text-slate-200 font-medium mt-0.5 block">
-                    {po.expected_delivery}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase block">
-                    Payment Terms
-                  </span>
-                  <span className="text-slate-800 dark:text-slate-200 font-medium mt-0.5 block">
-                    {po.payment_terms}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Approval Timeline (Col span 4, Matching Screenshot 3) */}
-        <div className="md:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3.5">
-            Approval Timeline
-          </h3>
-
-          <div className="space-y-3.5 relative pl-4 border-l-2 border-slate-100 dark:border-slate-800 text-xs">
-            {(po.timeline || []).map((step) => {
-              const isCompleted = step.status === 'completed';
-              const isCurrent = step.status === 'current';
-
-              return (
-                <div key={step.id} className="relative">
-                  {/* Step dot on vertical line */}
-                  <div
-                    className={`absolute -left-[23px] top-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${
-                      isCompleted
-                        ? 'bg-blue-600'
-                        : isCurrent
-                        ? 'bg-amber-500'
-                        : 'bg-slate-300'
-                    }`}
-                  />
-
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-medium block">
-                      {step.timestamp}
-                    </span>
-                    <p className="font-bold text-slate-900 dark:text-white mt-0.5">
-                      {step.title}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                      {step.description}
-                    </p>
-                    {step.user_name && (
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        By: <span className="font-medium text-slate-700 dark:text-slate-300">{step.user_name}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Grid: Line Items Table (Left 8 cols) & Internal Comments (Right 4 cols) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* Line Items Table & Summary Box (Col span 8) */}
-        <div className="md:col-span-8 space-y-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3.5">
-              Line Items
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    <th className="py-2 px-2.5">Item & Description</th>
-                    <th className="py-2 px-2.5">SKU</th>
-                    <th className="py-2 px-2.5 text-center">Qty</th>
-                    <th className="py-2 px-2.5 text-right">Unit Price</th>
-                    <th className="py-2 px-2.5 text-center">Tax</th>
-                    <th className="py-2 px-2.5 text-right">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/60 text-xs">
-                  {(po.items || []).map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/50">
-                      <td className="py-3 px-2.5">
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {item.item_name}
-                        </p>
-                        <p className="text-[11px] text-slate-400">{item.description}</p>
-                      </td>
-                      <td className="py-3 px-2.5 font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                        {item.sku}
-                      </td>
-                      <td className="py-3 px-2.5 text-center font-medium text-slate-800 dark:text-slate-200">
-                        {item.quantity}
-                      </td>
-                      <td className="py-3 px-2.5 text-right text-slate-800 dark:text-slate-200">
-                        {item.formatted_unit_price}
-                      </td>
-                      <td className="py-3 px-2.5 text-center text-slate-500">
-                        {item.tax_rate}%
-                      </td>
-                      <td className="py-3 px-2.5 text-right font-medium text-slate-900 dark:text-white">
-                        {item.formatted_subtotal}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Financial Summary Box */}
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <div className="w-full sm:w-64 space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-500">
-                  <span>Subtotal</span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">
-                    {po.formatted_subtotal}
-                  </span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Tax (8%)</span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">
-                    {po.formatted_tax}
-                  </span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Shipping</span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">
-                    {po.formatted_shipping}
-                  </span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white">
-                  <span>Total</span>
-                  <span className="text-base font-bold text-slate-900 dark:text-white">
-                    {po.formatted_total}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Internal Comments Section (Col span 4, Matching Screenshot 3) */}
-        <div className="md:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3.5">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Internal Comments
-              </h3>
-              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">
-                {(po.comments || []).length}
-              </span>
-            </div>
-
-            {/* Comments Stream */}
-            <div className="space-y-3">
-              {(po.comments || []).map((comment) => (
-                <div
-                  key={comment.id}
-                  className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {comment.author_name}
-                    </span>
-                    <span className="text-[10px] text-slate-400">{comment.time_ago}</span>
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed italic text-[11px]">
-                    {comment.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Comment Input Box with Send Button */}
-          <form onSubmit={handleAddComment} className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="relative">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add an internal note..."
-                rows={3}
-                className="w-full p-2.5 pb-8 bg-blue-50/40 dark:bg-slate-800/80 border border-blue-100 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 resize-none"
-              />
-              <button
-                type="submit"
-                disabled={!newComment.trim()}
-                className="absolute bottom-2 right-2 p-1.5 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-md transition-colors cursor-pointer"
-                title="Send Note"
+          {po.status === 'Submitted' && (
+            <>
+              <Button
+                variant="secondary"
+                icon={<XCircle className="w-4 h-4 text-red-500" />}
+                onClick={() => setIsRejectModalOpen(true)}
               >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </form>
+                Reject
+              </Button>
+              <Button
+                variant="primary"
+                icon={<CheckCircle2 className="w-4 h-4" />}
+                loading={isSubmitting}
+                onClick={handleApprove}
+              >
+                Approve PO
+              </Button>
+            </>
+          )}
+
+          {po.status === 'Approved' && (
+            <Button
+              variant="primary"
+              icon={<Boxes className="w-4 h-4" />}
+              onClick={() => setIsReceiveModalOpen(true)}
+            >
+              Receive Goods (GRN)
+            </Button>
+          )}
+
+          {['Draft', 'Submitted', 'Approved'].includes(po.status) && (
+            <Button
+              variant="secondary"
+              icon={<Ban className="w-4 h-4 text-gray-400" />}
+              loading={isSubmitting}
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Reject Modal */}
+      {/* PO Overview Header Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold font-mono text-gray-900 dark:text-white">{po.po_number}</h1>
+              <StatusBadge
+                status={po.status}
+                variant={
+                  po.status === 'Approved' || po.status === 'Received'
+                    ? 'success'
+                    : po.status === 'Submitted'
+                    ? 'info'
+                    : po.status === 'Rejected' || po.status === 'Cancelled'
+                    ? 'error'
+                    : 'default'
+                }
+              />
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Order Date: {po.order_date} • Expected: {po.expected_delivery_date || 'Standard'}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <span className="text-xs font-semibold uppercase text-gray-400">Total Purchase Value</span>
+            <div className="text-3xl font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              ${Number(po.total_amount || 0).toFixed(2)}
+            </div>
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6">
+          <div className="flex items-start gap-3">
+            <Building2 className="w-5 h-5 text-blue-500 mt-0.5" />
+            <div>
+              <span className="text-xs text-gray-400 uppercase font-semibold">Vendor / Supplier</span>
+              <p className="font-semibold text-gray-900 dark:text-white">{po.supplier_name || 'Vendor'}</p>
+              <p className="text-xs text-gray-400">ID: {po.supplier_id}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Truck className="w-5 h-5 text-purple-500 mt-0.5" />
+            <div>
+              <span className="text-xs text-gray-400 uppercase font-semibold">Destination Facility</span>
+              <p className="font-semibold text-gray-900 dark:text-white">{po.warehouse_name || 'Warehouse'}</p>
+              <p className="text-xs text-gray-400">Terms: {po.payment_terms || 'Net 30'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <DollarSign className="w-5 h-5 text-emerald-500 mt-0.5" />
+            <div>
+              <span className="text-xs text-gray-400 uppercase font-semibold">Currency & Taxes</span>
+              <p className="font-semibold text-gray-900 dark:text-white">{po.currency_code || 'USD'}</p>
+              <p className="text-xs text-gray-400">Tax: ${Number(po.tax_amount || 0).toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Line Items Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h3 className="font-bold text-gray-900 dark:text-white">Order Line Items</h3>
+          <span className="text-xs font-mono text-gray-500">{po.items?.length || 0} items</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+              <tr>
+                <th className="px-6 py-4">Item / Product</th>
+                <th className="px-6 py-4 text-right">Ordered Qty</th>
+                <th className="px-6 py-4 text-right">Unit Cost</th>
+                <th className="px-6 py-4 text-right">Tax Rate</th>
+                <th className="px-6 py-4 text-right">Line Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {po.items?.map((item, idx) => (
+                <tr key={item.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {item.product_name || `Product (${item.product_id.substring(0, 8)})`}
+                    </div>
+                    {item.product_sku && (
+                      <div className="text-xs font-mono text-gray-400">SKU: {item.product_sku}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono font-bold text-gray-900 dark:text-white">
+                    {item.quantity}
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono text-gray-900 dark:text-white">
+                    ${Number(item.unit_price || 0).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono text-gray-500">{item.tax_rate || 0}%</td>
+                  <td className="px-6 py-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    ${Number(item.total_price || item.quantity * item.unit_price).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Notes */}
+      {po.notes && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Order Notes</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-300">{po.notes}</p>
+        </div>
+      )}
+
+      {/* Modal: Reject PO */}
       <Modal
         isOpen={isRejectModalOpen}
         onClose={() => setIsRejectModalOpen(false)}
         title="Reject Purchase Order"
       >
-        <div className="space-y-3.5 text-xs">
-          <p className="text-slate-600 dark:text-slate-300">
-            Please provide a justification for rejecting {po.po_number}. This will notify the supplier and requestor.
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Please provide an audit justification for rejecting order {po.po_number}:
           </p>
           <textarea
+            rows={3}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Reason for rejection (e.g. over-budget, incorrect quantities...)"
-            rows={3}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
+            placeholder="Reason for rejection (e.g. over-budget, supplier mismatch)..."
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
           />
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Button variant="outline" size="sm" onClick={() => setIsRejectModalOpen(false)}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button variant="secondary" onClick={() => setIsRejectModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="danger" size="sm" onClick={handleReject}>
+            <Button variant="primary" loading={isSubmitting} onClick={handleReject}>
               Confirm Rejection
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Receive Goods Confirmation */}
+      <Modal
+        isOpen={isReceiveModalOpen}
+        onClose={() => setIsReceiveModalOpen(false)}
+        title="Receive Goods into Inventory"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            This action will generate a formal <strong>Goods Receipt Note (GRN)</strong> and update
+            on-hand stock balances across the designated warehouse for all items in order{' '}
+            <strong>{po.po_number}</strong>.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button variant="secondary" onClick={() => setIsReceiveModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" loading={isSubmitting} onClick={handleReceiveGoods}>
+              Confirm & Book Inbound Stock
             </Button>
           </div>
         </div>

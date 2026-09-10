@@ -1,108 +1,95 @@
-export type SalesOrderStatus = 'Draft' | 'Confirmed' | 'Processing' | 'Completed' | 'Cancelled';
-export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue' | 'Partially Paid';
-export type FulfillmentStatus = 'Unfulfilled' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
-
-export interface SalesOrderItem {
+export interface CustomerItem {
   id: string;
-  item_name: string;
-  description: string;
-  sku: string;
+  name: string;
+  code: string;
+  customer_type: 'Individual' | 'Corporate' | 'Enterprise';
+  email?: string;
+  phone?: string;
+  tax_identifier?: string;
+  credit_limit: number;
+  credit_days: number;
+  is_active: boolean;
+  city?: string;
+  country?: string;
+}
+
+export interface SOLineItem {
+  id?: string;
+  product_id: string;
+  product_sku?: string;
+  product_name?: string;
   quantity: number;
   unit_price: number;
-  formatted_unit_price: string;
-  tax_rate: number;
-  subtotal: number;
-  formatted_subtotal: string;
-}
-
-export interface SalesOrderTimelineStep {
-  id: string;
-  timestamp: string;
-  title: string;
-  description: string;
-  user_name?: string;
-  user_avatar?: string;
-  status: 'completed' | 'current' | 'pending';
-}
-
-export interface SalesOrderComment {
-  id: string;
-  author_name: string;
-  author_avatar?: string;
-  time_ago: string;
-  content: string;
-  is_system?: boolean;
-}
-
-export interface SalesOrderDetail {
-  id: string;
-  order_number: string;
-  date: string;
-  status: SalesOrderStatus;
-  payment_status: PaymentStatus;
-  fulfillment_status: FulfillmentStatus;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  customer_company: string;
-  billing_address: string;
-  shipping_address: string;
-  region: string;
-  sales_rep: {
-    name: string;
-    email: string;
-    avatar_url: string;
-    designation: string;
-  };
-  expected_delivery: string;
-  payment_terms: string;
-  shipping_carrier?: string;
-  tracking_number?: string;
-  items: SalesOrderItem[];
-  subtotal: number;
-  formatted_subtotal: string;
-  tax_amount: number;
-  formatted_tax: string;
-  shipping_amount: number;
-  formatted_shipping: string;
-  discount_amount: number;
-  formatted_discount: string;
-  total_amount: number;
-  formatted_total: string;
-  timeline: SalesOrderTimelineStep[];
-  comments: SalesOrderComment[];
+  discount_amount?: number;
+  tax_rate?: number;
+  total_price?: number;
+  fulfilled_quantity?: number;
 }
 
 export interface SalesOrderListItem {
   id: string;
   order_number: string;
-  date: string;
+  order_date: string;
+  customer_id: string;
   customer_name: string;
-  customer_initials: string;
-  region: string;
-  amount: number;
-  formatted_amount: string;
-  status: SalesOrderStatus;
-  payment_status: PaymentStatus;
-  fulfillment_status: FulfillmentStatus;
-  sales_rep_name: string;
-  sales_rep_avatar?: string;
-  items_count: number;
-  expected_delivery: string;
+  warehouse_id?: string;
+  warehouse_name?: string;
+  total_amount: number;
+  status: 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'In Production' | 'Dispatched' | 'Delivered' | 'Cancelled' | 'Closed';
+  created_at?: string;
 }
 
-export interface SalesMetrics {
-  total_orders_count: number;
-  total_revenue_formatted: string;
-  pending_fulfillment_count: number;
-  average_order_value_formatted: string;
+export interface SalesOrderDetail extends SalesOrderListItem {
+  payment_terms?: string;
+  currency_code?: string;
+  notes?: string;
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  items: SOLineItem[];
 }
 
-export interface SalesOrderFilters {
-  search?: string;
-  customer?: string;
-  region?: string;
-  fulfillment?: string;
-  paymentStatus?: string;
-  status?: string;
+export interface SalesOrderCreatePayload {
+  customer_id: string;
+  warehouse_id?: string;
+  order_date: string;
+  expected_delivery_date?: string;
+  payment_terms?: string;
+  currency_code?: string;
+  notes?: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+    discount_amount?: number;
+    tax_rate?: number;
+  }>;
+}
+
+export interface SalesQuotationItem {
+  id: string;
+  quotation_number: string;
+  customer_id: string;
+  customer_name: string;
+  quotation_date: string;
+  expiry_date?: string;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  status: 'Draft' | 'Sent' | 'Approved' | 'Rejected' | 'Converted' | 'Expired' | 'Cancelled';
+  created_at: string;
+}
+
+export interface DeliveryOrderItem {
+  id: string;
+  delivery_number: string;
+  sales_order_id: string;
+  sales_order_number?: string;
+  customer_id: string;
+  customer_name: string;
+  dispatch_date: string;
+  status: 'Draft' | 'Picked' | 'Packed' | 'Dispatched' | 'Delivered' | 'Cancelled';
+  tracking_number?: string;
+  carrier?: string;
+  created_at: string;
 }

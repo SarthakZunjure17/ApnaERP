@@ -8,6 +8,7 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -16,8 +17,11 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   footer,
-  maxWidth = 'md',
+  maxWidth,
+  size = 'md',
 }) => {
+  const effectiveSize = maxWidth || size;
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -48,7 +52,7 @@ export const Modal: React.FC<ModalProps> = ({
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} bg-white dark:bg-slate-900 rounded-2xl shadow-modal border border-slate-200 dark:border-slate-800 z-10 overflow-hidden animate-fade-in`}
+        className={`relative w-full ${maxWidthStyles[effectiveSize]} bg-white dark:bg-slate-900 rounded-2xl shadow-modal border border-slate-200 dark:border-slate-800 z-10 overflow-hidden animate-fade-in`}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
@@ -59,7 +63,7 @@ export const Modal: React.FC<ModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 max-h-[80vh] overflow-y-auto">{children}</div>
         {footer && (
           <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
             {footer}

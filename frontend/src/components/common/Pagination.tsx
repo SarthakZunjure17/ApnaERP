@@ -3,8 +3,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginationProps {
   currentPage: number;
-  totalPages: number;
-  totalEntries: number;
+  totalPages?: number;
+  totalEntries?: number;
+  totalItems?: number;
   pageSize?: number;
   onPageChange: (page: number) => void;
   className?: string;
@@ -14,27 +15,31 @@ export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,
   totalEntries,
+  totalItems,
   pageSize = 10,
   onPageChange,
   className = '',
 }) => {
-  const startItem = totalEntries === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(currentPage * pageSize, totalEntries);
+  const effectiveTotal = totalEntries !== undefined ? totalEntries : (totalItems !== undefined ? totalItems : 0);
+  const effectiveTotalPages = totalPages !== undefined ? totalPages : Math.max(1, Math.ceil(effectiveTotal / pageSize));
+
+  const startItem = effectiveTotal === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, effectiveTotal);
 
   const renderPageNumbers = () => {
     const pages: (number | string)[] = [];
 
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) {
+    if (effectiveTotalPages <= 5) {
+      for (let i = 1; i <= effectiveTotalPages; i++) {
         pages.push(i);
       }
     } else {
       if (currentPage <= 3) {
-        pages.push(1, 2, 3, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+        pages.push(1, 2, 3, '...', effectiveTotalPages);
+      } else if (currentPage >= effectiveTotalPages - 2) {
+        pages.push(1, '...', effectiveTotalPages - 2, effectiveTotalPages - 1, effectiveTotalPages);
       } else {
-        pages.push(1, '...', currentPage, '...', totalPages);
+        pages.push(1, '...', currentPage, '...', effectiveTotalPages);
       }
     }
 
@@ -58,7 +63,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onClick={() => onPageChange(page)}
           className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-md text-xs font-semibold transition-colors cursor-pointer ${
             isActive
-              ? 'bg-brand-600 text-white shadow-xs'
+              ? 'bg-blue-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
           aria-current={isActive ? 'page' : undefined}
@@ -80,7 +85,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         </span>{' '}
         of{' '}
         <span className="font-semibold text-slate-900 dark:text-white">
-          {totalEntries.toLocaleString()}
+          {effectiveTotal.toLocaleString()}
         </span>{' '}
         entries
       </div>
@@ -99,7 +104,7 @@ export const Pagination: React.FC<PaginationProps> = ({
 
         <button
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
+          disabled={currentPage >= effectiveTotalPages}
           className="p-1 rounded-md text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           aria-label="Next Page"
         >

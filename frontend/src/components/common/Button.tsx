@@ -5,7 +5,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  loading?: boolean;
   leftIcon?: React.ReactNode;
+  icon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
 
@@ -14,12 +16,17 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  loading = false,
   leftIcon,
+  icon,
   rightIcon,
   className = '',
   disabled,
   ...props
 }) => {
+  const isButtonLoading = isLoading || loading;
+  const buttonLeftIcon = leftIcon || icon;
+
   const baseStyles =
     'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer';
 
@@ -45,16 +52,16 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button
       className={`${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
-      disabled={disabled || isLoading}
+      disabled={disabled || isButtonLoading}
       {...props}
     >
-      {isLoading ? (
+      {isButtonLoading ? (
         <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-      ) : leftIcon ? (
-        <span className="shrink-0">{leftIcon}</span>
+      ) : buttonLeftIcon ? (
+        <span className="shrink-0">{buttonLeftIcon}</span>
       ) : null}
       {children}
-      {!isLoading && rightIcon && <span className="shrink-0">{rightIcon}</span>}
+      {!isButtonLoading && rightIcon && <span className="shrink-0">{rightIcon}</span>}
     </button>
   );
 };

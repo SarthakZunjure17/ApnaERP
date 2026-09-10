@@ -1,69 +1,85 @@
-export interface POLineItem {
+export interface SupplierItem {
   id: string;
-  item_name: string;
-  description: string;
-  sku: string;
+  name: string;
+  code: string;
+  contact_person?: string;
+  email?: string;
+  phone?: string;
+  tax_identifier?: string;
+  rating?: number;
+  is_active: boolean;
+}
+
+export interface POLineItem {
+  id?: string;
+  product_id: string;
+  product_sku?: string;
+  product_name?: string;
   quantity: number;
   unit_price: number;
-  formatted_unit_price: string;
-  tax_rate: number;
-  subtotal: number;
-  formatted_subtotal: string;
-}
-
-export interface POApprovalStep {
-  id: string;
-  timestamp: string;
-  title: string;
-  description: string;
-  user_name?: string;
-  user_avatar?: string;
-  status: 'completed' | 'current' | 'pending';
-}
-
-export interface POComment {
-  id: string;
-  author_name: string;
-  author_avatar?: string;
-  time_ago: string;
-  content: string;
-  is_system?: boolean;
-}
-
-export interface PurchaseOrderDetail {
-  id: string;
-  po_number: string;
-  status: 'Draft' | 'Pending Approval' | 'Approved' | 'Rejected' | 'Cancelled';
-  supplier_name: string;
-  contact_person: string;
-  contact_email: string;
-  supplier_address: string;
-  ship_to_address: string;
-  expected_delivery: string;
-  payment_terms: string;
-  items: POLineItem[];
-  subtotal: number;
-  formatted_subtotal: string;
-  tax_amount: number;
-  formatted_tax: string;
-  shipping_amount: number;
-  formatted_shipping: string;
-  total_amount: number;
-  formatted_total: string;
-  timeline: POApprovalStep[];
-  comments: POComment[];
+  tax_rate?: number;
+  discount_amount?: number;
+  total_price?: number;
+  received_quantity?: number;
 }
 
 export interface PurchaseOrderListItem {
   id: string;
   po_number: string;
-  date: string;
+  order_date: string;
+  supplier_id: string;
   supplier_name: string;
-  supplier_initials: string;
-  amount: number;
-  formatted_amount: string;
-  expected_date: string;
-  status: 'Draft' | 'Pending Approval' | 'Approved' | 'Rejected';
-  approver_name: string;
-  approver_avatar?: string;
+  warehouse_id?: string;
+  warehouse_name?: string;
+  total_amount: number;
+  expected_delivery_date?: string;
+  status: 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Dispatched' | 'Received' | 'Cancelled' | 'Closed';
+  created_at?: string;
+}
+
+export interface PurchaseOrderDetail extends PurchaseOrderListItem {
+  payment_terms?: string;
+  currency_code: string;
+  notes?: string;
+  subtotal: number;
+  tax_amount: number;
+  items: POLineItem[];
+}
+
+export interface PurchaseOrderCreatePayload {
+  supplier_id: string;
+  warehouse_id: string;
+  order_date: string;
+  expected_delivery_date?: string;
+  payment_terms?: string;
+  currency_code?: string;
+  notes?: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+    tax_rate?: number;
+    discount_amount?: number;
+  }>;
+}
+
+export interface PurchaseRequisitionItem {
+  id: string;
+  pr_number: string;
+  requisition_date: string;
+  department_id?: string;
+  department_name?: string;
+  status: 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered' | 'Cancelled';
+  total_estimated_amount: number;
+  created_at: string;
+}
+
+export interface RFQItem {
+  id: string;
+  rfq_number: string;
+  issue_date: string;
+  close_date?: string;
+  status: 'Draft' | 'Sent' | 'Closed' | 'Cancelled';
+  title: string;
+  created_at: string;
 }

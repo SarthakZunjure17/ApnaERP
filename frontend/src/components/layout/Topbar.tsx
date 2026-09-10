@@ -10,6 +10,8 @@ import {
   User as UserIcon,
   CheckCircle2,
   ExternalLink,
+  Shield,
+  History,
 } from 'lucide-react';
 import { SearchBar } from '../common/SearchBar';
 import { Avatar } from '../common/Avatar';
@@ -17,6 +19,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { Modal } from '../common/Modal';
+import { platformService } from '../../services/platformService';
+import { AuditLogItem } from '../../types/platform';
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -30,6 +34,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AuditLogItem[]>([]);
   const [hasUnread, setHasUnread] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,22 +56,43 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      loadRecentActivity();
+    }
+  }, [isNotificationsOpen]);
+
+  const loadRecentActivity = async () => {
+    try {
+      const logs = await platformService.getAuditLogs({ limit: 5 });
+      setNotifications(logs);
+    } catch {
+      setNotifications([]);
+    }
+  };
+
   const handleSearch = (query: string) => {
     const q = query.trim().toLowerCase();
     if (!q) return;
 
-    if (q.includes('emp') || q.includes('user') || q.includes('amit') || q.includes('priya') || q.includes('staff')) {
+    if (q.includes('emp') || q.includes('user') || q.includes('staff') || q.includes('attend')) {
       navigate('/workforce/employees');
       info('Search Result', `Navigated to Employees Directory matching "${query}"`);
-    } else if (q.includes('prod') || q.includes('sku') || q.includes('headphone') || q.includes('stock') || q.includes('item')) {
+    } else if (q.includes('prod') || q.includes('sku') || q.includes('stock') || q.includes('item') || q.includes('wh')) {
       navigate('/inventory/products');
-      info('Search Result', `Navigated to Inventory Products matching "${query}"`);
-    } else if (q.includes('po') || q.includes('purch') || q.includes('suppl') || q.includes('acme')) {
+      info('Search Result', `Navigated to Inventory matching "${query}"`);
+    } else if (q.includes('po') || q.includes('purch') || q.includes('suppl') || q.includes('vendor')) {
       navigate('/procurement/orders');
-      info('Search Result', `Navigated to Purchase Orders matching "${query}"`);
-    } else if (q.includes('sale') || q.includes('order') || q.includes('so-') || q.includes('cust')) {
+      info('Search Result', `Navigated to Procurement matching "${query}"`);
+    } else if (q.includes('sale') || q.includes('cust') || q.includes('quote') || q.includes('lead') || q.includes('crm')) {
       navigate('/sales/orders');
       info('Search Result', `Navigated to Sales Orders matching "${query}"`);
+    } else if (q.includes('account') || q.includes('journal') || q.includes('ledger') || q.includes('fin')) {
+      navigate('/finance/accounts');
+      info('Search Result', `Navigated to Finance matching "${query}"`);
+    } else if (q.includes('rep') || q.includes('pnl') || q.includes('balance') || q.includes('export')) {
+      navigate('/reports');
+      info('Search Result', `Navigated to Reporting Hub matching "${query}"`);
     } else {
       info('Global Search', `Searching for "${query}" across organization records...`);
     }
@@ -79,7 +105,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
 
   const handleMarkAllRead = () => {
     setHasUnread(false);
-    success('Notifications', 'All notifications marked as read.');
+    success('Notifications', 'All activity notifications marked as acknowledged.');
   };
 
   return (
@@ -120,62 +146,51 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
             <button
               onClick={() => setIsNotificationsOpen((prev) => !prev)}
               className="relative p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Notifications"
+              title="Recent Activity & Audit"
               aria-label="Notifications"
             >
               <Bell className="w-4 h-4" />
               {hasUnread && (
-                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-brand-600 ring-2 ring-white dark:ring-slate-900" />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-slate-900" />
               )}
             </button>
 
             {isNotificationsOpen && (
               <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 z-50 animate-fade-in">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Notifications
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5" /> Recent System Activity
                   </h4>
                   <button
                     onClick={handleMarkAllRead}
-                    className="text-[11px] font-semibold text-brand-600 cursor-pointer hover:underline"
+                    className="text-[11px] font-semibold text-blue-600 cursor-pointer hover:underline"
                   >
-                    Mark all read
+                    Acknowledge all
                   </button>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-72 overflow-y-auto mt-2">
-                  <div className="py-2.5 flex items-start gap-3">
-                    <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${hasUnread ? 'bg-brand-600' : 'bg-slate-300'}`} />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        Purchase Order PO-2023-089 Pending
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Office Supplies order ($1,240) requires your approval.
-                      </p>
-                      <span className="text-[10px] text-slate-400 mt-1 block">10m ago</span>
+                  {notifications.length === 0 ? (
+                    <div className="py-4 text-center text-xs text-slate-400">
+                      No recent audit events recorded.
                     </div>
-                  </div>
-                  <div className="py-2.5 flex items-start gap-3">
-                    <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${hasUnread ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        Low Stock Alert: SKU A-102
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Inventory balance below safety threshold.
-                      </p>
-                      <span className="text-[10px] text-slate-400 mt-1 block">1h ago</span>
-                    </div>
-                  </div>
-                  <div className="py-2.5 flex items-start gap-3">
-                    <div className="w-2 h-2 mt-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                        Automated Daily Backup Complete
-                      </p>
-                      <span className="text-[10px] text-slate-400 mt-1 block">2h ago</span>
-                    </div>
-                  </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <div key={n.id} className="py-2.5 flex items-start gap-3">
+                        <div className="w-2 h-2 mt-1.5 rounded-full bg-blue-600 shrink-0" />
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            {n.action}: {n.resource_type}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            By {n.user_name || n.user_email || 'System'}
+                          </p>
+                          <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">
+                            {new Date(n.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -207,14 +222,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
               {/* Text Info */}
               <div className="text-right hidden sm:flex flex-col">
                 <span className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
-                  {user?.full_name || 'ERP Admin'}
+                  {user?.full_name || 'ERP Administrator'}
                 </span>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
-                  {user?.designation || 'System Overlord'}
+                  {user?.designation || 'System Admin'}
                 </span>
               </div>
 
-              {/* Blue Avatar circle */}
               <Avatar name={user?.full_name || 'ERP Admin'} size="sm" />
             </button>
 
@@ -223,12 +237,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
               <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-2 z-50 animate-fade-in">
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                    {user?.full_name || 'ERP Admin'}
+                    {user?.full_name || 'ERP Administrator'}
                   </p>
                   <p className="text-[11px] text-slate-500 truncate">
                     {user?.email || 'admin@apnaerp.com'}
                   </p>
-                  <span className="mt-1 inline-block text-[10px] font-semibold text-brand-600 bg-brand-50 dark:bg-brand-950/60 px-2 py-0.5 rounded">
+                  <span className="mt-1 inline-block text-[10px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded">
                     {user?.roles?.[0] || 'SuperAdmin'}
                   </span>
                 </div>
@@ -237,22 +251,22 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
-                      navigate('/workforce/employees/emp-001');
+                      navigate('/workforce/employees');
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-left"
                   >
                     <UserIcon className="w-4 h-4 text-slate-400" />
-                    <span>My Profile</span>
+                    <span>Employees Directory</span>
                   </button>
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
-                      info('Security Settings', 'Two-Factor Authentication and API keys are active.');
+                      navigate('/platform/admin');
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-left"
                   >
-                    <CheckCircle2 className="w-4 h-4 text-slate-400" />
-                    <span>Account Security</span>
+                    <Shield className="w-4 h-4 text-slate-400" />
+                    <span>Platform Administration</span>
                   </button>
                 </div>
 
@@ -303,7 +317,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
               Architecture & API Status
             </h5>
             <p className="text-xs text-slate-500">
-              ApnaERP v0.2.0 is connected to the production FastAPI backend. All modules use standardized JWT Bearer token authentication and structured REST APIs.
+              ApnaERP v1.6.0 is connected to the production FastAPI backend. All modules use standardized JWT Bearer token authentication and structured REST APIs.
             </p>
           </div>
 
@@ -312,7 +326,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
               href="http://localhost:8000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
             >
               Open Backend API Docs (Swagger)
               <ExternalLink className="w-3.5 h-3.5" />

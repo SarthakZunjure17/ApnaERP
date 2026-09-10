@@ -6,6 +6,8 @@ interface EmptyStateProps {
   title?: string;
   description?: string;
   actionLabel?: string;
+  actionText?: string;
+  action?: React.ReactNode;
   onAction?: () => void;
   icon?: React.ReactNode;
 }
@@ -14,9 +16,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title = 'No records found',
   description = 'There are currently no items matching your criteria.',
   actionLabel,
+  actionText,
+  action,
   onAction,
   icon,
 }) => {
+  const label = actionLabel || actionText;
+
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
       <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
@@ -24,11 +30,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       </div>
       <h4 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h4>
       <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">{description}</p>
-      {actionLabel && onAction && (
+      {action ? (
+        action
+      ) : label && onAction ? (
         <Button variant="outline" size="sm" onClick={onAction}>
-          {actionLabel}
+          {label}
         </Button>
-      )}
+      ) : null}
     </div>
   );
 };

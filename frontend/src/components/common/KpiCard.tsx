@@ -3,10 +3,60 @@ import { DollarSign, Wallet, Package, Receipt, TrendingUp, TrendingDown, Minus }
 import { KpiMetric } from '../../types/dashboard';
 
 interface KpiCardProps {
-  metric: KpiMetric;
+  metric?: KpiMetric;
+  title?: string;
+  value?: string | number;
+  icon?: React.ReactNode;
+  description?: string;
+  trend?: 'up' | 'down' | 'neutral';
+  change?: string;
 }
 
-export const KpiCard: React.FC<KpiCardProps> = ({ metric }) => {
+export const KpiCard: React.FC<KpiCardProps> = ({
+  metric,
+  title,
+  value,
+  icon,
+  description,
+  trend,
+  change,
+}) => {
+  if (!metric && title !== undefined) {
+    return (
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 rounded-xl p-4 sm:p-4.5 shadow-xs hover:shadow-sm transition-all duration-150">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+            {title}
+          </span>
+          {icon && (
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {icon}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-2.5 mb-1.5">
+          <h3 className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+            {value}
+          </h3>
+        </div>
+
+        {description && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 font-normal">
+            {change && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+                {change}
+              </span>
+            )}
+            <span>{description}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (!metric) return null;
+
   const renderIcon = () => {
     switch (metric.icon_name) {
       case 'dollar':
